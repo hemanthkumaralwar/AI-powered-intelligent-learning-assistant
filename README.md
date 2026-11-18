@@ -56,6 +56,15 @@ All settings come from environment variables or `.env`. `.env.example` lists eve
 | `OPENAI_MODEL` | OpenAI model name | `gpt-4o-mini` |
 | `LLM_TIMEOUT_SECONDS` | `0` < value ≤ `120` | `30` |
 | `LLM_MAX_ATTEMPTS` | `1`–`5`, including the first try | `3` |
+| `EMBEDDING_PROVIDER` | `gemini`, `openai`, `huggingface` (local only), `fake` (`fake` is refused in production) | `gemini` |
+| `GEMINI_EMBEDDING_MODEL` | Gemini embedding model | `gemini-embedding-001` |
+| `OPENAI_EMBEDDING_MODEL` | OpenAI embedding model | `text-embedding-3-small` |
+| `HF_EMBEDDING_MODEL` | Hugging Face model id | `BAAI/bge-small-en-v1.5` |
+| `EMBEDDING_DIMENSIONS` | `8`–`3072` (Gemini and OpenAI; Hugging Face uses its model's size) | `768` |
+| `EMBEDDING_BATCH_SIZE` | `1`–`2048` texts per request (capped per provider) | `100` |
+| `EMBEDDING_REQUESTS_PER_MINUTE` | client-side request spacing | `60` |
+| `EMBEDDING_TIMEOUT_SECONDS` | `0` < value ≤ `120` | `30` |
+| `EMBEDDING_MAX_ATTEMPTS` | `1`–`5`, including the first try | `3` |
 
 ## LLM providers
 
@@ -77,7 +86,35 @@ Check that a real provider works (this uses API quota):
 python scripts/llm_smoke.py
 ```
 
-**Privacy:** on Gemini's free tier, Google may use the content you send to improve its products. Prompts must never include personal details such as names, emails or user IDs. Prompt and response text are never written to the logs.
+**Privacy:** on Gemini's free tier, Google may use the content you send to improve its products. Prompts and texts sent for embedding must never include personal details such as names, emails or user IDs. Prompt, response and embedded text are never written to the logs.
+
+## Embeddings
+
+`EmbeddingClient` ([backend/app/embeddings/client.py](backend/app/embeddings/client.py)) turns text into vectors.
+
+- `embed_documents(texts)` embeds course chunks and `embed_query(text)` embeds student questions.
+- **Batching and quota:** it splits work into batches, spaces requests to stay under `EMBEDDING_REQUESTS_PER_MINUTE`, and retries like the LLM client.
+- **Checks:** every reply must have one vector per text, each of the expected size.
+- **Normalisation:** vectors are scaled to unit length, so the dot product equals cosine similarity for every provider.
+
+`client.embedding_id` (e.g. `gemini:gemini-embedding-001:768`) names the vector space. Vectors from different spaces must never be mixed: changing the provider, model or dimensions means re-indexing.
+
+Check that a provider works (Gemini/OpenAI use API quota):
+
+```bash
+python scripts/embedding_smoke.py
+```
+
+### Local Hugging Face embeddings (optional, offline)
+
+These run entirely on your machine. They need about 1 GB for torch and are never installed in production.
+
+```bash
+pip install -r requirements-local.txt
+EMBEDDING_PROVIDER=huggingface python scripts/embedding_smoke.py   # first run downloads the model
+```
+
+After the first run the model is cached, so it works offline (`HF_HUB_OFFLINE=1`). Hugging Face vectors are 384-dimensional, a different vector space from Gemini/OpenAI, so switching to or from Hugging Face needs a re-index.
 
 ## Project layout
 
@@ -86,7 +123,9 @@ backend/app/        FastAPI application (package "app")
   main.py           entry point: create_app()
   api/              HTTP routers
   core/             configuration, logging, error handling
-  llm/              LLM client, retry policy, Gemini/OpenAI/fake adapters
-scripts/            manual tools (e.g. llm_smoke.py)
+  providers/        shared plumbing: errors, retry, rate limiting, SDK clients
+  llm/              LLM client and Gemini/OpenAI/fake chat adapters
+  embeddings/       embedding client and Gemini/OpenAI/Hugging Face/fake adapters
+scripts/            manual smoke tests (llm_smoke.py, embedding_smoke.py)
 tests/              mirrors backend/app/
 ```

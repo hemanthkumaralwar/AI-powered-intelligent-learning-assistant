@@ -6,18 +6,17 @@ import pytest
 from google.genai import errors, types
 
 from app.llm.base import ChatMessage, CompletionRequest, GenerationOptions
-from app.llm.errors import (
-    InvalidResponseError,
-    LLMTimeoutError,
-    ProviderError,
-    ProviderUnavailableError,
-    RateLimitedError,
-)
 from app.llm.gemini import (
     GeminiChatModel,
-    parse_retry_delay,
     to_gemini_config,
     to_gemini_contents,
+)
+from app.providers.errors import (
+    InvalidResponseError,
+    ProviderRequestError,
+    ProviderTimeoutError,
+    ProviderUnavailableError,
+    RateLimitedError,
 )
 
 REQUEST = CompletionRequest(
@@ -173,9 +172,9 @@ RATE_LIMIT_BODY = {
     [
         (errors.ClientError(429, RATE_LIMIT_BODY), RateLimitedError),
         (errors.ServerError(503, {"error": {"code": 503}}), ProviderUnavailableError),
-        (errors.ClientError(400, {"error": {"code": 400}}), ProviderError),
-        (errors.ClientError(403, {"error": {"code": 403}}), ProviderError),
-        (httpx2.ReadTimeout("slow"), LLMTimeoutError),
+        (errors.ClientError(400, {"error": {"code": 400}}), ProviderRequestError),
+        (errors.ClientError(403, {"error": {"code": 403}}), ProviderRequestError),
+        (httpx2.ReadTimeout("slow"), ProviderTimeoutError),
         (httpx2.ConnectError("down"), ProviderUnavailableError),
     ],
 )
@@ -193,34 +192,3 @@ async def test_rate_limit_error_carries_retry_delay() -> None:
     with pytest.raises(RateLimitedError) as excinfo:
         await model.complete(REQUEST)
     assert excinfo.value.retry_after == 37.0
-
-
-@pytest.mark.parametrize(
-    "details",
-    [
-        None,
-        "text body",
-        {"error": "flat"},
-        {"error": {"details": "not a list"}},
-        {"error": {"details": [{"@type": "type.googleapis.com/google.rpc.RetryInfo"}]}},
-        {
-            "error": {
-                "details": [
-                    {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "soon"}
-                ]
-            }
-        },
-    ],
-)
-def test_parse_retry_delay_tolerates_unexpected_shapes(details: Any) -> None:
-    assert parse_retry_delay(details) is None
-
-
-def test_parse_retry_delay_reads_fractional_seconds() -> None:
-    details = {
-        "error": {
-            "details": [{"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "1.5s"}]
-        }
-    }
-
-    assert parse_retry_delay(details) == 1.5

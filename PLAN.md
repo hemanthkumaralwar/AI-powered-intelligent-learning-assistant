@@ -319,7 +319,11 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 
 - ~~**Step 1 — test client warning.**~~ Resolved in Step 2. `httpx2` (github.com/pydantic/httpx2) is a dependency of both LLM SDKs and is now pinned in `requirements.txt`, so `httpx` was removed. Tests run with `-W error::DeprecationWarning` and pass.
 - **Step 2 deviations from the plan.** `LLM_MAX_RETRIES` became `LLM_MAX_ATTEMPTS`, since the count includes the first try. The provider is not yet attached to the app; Step 12 wires `build_llm_client(settings)` into `create_app` as its first consumer.
-- **Step 2 — SDK client lifecycle (owner: maintainer, fix in Step 12).** The Gemini and OpenAI SDK clients hold HTTP connection pools. They are meant to live for the whole app lifetime, so Step 12 must create one `LLMClient` at startup and close the SDK client in the FastAPI lifespan shutdown. Today only `scripts/llm_smoke.py` creates one, and it exits right after.
+- **Steps 2–3 — SDK client lifecycle (owner: maintainer, fix in Step 10 for embeddings and Step 12 for the LLM).** The Gemini and OpenAI SDK clients hold HTTP connection pools. They are meant to live for the whole app lifetime, so each must be created once at startup and closed in the FastAPI lifespan shutdown. Step 10 does this for `EmbeddingClient`, Step 12 for `LLMClient`. Today only the smoke scripts create them, and they exit right after.
+- **Step 3 deviations from the plan.**
+  - Retry, error types and Gemini/OpenAI SDK plumbing moved from `app/llm/` to a shared `app/providers/` package (embeddings and the Step 7 code runner use them too).
+  - The errors were renamed to provider-neutral names: `ProviderCallError`, `ProviderTimeoutError`, `ProviderConfigurationError`, `ProviderRequestError`.
+  - `gemini-embedding-001` is used at 768 dimensions, because `gemini-embedding-2` merges a batch into a single vector.
 - **Step 1 deviations from the plan.** Tool config lives in `pyproject.toml` (not `pytest.ini`). `requirements-local.txt` is deferred to Step 3, which is its first real use.
 
 ## Pending inputs

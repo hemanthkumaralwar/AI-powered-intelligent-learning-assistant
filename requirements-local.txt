@@ -1,0 +1,6 @@
+# Optional local-only extras: Hugging Face embeddings (EMBEDDING_PROVIDER=huggingface).
+# Pulls in torch (~1 GB). Never installed in production; CI checks torch is absent there.
+-r requirements.txt
+sentence-transformers==6.3.0
+torch==2.15.0
+transformers==5.23.0

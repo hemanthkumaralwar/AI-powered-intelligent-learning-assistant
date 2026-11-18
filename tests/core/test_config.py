@@ -17,6 +17,15 @@ SETTING_NAMES = (
     "OPENAI_MODEL",
     "LLM_TIMEOUT_SECONDS",
     "LLM_MAX_ATTEMPTS",
+    "EMBEDDING_PROVIDER",
+    "GEMINI_EMBEDDING_MODEL",
+    "OPENAI_EMBEDDING_MODEL",
+    "HF_EMBEDDING_MODEL",
+    "EMBEDDING_DIMENSIONS",
+    "EMBEDDING_BATCH_SIZE",
+    "EMBEDDING_REQUESTS_PER_MINUTE",
+    "EMBEDDING_TIMEOUT_SECONDS",
+    "EMBEDDING_MAX_ATTEMPTS",
 )
 
 
@@ -42,12 +51,20 @@ def test_api_keys_are_masked(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.gemini_api_key.get_secret_value() == "super-secret-value"
 
 
-def test_fake_llm_rejected_in_production(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("name", ["LLM_PROVIDER", "EMBEDDING_PROVIDER"])
+def test_fake_providers_rejected_in_production(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
     monkeypatch.setenv("ENVIRONMENT", "production")
-    monkeypatch.setenv("LLM_PROVIDER", "fake")
+    monkeypatch.setenv(name, "fake")
 
-    with pytest.raises(ValidationError, match="not allowed"):
+    with pytest.raises(ValidationError, match=f"{name}=fake is not allowed"):
         Settings(_env_file=None)
+
+
+def test_fake_providers_allowed_outside_production(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_PROVIDER", "fake")
+    monkeypatch.setenv("EMBEDDING_PROVIDER", "fake")
+
+    assert Settings(_env_file=None).embedding_provider == "fake"
 
 
 def test_defaults_without_env() -> None:
@@ -85,6 +102,10 @@ def test_reads_env_file(tmp_path: Path) -> None:
         ("LLM_TIMEOUT_SECONDS", "0"),
         ("LLM_MAX_ATTEMPTS", "6"),
         ("GEMINI_THINKING_BUDGET", "-1"),
+        ("EMBEDDING_PROVIDER", "cohere"),
+        ("EMBEDDING_DIMENSIONS", "4"),
+        ("EMBEDDING_BATCH_SIZE", "0"),
+        ("EMBEDDING_REQUESTS_PER_MINUTE", "0"),
     ],
 )
 def test_rejects_invalid_values(monkeypatch: pytest.MonkeyPatch, name: str, value: str) -> None:

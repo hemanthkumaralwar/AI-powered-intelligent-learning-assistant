@@ -1,13 +1,13 @@
 import pytest
 
-from app.llm.errors import (
+from app.providers.errors import (
     InvalidResponseError,
-    LLMTimeoutError,
-    ProviderError,
+    ProviderRequestError,
+    ProviderTimeoutError,
     ProviderUnavailableError,
     RateLimitedError,
 )
-from app.llm.retry import RetryPolicy, call_with_retry, delay_before_retry
+from app.providers.retry import RetryPolicy, call_with_retry, delay_before_retry
 
 POLICY = RetryPolicy(max_attempts=3, base_delay=1.0, max_delay=20.0)
 
@@ -37,19 +37,21 @@ def test_backoff_doubles_and_caps() -> None:
 
 @pytest.mark.parametrize(
     "error",
-    [LLMTimeoutError("t"), ProviderUnavailableError("u"), RateLimitedError("r")],
+    [ProviderTimeoutError("t"), ProviderUnavailableError("u"), RateLimitedError("r")],
 )
 def test_transient_errors_are_retried(error: Exception) -> None:
     assert delay_before_retry(error, attempt=1, policy=POLICY) == 1.0
 
 
-@pytest.mark.parametrize("error", [ProviderError("p"), InvalidResponseError("i"), ValueError("v")])
+@pytest.mark.parametrize(
+    "error", [ProviderRequestError("p"), InvalidResponseError("i"), ValueError("v")]
+)
 def test_permanent_errors_are_not_retried(error: Exception) -> None:
     assert delay_before_retry(error, attempt=1, policy=POLICY) is None
 
 
 def test_no_retry_after_last_attempt() -> None:
-    assert delay_before_retry(LLMTimeoutError("t"), attempt=3, policy=POLICY) is None
+    assert delay_before_retry(ProviderTimeoutError("t"), attempt=3, policy=POLICY) is None
 
 
 def test_short_retry_after_is_respected() -> None:
@@ -66,7 +68,7 @@ def test_retry_after_beyond_cap_fails_fast() -> None:
 
 @pytest.mark.anyio
 async def test_succeeds_after_transient_failures() -> None:
-    recorder = Recorder([ProviderUnavailableError("u"), LLMTimeoutError("t"), "ok"])
+    recorder = Recorder([ProviderUnavailableError("u"), ProviderTimeoutError("t"), "ok"])
 
     result, attempts = await call_with_retry(recorder.operation, POLICY, recorder.sleep)
 
@@ -76,17 +78,19 @@ async def test_succeeds_after_transient_failures() -> None:
 
 @pytest.mark.anyio
 async def test_raises_last_error_when_attempts_run_out() -> None:
-    recorder = Recorder([LLMTimeoutError("1"), LLMTimeoutError("2"), LLMTimeoutError("3")])
+    recorder = Recorder(
+        [ProviderTimeoutError("1"), ProviderTimeoutError("2"), ProviderTimeoutError("3")]
+    )
 
-    with pytest.raises(LLMTimeoutError, match="3"):
+    with pytest.raises(ProviderTimeoutError, match="3"):
         await call_with_retry(recorder.operation, POLICY, recorder.sleep)
     assert recorder.calls == 3
 
 
 @pytest.mark.anyio
 async def test_permanent_error_raises_without_sleeping() -> None:
-    recorder = Recorder([ProviderError("bad key")])
+    recorder = Recorder([ProviderRequestError("bad key")])
 
-    with pytest.raises(ProviderError):
+    with pytest.raises(ProviderRequestError):
         await call_with_retry(recorder.operation, POLICY, recorder.sleep)
     assert recorder.sleeps == []

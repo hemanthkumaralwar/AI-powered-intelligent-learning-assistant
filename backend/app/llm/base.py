@@ -47,7 +47,7 @@ class ChatModel(Protocol):
     """Adapter for one vendor SDK.
 
     Implementations translate a `CompletionRequest` into a single API call and map
-    vendor exceptions onto `app.llm.errors`. They must not retry; `LLMClient` does.
+    vendor exceptions onto `app.providers.errors`. They must not retry; `LLMClient` does.
     """
 
     provider: str

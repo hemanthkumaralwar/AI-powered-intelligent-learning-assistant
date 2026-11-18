@@ -1,0 +1,118 @@
+"""`EmbeddingClient`: the single entry point the app uses to turn text into vectors."""
+
+import asyncio
+import logging
+import math
+import time
+from collections.abc import Sequence
+
+from app.embeddings.base import EmbeddingModel, EmbeddingTask
+from app.providers.errors import InvalidResponseError, ProviderTimeoutError
+from app.providers.rate_limit import RateLimiter
+from app.providers.retry import RetryPolicy, Sleep, call_with_retry
+
+logger = logging.getLogger(__name__)
+
+
+class EmbeddingClient:
+    """Batches, rate-limits, retries, checks and normalises embedding calls.
+
+    Text is never logged: chunks are course material, but queries are student questions.
+    """
+
+    def __init__(
+        self,
+        model: EmbeddingModel,
+        *,
+        batch_size: int,
+        timeout_seconds: float,
+        retry_policy: RetryPolicy,
+        rate_limiter: RateLimiter,
+        sleep: Sleep = asyncio.sleep,
+    ) -> None:
+        self._model = model
+        self._batch_size = min(batch_size, model.max_batch_size)
+        self._timeout_seconds = timeout_seconds
+        self._retry_policy = retry_policy
+        self._rate_limiter = rate_limiter
+        self._sleep = sleep
+
+    @property
+    def provider(self) -> str:
+        return self._model.provider
+
+    @property
+    def dimensions(self) -> int:
+        return self._model.dimensions
+
+    @property
+    def embedding_id(self) -> str:
+        """Identifies the vector space; vectors with different ids must not be mixed."""
+        return f"{self._model.provider}:{self._model.model}:{self._model.dimensions}"
+
+    async def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
+        """Embed course chunks, preserving order. An empty input makes no API call."""
+        _require_text(texts)
+        started = time.perf_counter()
+        batches = [texts[i : i + self._batch_size] for i in range(0, len(texts), self._batch_size)]
+        vectors: list[list[float]] = []
+        for batch in batches:
+            vectors.extend(await self._embed_batch(batch, "document"))
+        logger.info(
+            "embeddings provider=%s model=%s task=document texts=%d batches=%d latency_ms=%d",
+            self.provider,
+            self._model.model,
+            len(texts),
+            len(batches),
+            (time.perf_counter() - started) * 1000,
+        )
+        return vectors
+
+    async def embed_query(self, text: str) -> list[float]:
+        """Embed one student question for similarity search."""
+        _require_text([text])
+        (vector,) = await self._embed_batch([text], "query")
+        return vector
+
+    async def _embed_batch(self, texts: Sequence[str], task: EmbeddingTask) -> list[list[float]]:
+        vectors, _ = await call_with_retry(
+            lambda: self._embed_once(texts, task), self._retry_policy, self._sleep
+        )
+        self._check_shape(vectors, expected_count=len(texts))
+        return [l2_normalize(vector) for vector in vectors]
+
+    async def _embed_once(self, texts: Sequence[str], task: EmbeddingTask) -> list[list[float]]:
+        # Each attempt is a separate request, so each one takes a rate-limit slot.
+        await self._rate_limiter.acquire()
+        try:
+            async with asyncio.timeout(self._timeout_seconds):
+                return await self._model.embed(texts, task)
+        except TimeoutError as exc:
+            raise ProviderTimeoutError(
+                f"{self.provider} embeddings did not respond within {self._timeout_seconds}s"
+            ) from exc
+
+    def _check_shape(self, vectors: list[list[float]], expected_count: int) -> None:
+        # Some models (e.g. gemini-embedding-2) merge a batch into one vector; catching it
+        # here prevents chunks being stored against the wrong vectors.
+        if len(vectors) != expected_count:
+            raise InvalidResponseError(
+                f"{self.provider} returned {len(vectors)} vectors for {expected_count} texts"
+            )
+        if any(len(vector) != self.dimensions for vector in vectors):
+            raise InvalidResponseError(
+                f"{self.provider} returned vectors that are not {self.dimensions}-dimensional"
+            )
+
+
+def l2_normalize(vector: Sequence[float]) -> list[float]:
+    """Scale to unit length so dot product equals cosine similarity for every provider."""
+    norm = math.sqrt(sum(value * value for value in vector))
+    if norm == 0:
+        raise InvalidResponseError("provider returned an all-zero vector")
+    return [value / norm for value in vector]
+
+
+def _require_text(texts: Sequence[str]) -> None:
+    if any(not text.strip() for text in texts):
+        raise ValueError("texts to embed must not be empty or whitespace")

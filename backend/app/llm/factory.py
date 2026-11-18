@@ -1,18 +1,15 @@
 """Builds the configured `LLMClient` from settings."""
 
-import openai
-from google import genai
-from google.genai import types
-from pydantic import SecretStr
-
 from app.core.config import Settings
 from app.llm.base import ChatModel
 from app.llm.client import LLMClient
-from app.llm.errors import LLMConfigurationError
 from app.llm.fake import FakeChatModel
 from app.llm.gemini import GeminiChatModel
 from app.llm.openai import OpenAIChatModel
-from app.llm.retry import RetryPolicy
+from app.providers.gemini_sdk import make_gemini_client
+from app.providers.keys import require_api_key
+from app.providers.openai_sdk import make_openai_client
+from app.providers.retry import RetryPolicy
 
 
 def build_llm_client(settings: Settings) -> LLMClient:
@@ -24,28 +21,17 @@ def build_llm_client(settings: Settings) -> LLMClient:
 
 
 def build_chat_model(settings: Settings) -> ChatModel:
-    # SDK retries stay off (Gemini's default; max_retries=0 for OpenAI): LLMClient retries.
     timeout = settings.llm_timeout_seconds
     match settings.llm_provider:
         case "gemini":
-            client = genai.Client(
-                api_key=_require_key(settings.gemini_api_key, "GEMINI_API_KEY", "gemini"),
-                http_options=types.HttpOptions(timeout=int(timeout * 1000)),
+            key = require_api_key(settings.gemini_api_key, "GEMINI_API_KEY", "gemini")
+            return GeminiChatModel(
+                make_gemini_client(key, timeout),
+                settings.gemini_model,
+                settings.gemini_thinking_budget,
             )
-            return GeminiChatModel(client, settings.gemini_model, settings.gemini_thinking_budget)
         case "openai":
-            client = openai.AsyncOpenAI(
-                api_key=_require_key(settings.openai_api_key, "OPENAI_API_KEY", "openai"),
-                timeout=timeout,
-                max_retries=0,
-            )
-            return OpenAIChatModel(client, settings.openai_model)
+            key = require_api_key(settings.openai_api_key, "OPENAI_API_KEY", "openai")
+            return OpenAIChatModel(make_openai_client(key, timeout), settings.openai_model)
         case "fake":
             return FakeChatModel()
-
-
-def _require_key(key: SecretStr | None, env_name: str, provider: str) -> str:
-    value = key.get_secret_value().strip() if key else ""
-    if not value:
-        raise LLMConfigurationError(f"{env_name} is required when LLM_PROVIDER={provider}")
-    return value

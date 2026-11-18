@@ -5,13 +5,8 @@ from typing import Any
 import openai
 
 from app.llm.base import CompletionRequest, LLMResponse
-from app.llm.errors import (
-    InvalidResponseError,
-    LLMTimeoutError,
-    ProviderError,
-    ProviderUnavailableError,
-    RateLimitedError,
-)
+from app.providers.errors import InvalidResponseError
+from app.providers.openai_sdk import translate_openai_errors
 
 
 class OpenAIChatModel:
@@ -22,7 +17,7 @@ class OpenAIChatModel:
         self.model = model
 
     async def complete(self, request: CompletionRequest) -> LLMResponse:
-        try:
+        with translate_openai_errors():
             result = await self._client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": m.role, "content": m.content} for m in request.messages],
@@ -30,8 +25,6 @@ class OpenAIChatModel:
                 max_completion_tokens=request.options.max_output_tokens,
                 **response_format(request.json_schema),
             )
-        except openai.APIError as exc:
-            raise map_api_error(exc) from exc
 
         choice = result.choices[0] if result.choices else None
         text = choice.message.content if choice else None
@@ -58,24 +51,3 @@ def response_format(json_schema: dict[str, Any] | None) -> dict[str, Any]:
             "json_schema": {"name": "response", "schema": json_schema, "strict": False},
         }
     }
-
-
-def map_api_error(exc: openai.APIError) -> Exception:
-    # Order matters: APITimeoutError is a subclass of APIConnectionError.
-    if isinstance(exc, openai.APITimeoutError):
-        return LLMTimeoutError("openai request timed out")
-    if isinstance(exc, openai.APIConnectionError):
-        return ProviderUnavailableError("openai connection failed")
-    if isinstance(exc, openai.RateLimitError):
-        return RateLimitedError("openai rate limit reached", parse_retry_after(exc))
-    if isinstance(exc, openai.InternalServerError):
-        return ProviderUnavailableError(f"openai server error {exc.status_code}")
-    status = getattr(exc, "status_code", None)
-    return ProviderError(f"openai request failed with status {status}")
-
-
-def parse_retry_after(exc: openai.APIStatusError) -> float | None:
-    try:
-        return float(exc.response.headers["retry-after"])
-    except (KeyError, ValueError):
-        return None

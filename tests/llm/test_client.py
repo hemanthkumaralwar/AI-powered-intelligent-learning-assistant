@@ -5,9 +5,13 @@ from pydantic import BaseModel
 
 from app.llm.base import ChatMessage, GenerationOptions, LLMResponse
 from app.llm.client import LLMClient
-from app.llm.errors import InvalidResponseError, LLMTimeoutError, ProviderUnavailableError
 from app.llm.fake import FakeChatModel
-from app.llm.retry import RetryPolicy
+from app.providers.errors import (
+    InvalidResponseError,
+    ProviderTimeoutError,
+    ProviderUnavailableError,
+)
+from app.providers.retry import RetryPolicy
 
 pytestmark = pytest.mark.anyio
 
@@ -79,7 +83,7 @@ async def test_chat_times_out(conversation: list[ChatMessage]) -> None:
         model, timeout_seconds=0.01, retry_policy=RetryPolicy(max_attempts=1), sleep=no_sleep
     )
 
-    with pytest.raises(LLMTimeoutError, match="fake did not respond"):
+    with pytest.raises(ProviderTimeoutError, match="fake did not respond"):
         await client.chat(conversation)
 
 

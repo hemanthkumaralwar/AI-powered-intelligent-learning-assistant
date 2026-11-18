@@ -6,14 +6,14 @@ import openai
 import pytest
 
 from app.llm.base import ChatMessage, CompletionRequest, GenerationOptions
-from app.llm.errors import (
+from app.llm.openai import OpenAIChatModel, response_format
+from app.providers.errors import (
     InvalidResponseError,
-    LLMTimeoutError,
-    ProviderError,
+    ProviderRequestError,
+    ProviderTimeoutError,
     ProviderUnavailableError,
     RateLimitedError,
 )
-from app.llm.openai import OpenAIChatModel, parse_retry_after, response_format
 
 REQUEST = CompletionRequest(
     messages=(
@@ -115,21 +115,14 @@ def test_response_format_only_when_schema_given() -> None:
 @pytest.mark.parametrize(
     ("raised", "expected"),
     [
-        (openai.APITimeoutError(request=HTTP_REQUEST), LLMTimeoutError),
+        (openai.APITimeoutError(request=HTTP_REQUEST), ProviderTimeoutError),
         (openai.APIConnectionError(request=HTTP_REQUEST), ProviderUnavailableError),
         (status_error(openai.RateLimitError, 429), RateLimitedError),
         (status_error(openai.InternalServerError, 503), ProviderUnavailableError),
-        (status_error(openai.AuthenticationError, 401), ProviderError),
-        (status_error(openai.BadRequestError, 400), ProviderError),
+        (status_error(openai.AuthenticationError, 401), ProviderRequestError),
+        (status_error(openai.BadRequestError, 400), ProviderRequestError),
     ],
 )
 async def test_complete_maps_errors(raised: Exception, expected: type[Exception]) -> None:
     with pytest.raises(expected):
         await OpenAIChatModel(StubOpenAIClient(raised), "m").complete(REQUEST)
-
-
-@pytest.mark.parametrize(("header", "expected"), [("2.5", 2.5), ("soon", None), (None, None)])
-def test_parse_retry_after(header: str | None, expected: float | None) -> None:
-    headers = {"retry-after": header} if header is not None else {}
-
-    assert parse_retry_after(status_error(openai.RateLimitError, 429, headers)) == expected

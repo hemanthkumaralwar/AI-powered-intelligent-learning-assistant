@@ -20,6 +20,12 @@ jobs:
           cache-dependency-path: requirements*.txt
       - name: Install dependencies
         run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Production install has no torch
+        # Hugging Face embeddings are local-only; torch would not fit Render's 512 MB.
+        run: >-
+          python -c "import importlib.util as u, sys;
+          bad = [m for m in ('torch', 'sentence_transformers') if u.find_spec(m)];
+          sys.exit(f'unexpected local-only packages: {bad}' if bad else 0)"
       - name: Lint
         run: ruff check .
       - name: Format check

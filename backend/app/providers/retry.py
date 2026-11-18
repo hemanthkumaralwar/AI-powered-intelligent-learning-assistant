@@ -1,9 +1,9 @@
-"""Retry with exponential backoff for transient LLM failures."""
+"""Retry with exponential backoff for transient provider failures."""
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from app.llm.errors import RETRYABLE_ERRORS, RateLimitedError
+from app.providers.errors import RETRYABLE_ERRORS, RateLimitedError
 
 type Sleep = Callable[[float], Awaitable[None]]
 

@@ -1,8 +1,8 @@
 import pytest
 
 from app.llm.base import ChatMessage, CompletionRequest, GenerationOptions
-from app.llm.errors import ProviderError
 from app.llm.fake import DEFAULT_REPLY, FakeChatModel
+from app.providers.errors import ProviderRequestError
 
 pytestmark = pytest.mark.anyio
 
@@ -20,7 +20,7 @@ async def test_replays_script_then_default() -> None:
 
 
 async def test_raises_scripted_exceptions() -> None:
-    model = FakeChatModel([ProviderError("boom")])
+    model = FakeChatModel([ProviderRequestError("boom")])
 
-    with pytest.raises(ProviderError, match="boom"):
+    with pytest.raises(ProviderRequestError, match="boom"):
         await model.complete(REQUEST)

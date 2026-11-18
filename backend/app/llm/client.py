@@ -8,8 +8,8 @@ from collections.abc import Sequence
 from pydantic import BaseModel, ValidationError
 
 from app.llm.base import ChatMessage, ChatModel, CompletionRequest, GenerationOptions, LLMResponse
-from app.llm.errors import InvalidResponseError, LLMTimeoutError
-from app.llm.retry import RetryPolicy, Sleep, call_with_retry
+from app.providers.errors import InvalidResponseError, ProviderTimeoutError
+from app.providers.retry import RetryPolicy, Sleep, call_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +103,6 @@ class LLMClient:
             async with asyncio.timeout(self._timeout_seconds):
                 return await self._chat_model.complete(request)
         except TimeoutError as exc:
-            raise LLMTimeoutError(
+            raise ProviderTimeoutError(
                 f"{self.provider} did not respond within {self._timeout_seconds}s"
             ) from exc
