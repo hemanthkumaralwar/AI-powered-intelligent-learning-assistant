@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.auth import router as auth_router
+from app.api.code_run import router as code_router
 from app.api.health import router as health_router
 from app.auth.seed import seed_admin
 from app.auth.service import AuthService, build_auth_service
@@ -20,6 +21,8 @@ from app.core.config import Settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
 from app.db.session import Database, build_database
+from app.runner.factory import build_code_runner_service
+from app.runner.service import CodeRunnerService
 
 
 def create_app(
@@ -27,11 +30,12 @@ def create_app(
     *,
     database: Database | None = None,
     auth: AuthService | None = None,
+    code_runner: CodeRunnerService | None = None,
 ) -> FastAPI:
     """Build the app from explicit settings.
 
-    Tests pass their own `Settings`, `Database` and `AuthService`; production reads the
-    environment once here. Shared services live on `app.state`, set up in `lifespan`.
+    Tests pass their own `Settings` and services; production reads the environment
+    once here. Shared services live on `app.state`, set up in `lifespan`.
     """
     settings = settings or Settings()
     configure_logging(settings.log_level)
@@ -41,6 +45,7 @@ def create_app(
         # Fail fast at startup if DATABASE_URL or JWT_SECRET_KEY is missing.
         app.state.auth = auth or build_auth_service(settings)
         app.state.database = database or build_database(settings)
+        app.state.code_runner = code_runner or build_code_runner_service(settings)
         try:
             if settings.admin_username and settings.admin_password:
                 await seed_admin(
@@ -51,7 +56,9 @@ def create_app(
                 )
             yield
         finally:
-            # Only dispose what we created; an injected database belongs to the caller.
+            # Only close what we created; injected services belong to the caller.
+            if code_runner is None:
+                await app.state.code_runner.aclose()
             if database is None:
                 await app.state.database.dispose()
 
@@ -60,6 +67,7 @@ def create_app(
     register_exception_handlers(app)
     app.include_router(health_router)
     app.include_router(auth_router)
+    app.include_router(code_router)
     return app
 
 

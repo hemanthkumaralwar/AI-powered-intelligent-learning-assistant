@@ -1,14 +1,15 @@
 """Typed application settings loaded from environment variables and `.env`."""
 
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
-from pydantic import Field, SecretStr, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 Environment = Literal["development", "test", "production"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 LLMProvider = Literal["gemini", "openai", "fake"]
 EmbeddingProvider = Literal["gemini", "openai", "huggingface", "fake"]
+RunnerName = Literal["judge0", "godbolt", "fake"]
 
 
 class Settings(BaseSettings):
@@ -69,6 +70,33 @@ class Settings(BaseSettings):
     admin_username: str | None = Field(default=None, min_length=3, max_length=50)
     admin_password: SecretStr | None = Field(default=None, min_length=12, max_length=128)
 
+    # Remote sandboxes tried in order; a runner failure falls through to the next.
+    # Comma-separated in the environment, e.g. CODE_RUNNERS=judge0,godbolt
+    code_runners: Annotated[tuple[RunnerName, ...], NoDecode] = ("judge0", "godbolt")
+    judge0_base_url: str = "https://ce.judge0.com"
+    godbolt_base_url: str = "https://godbolt.org"
+    # Wait for the runner service itself (the program's own limits are below).
+    code_runner_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
+    code_cpu_seconds: float = Field(default=5.0, gt=0, le=15)
+    code_wall_seconds: float = Field(default=10.0, gt=0, le=20)
+    code_runs_per_user_per_minute: int = Field(default=10, ge=1, le=1000)
+    code_runs_per_user_per_day: int = Field(default=200, ge=1, le=100_000)
+    code_runs_global_per_minute: int = Field(default=30, ge=1, le=10_000)
+
+    @field_validator("code_runners", mode="before")
+    @classmethod
+    def _split_runner_list(cls, value: object) -> object:
+        if isinstance(value, str):
+            return tuple(part.strip() for part in value.split(",") if part.strip())
+        return value
+
+    @field_validator("code_runners")
+    @classmethod
+    def _runner_list_not_empty(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if not value:
+            raise ValueError("CODE_RUNNERS needs at least one runner")
+        return value
+
     @model_validator(mode="after")
     def _admin_credentials_come_in_pairs(self) -> Self:
         if (self.admin_username is None) != (self.admin_password is None):
@@ -83,4 +111,6 @@ class Settings(BaseSettings):
             raise ValueError("LLM_PROVIDER=fake is not allowed when ENVIRONMENT=production")
         if self.embedding_provider == "fake":
             raise ValueError("EMBEDDING_PROVIDER=fake is not allowed when ENVIRONMENT=production")
+        if "fake" in self.code_runners:
+            raise ValueError("CODE_RUNNERS=fake is not allowed when ENVIRONMENT=production")
         return self

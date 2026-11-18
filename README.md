@@ -77,6 +77,12 @@ All settings come from environment variables or `.env`. `.env.example` lists eve
 | `JWT_SECRET_KEY` | 32+ random characters; signs access tokens | — (required by the API) |
 | `ACCESS_TOKEN_MINUTES` | `5`–`1440` | `60` |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | first admin, created at startup if absent (password 12+ chars); set both or neither | — |
+| `CODE_RUNNERS` | comma-separated, tried in order: `judge0`, `godbolt`, `fake` (refused in production) | `judge0,godbolt` |
+| `JUDGE0_BASE_URL` / `GODBOLT_BASE_URL` | runner service URLs | `https://ce.judge0.com` / `https://godbolt.org` |
+| `CODE_RUNNER_TIMEOUT_SECONDS` | wait for the runner service | `30` |
+| `CODE_CPU_SECONDS` / `CODE_WALL_SECONDS` | per-program limits (Judge0) | `5` / `10` |
+| `CODE_RUNS_PER_USER_PER_MINUTE` / `_PER_DAY` | per-student quota | `10` / `200` |
+| `CODE_RUNS_GLOBAL_PER_MINUTE` | whole-app quota (protects the shared free allowance) | `30` |
 | `EMBEDDING_PROVIDER` | `gemini`, `openai`, `huggingface` (local only), `fake` (`fake` is refused in production) | `gemini` |
 | `GEMINI_EMBEDDING_MODEL` | Gemini embedding model | `gemini-embedding-001` |
 | `OPENAI_EMBEDDING_MODEL` | OpenAI embedding model | `text-embedding-3-small` |
@@ -188,6 +194,32 @@ Send the token as `Authorization: Bearer <token>`. In Swagger (`/docs`), use **A
 - **Route protection:** `CurrentUser` (any logged-in user) and `AdminUser` (admins only) in `app/api/deps.py`.
 - **CORS** is deliberately off: the Streamlit frontend calls the API from its own server, so browsers never need cross-origin access.
 
+## Running code
+
+Student code **never runs on our server**. It is sent to free, open-source remote sandboxes:
+
+| Runner | Languages | Notes |
+|---|---|---|
+| **Judge0 CE** (`ce.judge0.com`, default) | C, C++, Java, Python, JavaScript, SQL (SQLite) | public instance, no key, per-IP throttling, no SLA |
+| **Compiler Explorer** (`godbolt.org`, fallback) | C, C++, Java, Python | used automatically when Judge0 is unreachable, slow or rate-limited |
+
+| Endpoint | Who | What |
+|---|---|---|
+| `POST /code/run` | logged in | `{language, code, stdin?}` → `{outcome, stdout, stderr, compile_output, exit_code, time_ms, provider, truncated}` |
+| `POST /code/share` | logged in | `{language, code}` → `{url, warning}`: a **public, permanent** Compiler Explorer link (C, C++, Java, Python) |
+
+- **`language`** is one of `c`, `cpp`, `java`, `python`, `javascript`, `sql`. **Java:** name the class `Main`.
+- **Outcomes:** `ok`, `compile_error`, `runtime_error`, `timeout` and `output_limit` describe the *program* and come back as `200`. `429` means a quota was hit (it includes `Retry-After`); `503` means no runner is reachable.
+- **Limits:** code at most 20 KB, input at most 8 KB, 5 s CPU / 10 s wall per program, and output cut at 64 KB per stream (`truncated: true`).
+- **Privacy:** code and input go to the runner services. They are never logged by this app; logs record only runner, language, outcome and timing. Share links are public and permanent, created only when asked, and the response carries a warning.
+- **Wandbox and Piston,** in the original plan, are not used: on 2026-11-18 Wandbox failed every run, and Piston's public API is whitelist-only.
+
+Check the real runners (sends ~30 small programs; `--share` creates one public link):
+
+```bash
+python scripts/code_runner_smoke.py
+```
+
 ## Project layout
 
 ```
@@ -195,6 +227,7 @@ backend/app/        FastAPI application (package "app")
   main.py           entry point: create_app()
   api/              HTTP routers, request dependencies (deps.py), schemas/
   auth/             password hashing, tokens, auth service, admin seeding
+  runner/           code runners (Judge0, Compiler Explorer, fake), quota, fallback service
   core/             configuration, logging, error handling
   providers/        shared plumbing: errors, retry, rate limiting, SDK clients
   llm/              LLM client and Gemini/OpenAI/fake chat adapters
@@ -203,6 +236,6 @@ backend/app/        FastAPI application (package "app")
   migrations/       Alembic migrations (config: alembic.ini at the repo root)
 frontend/           Streamlit app (streamlit_app.py) and its API client (api_client.py)
 docs/               deployment guide
-scripts/            manual smoke tests (llm_smoke.py, embedding_smoke.py)
+scripts/            manual smoke tests (llm, embedding, code runner)
 tests/              mirrors backend/app/
 ```

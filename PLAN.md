@@ -346,6 +346,14 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - Render deploys only after CI passes (`autoDeployTrigger: checksPass`).
   - Memory was measured locally (~70 MB); the Render figure is to be read from its Metrics tab after the first deploy.
 
+- **Step 7 deviations from the plan.**
+  - Judge0 CE (default) and Compiler Explorer (fallback, share links) replace Wandbox and Piston: on 2026-11-18 Wandbox failed every run ("Failed to get uid") and Piston's public API became whitelist-only (2026-02-15).
+  - Compiler Explorer cannot run JavaScript or SQL, so those depend on Judge0 alone.
+  - The Java `public class Main` modifier is dropped for Compiler Explorer only.
+  - Share links are public and permanent (Compiler Explorer's design) and come with a warning.
+- **Step 7 — in-memory run quotas (owner: maintainer, revisit in Step 20).** Per-student and app-wide limits live in process memory: correct for the single Render instance, reset on restart, and not shared if the API ever runs more than one instance. Step 20 should move them to the shared rate limiter.
+- **Step 7 — free runner dependence (owner: maintainer, watch before the demo).** Neither runner publishes terms or limits, and both are free community services with no SLA. Run `scripts/code_runner_smoke.py` before the demo; if Judge0 is down, C/C++/Java/Python still run via Compiler Explorer, but JavaScript and SQL do not.
+
 ## Pending inputs
 
 - [ ] Quiz platform JSON and API details (needed by Day 8, Step 17)
