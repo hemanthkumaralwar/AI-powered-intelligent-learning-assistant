@@ -330,8 +330,15 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - Supabase Storage was dropped: originals are stored as `bytea` in a separate `document_files` table, in every environment.
   - The first migration enables Row Level Security on every table, because Supabase's Data API exposes `public`.
   - Models live in a single `app/db/models.py` (not a `models/` folder); it is small enough.
-- **Step 4 — `Database` wiring (owner: maintainer, fix in Step 5).** `build_database(settings)` is not yet attached to the app. Step 5 must create it in the FastAPI lifespan, provide sessions per request, and call `dispose()` at shutdown.
-- **Step 4 — Windows dev server (owner: maintainer, check in Step 5).** psycopg's async mode cannot run on Windows' default `ProactorEventLoop`. Tests already use a `SelectorEventLoop`. Step 5 must make sure `uvicorn` uses a selector loop on Windows. Render (Linux) is unaffected.
+- ~~**Step 4 — `Database` wiring.**~~ Resolved in Step 5: the FastAPI lifespan creates it, sessions are per request, and `dispose()` runs at shutdown. Previously: `build_database(settings)` is not yet attached to the app. Step 5 must create it in the FastAPI lifespan, provide sessions per request, and call `dispose()` at shutdown.
+- ~~**Step 4 — Windows dev server.**~~ Resolved in Step 5: run uvicorn with `--loop asyncio:SelectorEventLoop` (README); checked live against Neon. Previously: psycopg's async mode cannot run on Windows' default `ProactorEventLoop`. Tests already use a `SelectorEventLoop`. Step 5 must make sure `uvicorn` uses a selector loop on Windows. Render (Linux) is unaffected.
+
+- **Step 5 deviations from the plan.**
+  - Argon2id instead of bcrypt (bcrypt drops everything after 72 bytes).
+  - No CORS middleware: Streamlit calls the API from its own server, so the strictest option (none) works.
+  - `require_student` became `require_user`: no route should block admins.
+  - Validation errors never echo input or reveal password length.
+- **Step 5 — brute-force protection (owner: maintainer, fix in Step 20).** Login and registration have no rate limit or lockout yet. Step 20's per-user/IP rate limiting must cover `POST /auth/login` and `POST /auth/register` first.
 
 ## Pending inputs
 

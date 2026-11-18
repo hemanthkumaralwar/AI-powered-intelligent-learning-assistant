@@ -1,5 +1,7 @@
 # Runtime dependencies (installed in production on Render). Pin exact versions.
 alembic==1.20.1
+# Argon2id password hashing (no 72-byte limit, unlike bcrypt).
+argon2-cffi==25.1.0
 fastapi==0.163.2
 google-genai==3.5.0
 # HTTP library used by both LLM SDKs; imported directly to map transport errors.
@@ -7,6 +9,7 @@ httpx2==2.16.2
 openai==3.55.0
 psycopg[binary]==3.3.9
 pydantic-settings==2.16.3
+pyjwt==2.15.1
 # [asyncio] pulls in greenlet, which the async engine needs.
 sqlalchemy[asyncio]==2.1.9
 uvicorn==0.54.0

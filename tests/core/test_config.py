@@ -29,6 +29,10 @@ SETTING_NAMES = (
     "DATABASE_URL",
     "DB_POOL_SIZE",
     "DB_CONNECT_TIMEOUT_SECONDS",
+    "JWT_SECRET_KEY",
+    "ACCESS_TOKEN_MINUTES",
+    "ADMIN_USERNAME",
+    "ADMIN_PASSWORD",
 )
 
 
@@ -101,7 +105,7 @@ def test_reads_env_file(tmp_path: Path) -> None:
     ("name", "value"),
     [
         ("LOG_LEVEL", "VERBOSE"),
-        ("LOG_LEVEL", ""),
+        ("LOG_LEVEL", "debug"),
         ("ENVIRONMENT", "staging"),
         ("LLM_PROVIDER", "claude"),
         ("LLM_TIMEOUT_SECONDS", "0"),
@@ -113,6 +117,9 @@ def test_reads_env_file(tmp_path: Path) -> None:
         ("EMBEDDING_REQUESTS_PER_MINUTE", "0"),
         ("DB_POOL_SIZE", "0"),
         ("DB_CONNECT_TIMEOUT_SECONDS", "61"),
+        ("JWT_SECRET_KEY", "too-short"),
+        ("ACCESS_TOKEN_MINUTES", "4"),
+        ("ADMIN_PASSWORD", "short"),
     ],
 )
 def test_rejects_invalid_values(monkeypatch: pytest.MonkeyPatch, name: str, value: str) -> None:
@@ -120,3 +127,36 @@ def test_rejects_invalid_values(monkeypatch: pytest.MonkeyPatch, name: str, valu
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
+
+
+@pytest.mark.parametrize(
+    "pair",
+    [{"ADMIN_USERNAME": "admin"}, {"ADMIN_PASSWORD": "long-enough-password"}],
+    ids=["username-only", "password-only"],
+)
+def test_admin_credentials_must_come_in_pairs(
+    monkeypatch: pytest.MonkeyPatch, pair: dict[str, str]
+) -> None:
+    for name, value in pair.items():
+        monkeypatch.setenv(name, value)
+
+    with pytest.raises(ValidationError, match="ADMIN_USERNAME and ADMIN_PASSWORD"):
+        Settings(_env_file=None)
+
+
+def test_jwt_secret_is_masked(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("JWT_SECRET_KEY", "jwt-secret-value-that-is-long-enough")
+
+    assert "jwt-secret-value" not in repr(Settings(_env_file=None))
+
+
+def test_copied_env_example_counts_empty_values_as_unset(tmp_path: Path) -> None:
+    example = Path(__file__).resolve().parents[2] / ".env.example"
+    env_file = tmp_path / ".env"
+    env_file.write_text(example.read_text(encoding="utf-8"), encoding="utf-8")
+
+    settings = Settings(_env_file=env_file)
+
+    assert settings.jwt_secret_key is None
+    assert settings.admin_username is None
+    assert settings.database_url is None

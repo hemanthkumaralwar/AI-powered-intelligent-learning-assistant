@@ -22,8 +22,10 @@ cp .env.example .env
 ## Run the API
 
 ```bash
-uvicorn app.main:app --app-dir backend --reload
+uvicorn app.main:app --app-dir backend --reload --loop asyncio:SelectorEventLoop
 ```
+
+`--loop asyncio:SelectorEventLoop` is required on Windows: uvicorn otherwise uses the ProactorEventLoop, which psycopg's async driver cannot use. It is harmless on Linux. The API refuses to start without `DATABASE_URL` and `JWT_SECRET_KEY`.
 
 - Health check: http://127.0.0.1:8000/health
 - Interactive API docs: http://127.0.0.1:8000/docs
@@ -60,6 +62,9 @@ All settings come from environment variables or `.env`. `.env.example` lists eve
 | `TEST_DATABASE_URL` | Neon `test` branch URL, read only by the test suite | — (database tests skip without it) |
 | `DB_POOL_SIZE` | `1`–`20` | `5` |
 | `DB_CONNECT_TIMEOUT_SECONDS` | `1`–`60` | `10` |
+| `JWT_SECRET_KEY` | 32+ random characters; signs access tokens | — (required by the API) |
+| `ACCESS_TOKEN_MINUTES` | `5`–`1440` | `60` |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | first admin, created at startup if absent (password 12+ chars); set both or neither | — |
 | `EMBEDDING_PROVIDER` | `gemini`, `openai`, `huggingface` (local only), `fake` (`fake` is refused in production) | `gemini` |
 | `GEMINI_EMBEDDING_MODEL` | Gemini embedding model | `gemini-embedding-001` |
 | `OPENAI_EMBEDDING_MODEL` | OpenAI embedding model | `text-embedding-3-small` |
@@ -154,12 +159,30 @@ gh secret set TEST_DATABASE_URL
 
 Uploaded originals are stored in Postgres (`document_files`, `bytea`, at most 10 MB each), separately from `documents`, so listing documents never loads file contents.
 
+## Authentication
+
+| Endpoint | Who | What |
+|---|---|---|
+| `POST /auth/register` | anyone | creates a **student** account (`username`: 3–50 chars of `a-z 0-9 . _ -`, case-insensitive; `password`: 8–128 chars) |
+| `POST /auth/login` | anyone | returns `{"access_token", "token_type": "bearer", "expires_in"}` |
+| `GET /auth/me` | logged in | the current account |
+
+Send the token as `Authorization: Bearer <token>`. In Swagger (`/docs`), use **Authorize**.
+
+- **Passwords** are hashed with Argon2id and are never logged or echoed. Validation errors return only where and why, never the submitted value or its length.
+- **Tokens** are HS256 JWTs carrying only the user id, valid for `ACCESS_TOKEN_MINUTES`. The role is read from the database on every request, so role changes and deleted accounts take effect immediately.
+- **Login failures** return the same `401 Invalid username or password` whether the username or the password was wrong.
+- **Admins:** the API cannot create admins; only `ADMIN_USERNAME` / `ADMIN_PASSWORD` can, at startup. Seeding never changes an existing account. After the first production deploy you can remove `ADMIN_PASSWORD` from Render.
+- **Route protection:** `CurrentUser` (any logged-in user) and `AdminUser` (admins only) in `app/api/deps.py`.
+- **CORS** is deliberately off: the Streamlit frontend calls the API from its own server, so browsers never need cross-origin access.
+
 ## Project layout
 
 ```
 backend/app/        FastAPI application (package "app")
   main.py           entry point: create_app()
-  api/              HTTP routers
+  api/              HTTP routers, request dependencies (deps.py), schemas/
+  auth/             password hashing, tokens, auth service, admin seeding
   core/             configuration, logging, error handling
   providers/        shared plumbing: errors, retry, rate limiting, SDK clients
   llm/              LLM client and Gemini/OpenAI/fake chat adapters

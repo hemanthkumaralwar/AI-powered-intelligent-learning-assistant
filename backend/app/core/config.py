@@ -20,7 +20,10 @@ class Settings(BaseSettings):
     call a provider need no key.
     """
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # env_ignore_empty: "KEY=" (as in .env.example) means "not set", not an empty value.
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", env_ignore_empty=True
+    )
 
     app_name: str = "ArchintX Learning Assistant"
     environment: Environment = "development"
@@ -57,6 +60,20 @@ class Settings(BaseSettings):
     # Kept small: free tiers cap connections, and one Render instance needs few.
     db_pool_size: int = Field(default=5, ge=1, le=20)
     db_connect_timeout_seconds: int = Field(default=10, ge=1, le=60)
+
+    # Signs access tokens; at least 32 characters (256 bits for HS256). Generate with:
+    #   python -c "import secrets; print(secrets.token_urlsafe(48))"
+    jwt_secret_key: SecretStr | None = Field(default=None, min_length=32)
+    access_token_minutes: int = Field(default=60, ge=5, le=1440)
+    # Optional first admin, created at startup only if that username does not exist yet.
+    admin_username: str | None = Field(default=None, min_length=3, max_length=50)
+    admin_password: SecretStr | None = Field(default=None, min_length=12, max_length=128)
+
+    @model_validator(mode="after")
+    def _admin_credentials_come_in_pairs(self) -> Self:
+        if (self.admin_username is None) != (self.admin_password is None):
+            raise ValueError("set both ADMIN_USERNAME and ADMIN_PASSWORD, or neither")
+        return self
 
     @model_validator(mode="after")
     def _no_fakes_in_production(self) -> Self:
