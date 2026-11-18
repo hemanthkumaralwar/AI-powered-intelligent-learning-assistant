@@ -319,6 +319,7 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 
 - ~~**Step 1 — test client warning.**~~ Resolved in Step 2. `httpx2` (github.com/pydantic/httpx2) is a dependency of both LLM SDKs and is now pinned in `requirements.txt`, so `httpx` was removed. Tests run with `-W error::DeprecationWarning` and pass.
 - **Step 2 deviations from the plan.** `LLM_MAX_RETRIES` became `LLM_MAX_ATTEMPTS`, since the count includes the first try. The provider is not yet attached to the app; Step 12 wires `build_llm_client(settings)` into `create_app` as its first consumer.
+- **Step 2 — SDK client lifecycle (owner: maintainer, fix in Step 12).** The Gemini and OpenAI SDK clients hold HTTP connection pools. They are meant to live for the whole app lifetime, so Step 12 must create one `LLMClient` at startup and close the SDK client in the FastAPI lifespan shutdown. Today only `scripts/llm_smoke.py` creates one, and it exits right after.
 - **Step 1 deviations from the plan.** Tool config lives in `pyproject.toml` (not `pytest.ini`). `requirements-local.txt` is deferred to Step 3, which is its first real use.
 
 ## Pending inputs
