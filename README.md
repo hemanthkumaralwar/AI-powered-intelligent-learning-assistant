@@ -194,6 +194,31 @@ Send the token as `Authorization: Bearer <token>`. In Swagger (`/docs`), use **A
 - **Route protection:** `CurrentUser` (any logged-in user) and `AdminUser` (admins only) in `app/api/deps.py`.
 - **CORS** is deliberately off: the Streamlit frontend calls the API from its own server, so browsers never need cross-origin access.
 
+## Course materials
+
+**Admins** upload course files; **logged-in users** read them.
+
+| Endpoint | Who | What |
+|---|---|---|
+| `POST /admin/documents` | admin | multipart `file` plus form fields; see below |
+| `GET /admin/documents?course_id=` | admin | all documents, newest first |
+| `GET /admin/documents/{id}/download` | admin | the original file (course JSON includes all answers) |
+| `DELETE /admin/documents/{id}` | admin | delete one document |
+| `DELETE /admin/courses/{id}` | admin | delete a course **and everything attached to it**, including its notes |
+| `GET /courses`, `GET /courses/{id}` | logged in | course list; module/lesson outline |
+| `GET /lessons/{id}` | logged in | teaching content and exercises (starter code, hints) |
+| `GET /materials?course_id=`, `GET /materials/{id}/download` | logged in | TXT notes only |
+
+**Uploading:**
+
+- **Course JSON** (`.json`, with form field `language` = `c`, `cpp`, `java`, `python`, `javascript` or `sql`) creates the course with its modules, lessons, 10 quiz questions per lesson and 3 exercises per lesson, all in one transaction.
+  - **Checks:** the file is validated against `backend/app/ingestion/course_schema.json` (the course generator's schema) plus stricter rules: id format `a-z 0-9 -`, unique ids, and every quiz answer must point at one of its options.
+  - **Re-uploading** an existing course returns **409**. Delete the course first.
+- **Notes** (`.txt`, UTF-8) need `course_id`; `module_id` and `lesson_id` are optional and must belong to that course. A lesson implies its module.
+- **Limits:** **10 MB** per file (413), enforced before the body is parsed. Every other endpoint accepts at most 64 KB. PDF and DOCX return 415 ("not supported yet"); other types are refused.
+
+**Answers stay hidden:** students never receive quiz answers, bug-hunt fixes or exercise solutions. Course JSON files can't be downloaded or listed by students, and the student response models have no fields for answers. **Rendering rule:** course text is stored as uploaded, so any UI must render it as plain text or Markdown (Streamlit's default) and **never** with `unsafe_allow_html=True`.
+
 ## Running code
 
 Student code **never runs on our server**. It is sent to free, open-source remote sandboxes:
@@ -228,6 +253,8 @@ backend/app/        FastAPI application (package "app")
   api/              HTTP routers, request dependencies (deps.py), schemas/
   auth/             password hashing, tokens, auth service, admin seeding
   runner/           code runners (Judge0, Compiler Explorer, fake), quota, fallback service
+  ingestion/        upload checks, course JSON parsing (+ vendored course_schema.json)
+eval/materials/     course files used by tests and evaluation (javascript-beginner.json)
   core/             configuration, logging, error handling
   providers/        shared plumbing: errors, retry, rate limiting, SDK clients
   llm/              LLM client and Gemini/OpenAI/fake chat adapters

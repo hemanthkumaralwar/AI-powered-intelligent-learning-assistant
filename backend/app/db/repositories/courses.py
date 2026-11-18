@@ -1,8 +1,8 @@
-from sqlalchemy import select
+from sqlalchemy import delete, exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models import Course, Module
+from app.db.models import Course, Lesson, Module
 from app.db.repositories._integrity import unique_violation_as
 
 
@@ -32,3 +32,23 @@ class CourseRepository:
     async def list(self) -> list[Course]:
         """All courses by title, without their modules (cheap for listings)."""
         return list(await self._session.scalars(select(Course).order_by(Course.title)))
+
+    async def exists(self, course_id: str) -> bool:
+        return bool(await self._session.scalar(select(exists().where(Course.id == course_id))))
+
+    async def delete(self, course_id: str) -> bool:
+        """Delete a course; its modules, lessons, quizzes, exercises and documents go with it."""
+        result = await self._session.execute(delete(Course).where(Course.id == course_id))
+        return result.rowcount == 1
+
+    async def get_module(self, module_id: str) -> Module | None:
+        return await self._session.get(Module, module_id)
+
+    async def get_lesson(self, lesson_id: str) -> Lesson | None:
+        """A lesson with its module and exercises (quiz questions are not loaded)."""
+        query = (
+            select(Lesson)
+            .where(Lesson.id == lesson_id)
+            .options(selectinload(Lesson.module), selectinload(Lesson.exercises))
+        )
+        return await self._session.scalar(query)

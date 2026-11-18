@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.db.errors import DuplicateError
-from app.db.models import Chunk, Course, DocumentFile, Lesson, Module, User
+from app.db.models import Chunk, Course, Document, DocumentFile, Lesson, Module, User
 from app.db.repositories.chunks import ChunkRepository, NewChunk
 from app.db.repositories.courses import CourseRepository
 from app.db.repositories.documents import DocumentRepository
@@ -22,6 +22,7 @@ def make_course(course_id: str = "js-v1", title: str = "JavaScript") -> Course:
     return Course(
         id=course_id,
         title=title,
+        language="javascript",
         level="Beginner",
         modules=[
             Module(
@@ -49,6 +50,7 @@ async def add_document(db: Database, content: bytes = b"lesson text", **kwargs) 
             await CourseRepository(session).add(make_course())
         document = await DocumentRepository(session).add(
             course_id=kwargs.get("course_id", "js-v1"),
+            kind=kwargs.get("kind", "notes"),
             filename="notes.txt",
             content_type="text/plain",
             content=content,
@@ -292,3 +294,44 @@ async def test_embeddings_are_stored_and_filtered_by_vector_space(database: Data
     assert [c.id for c in gemini] == ["c0", "c1"]
     assert gemini[1].embedding == pytest.approx([0.1, 0.2, 0.3])
     assert other == []
+
+
+# ---- Step 8 additions -----------------------------------------------------------------
+
+
+async def test_course_exists_and_delete(database: Database) -> None:
+    await add_document(database)
+    async with database.session() as session:
+        courses = CourseRepository(session)
+        assert await courses.exists("js-v1") is True
+        assert await courses.exists("missing") is False
+        assert await courses.delete("js-v1") is True
+        assert await courses.delete("js-v1") is False
+
+    assert await count(database, Document) == 0
+
+
+async def test_lesson_and_module_lookup(database: Database) -> None:
+    async with database.session() as session:
+        await CourseRepository(session).add(make_course())
+
+    async with database.session() as session:
+        courses = CourseRepository(session)
+        lesson = await courses.get_lesson("js-v1-mod-1-lesson-2")
+        module = await courses.get_module("js-v1-mod-2")
+        assert await courses.get_lesson("missing") is None
+        assert await courses.get_module("missing") is None
+
+    assert lesson is not None and lesson.module.course_id == "js-v1"
+    assert lesson.exercises == []
+    assert module is not None and module.title == "Functions"
+
+
+async def test_document_listing_filters_by_kind(database: Database) -> None:
+    notes = await add_document(database, content=b"notes", kind="notes")
+    await add_document(database, content=b"{}", kind="course")
+
+    async with database.session() as session:
+        listed = await DocumentRepository(session).list("js-v1", kind="notes")
+
+    assert [d.id for d in listed] == [notes]

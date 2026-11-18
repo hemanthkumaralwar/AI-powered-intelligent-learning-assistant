@@ -28,6 +28,9 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 Role = Literal["admin", "student"]
 DocumentStatus = Literal["pending", "processing", "ready", "failed"]
+# "course": a course JSON (admin-only download, contains answers); "notes": a TXT file.
+DocumentKind = Literal["course", "notes"]
+ExerciseKind = Literal["interactive", "mini_challenge", "bug_hunt"]
 
 # Stable constraint names keep Alembic migrations deterministic across databases.
 NAMING_CONVENTION = {
@@ -69,11 +72,19 @@ class Course(TimestampMixin, Base):
     """Keyed by the `courseId` from the course JSON (e.g. "javascript-beginner-v1")."""
 
     __tablename__ = "courses"
+    __table_args__ = (
+        CheckConstraint(
+            "language IN ('c', 'cpp', 'java', 'python', 'javascript', 'sql')",
+            name="language_valid",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(100), primary_key=True)
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text)
     level: Mapped[str | None] = mapped_column(String(50))
+    # Programming language of the course's exercises (the course JSON does not say).
+    language: Mapped[str] = mapped_column(String(20))
 
     modules: Mapped[list["Module"]] = relationship(
         back_populates="course",
@@ -92,6 +103,8 @@ class Module(Base):
     position: Mapped[int] = mapped_column(Integer)
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text)
+    # Teaching text only (e.g. moduleExplanation); never anything that reveals answers.
+    content: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
     course: Mapped[Course] = relationship(back_populates="modules")
     lessons: Mapped[list["Lesson"]] = relationship(
@@ -111,8 +124,17 @@ class Lesson(Base):
     position: Mapped[int] = mapped_column(Integer)
     title: Mapped[str] = mapped_column(String(255))
     objective: Mapped[str | None] = mapped_column(Text)
+    # Teaching sections only (explanation, concepts, examples...). Quizzes, solutions and
+    # answer-bearing widgets are never stored here: this is what students are shown.
+    content: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
     module: Mapped[Module] = relationship(back_populates="lessons")
+    quiz_questions: Mapped[list["QuizQuestion"]] = relationship(
+        order_by="QuizQuestion.position", cascade="all, delete-orphan", passive_deletes=True
+    )
+    exercises: Mapped[list["Exercise"]] = relationship(
+        order_by="Exercise.kind", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class Document(TimestampMixin, Base):
@@ -124,10 +146,19 @@ class Document(TimestampMixin, Base):
             "status IN ('pending', 'processing', 'ready', 'failed')", name="status_valid"
         ),
         CheckConstraint("size_bytes > 0", name="size_positive"),
+        CheckConstraint("kind IN ('course', 'notes')", name="kind_valid"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     course_id: Mapped[str] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(20))
+    # Optional tags for notes; a course JSON covers the whole course.
+    module_id: Mapped[str | None] = mapped_column(
+        ForeignKey("modules.id", ondelete="SET NULL"), index=True
+    )
+    lesson_id: Mapped[str | None] = mapped_column(
+        ForeignKey("lessons.id", ondelete="SET NULL"), index=True
+    )
     filename: Mapped[str] = mapped_column(String(255))
     content_type: Mapped[str] = mapped_column(String(100))
     size_bytes: Mapped[int] = mapped_column(Integer)
@@ -174,3 +205,48 @@ class Chunk(Base):
     embedding: Mapped[list[float] | None] = mapped_column(ARRAY(REAL))
     embedding_id: Mapped[str | None] = mapped_column(String(200), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class QuizQuestion(Base):
+    """A multiple-choice question from a lesson. `correct_index` is never sent to students
+    before they answer (Step 17)."""
+
+    __tablename__ = "quiz_questions"
+    __table_args__ = (
+        UniqueConstraint("lesson_id", "position", name="uq_quiz_questions_lesson_position"),
+        CheckConstraint(
+            "correct_index >= 0 AND correct_index < jsonb_array_length(options)",
+            name="correct_index_in_options",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    lesson_id: Mapped[str] = mapped_column(ForeignKey("lessons.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    question: Mapped[str] = mapped_column(Text)
+    options: Mapped[list[str]] = mapped_column(JSONB)
+    correct_index: Mapped[int] = mapped_column(Integer)
+    explanation: Mapped[str | None] = mapped_column(Text)
+
+
+class Exercise(Base):
+    """A coding exercise from a lesson. `solution` and `bug_explanation` are for admins
+    and scoring only, never shown to students."""
+
+    __tablename__ = "exercises"
+    __table_args__ = (
+        UniqueConstraint("lesson_id", "kind", name="uq_exercises_lesson_kind"),
+        CheckConstraint("kind IN ('interactive', 'mini_challenge', 'bug_hunt')", name="kind_valid"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    lesson_id: Mapped[str] = mapped_column(ForeignKey("lessons.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(20))
+    title: Mapped[str] = mapped_column(String(255))
+    instructions: Mapped[str] = mapped_column(Text)
+    starter_code: Mapped[str] = mapped_column(Text)
+    expected_output: Mapped[str | None] = mapped_column(Text)
+    hints: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    difficulty: Mapped[str | None] = mapped_column(String(20))
+    solution: Mapped[str | None] = mapped_column(Text)
+    bug_explanation: Mapped[str | None] = mapped_column(Text)

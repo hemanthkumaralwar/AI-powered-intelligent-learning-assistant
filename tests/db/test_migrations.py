@@ -10,6 +10,8 @@ from app.db.models import Base
 from app.db.session import to_sqlalchemy_url
 
 EXPECTED_TABLES = {
+    "quiz_questions",
+    "exercises",
     "alembic_version",
     "users",
     "courses",

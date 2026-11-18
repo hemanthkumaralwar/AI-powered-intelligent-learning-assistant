@@ -354,6 +354,16 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 - **Step 7 — in-memory run quotas (owner: maintainer, revisit in Step 20).** Per-student and app-wide limits live in process memory: correct for the single Render instance, reset on restart, and not shared if the API ever runs more than one instance. Step 20 should move them to the shared rate limiter.
 - **Step 7 — free runner dependence (owner: maintainer, watch before the demo).** Neither runner publishes terms or limits, and both are free community services with no SLA. Run `scripts/code_runner_smoke.py` before the demo; if Judge0 is down, C/C++/Java/Python still run via Compiler Explorer, but JavaScript and SQL do not.
 
+- **Step 8 deviations from the plan.**
+  - Students cannot download course JSON (it contains every answer); they get answer-free structured content through `/courses` and `/lessons`.
+  - Re-uploading a course returns 409; delete it first.
+  - The course language is chosen at upload.
+  - A request-size middleware was added: 10 MB for uploads, 64 KB for everything else.
+  - PDF/DOCX remain a stretch goal (415).
+- **Step 8 — rendering rule (owner: maintainer, enforce in Step 19).** Course text is stored as uploaded. The Streamlit UI must never render it with `unsafe_allow_html=True`.
+- **Step 8 — upload buffering (owner: maintainer, revisit in Step 20).** The size middleware buffers up to ~10 MB per upload request before authentication runs. Step 20's rate limiting should cover `POST /admin/documents`.
+- **Data quality, for Step 17.** In `javascript-beginner.json` the correct quiz option is index 1 in 64% of questions. Shuffle options when serving quizzes.
+
 ## Pending inputs
 
 - [ ] Quiz platform JSON and API details (needed by Day 8, Step 17)

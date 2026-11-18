@@ -12,17 +12,24 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.admin_documents import router as admin_documents_router
 from app.api.auth import router as auth_router
 from app.api.code_run import router as code_router
 from app.api.health import router as health_router
+from app.api.materials import router as materials_router
 from app.auth.seed import seed_admin
 from app.auth.service import AuthService, build_auth_service
+from app.core.body_limit import BodySizeLimitMiddleware
 from app.core.config import Settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
 from app.db.session import Database, build_database
+from app.ingestion.files import MAX_UPLOAD_BYTES
 from app.runner.factory import build_code_runner_service
 from app.runner.service import CodeRunnerService
+
+DEFAULT_BODY_LIMIT = 64 * 1024
+MULTIPART_OVERHEAD = 64 * 1024
 
 
 def create_app(
@@ -64,10 +71,18 @@ def create_app(
 
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
     app.state.settings = settings
+    # JSON APIs need little; only the upload endpoint may receive a file (plus form overhead).
+    app.add_middleware(
+        BodySizeLimitMiddleware,
+        default_limit=DEFAULT_BODY_LIMIT,
+        path_limits={"/admin/documents": MAX_UPLOAD_BYTES + MULTIPART_OVERHEAD},
+    )
     register_exception_handlers(app)
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(code_router)
+    app.include_router(materials_router)
+    app.include_router(admin_documents_router)
     return app
 
 

@@ -4,7 +4,7 @@ import uuid
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Document, DocumentFile, DocumentStatus
+from app.db.models import Document, DocumentFile, DocumentKind, DocumentStatus
 
 
 class DocumentRepository:
@@ -15,16 +15,22 @@ class DocumentRepository:
         self,
         *,
         course_id: str,
+        kind: DocumentKind,
         filename: str,
         content_type: str,
         content: bytes,
         uploaded_by: uuid.UUID | None,
+        module_id: str | None = None,
+        lesson_id: str | None = None,
     ) -> Document:
         """Store a document and its bytes. Size and hash come from `content` itself."""
         if not content:
             raise ValueError("document content must not be empty")
         document = Document(
             course_id=course_id,
+            kind=kind,
+            module_id=module_id,
+            lesson_id=lesson_id,
             filename=filename,
             content_type=content_type,
             size_bytes=len(content),
@@ -45,11 +51,15 @@ class DocumentRepository:
         query = select(DocumentFile.content).where(DocumentFile.document_id == document_id)
         return await self._session.scalar(query)
 
-    async def list(self, course_id: str | None = None) -> list[Document]:
-        """Newest first, optionally for one course. Never loads file contents."""
+    async def list(
+        self, course_id: str | None = None, kind: DocumentKind | None = None
+    ) -> list[Document]:
+        """Newest first, optionally for one course and/or kind. Never loads file contents."""
         query = select(Document).order_by(Document.created_at.desc(), Document.id)
         if course_id is not None:
             query = query.where(Document.course_id == course_id)
+        if kind is not None:
+            query = query.where(Document.kind == kind)
         return list(await self._session.scalars(query))
 
     async def set_status(
