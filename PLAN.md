@@ -315,6 +315,11 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 - **The evaluation dataset arrives on Day 5, before RAG question answering,** and is built from the real JavaScript course.
 - **Embeddings are stored in Postgres** so the vector index survives free-host restarts.
 
+## Known technical debt
+
+- **Step 1 — test client warning (owner: maintainer, revisit at Step 20).** Starlette emits `StarletteDeprecationWarning`: using `httpx` with `starlette.testclient` is deprecated, and it suggests `httpx2`. This affects tests only. Not switched yet: the `httpx2` package wasn't vetted. Verify the package on PyPI, then swap it in `requirements-dev.txt`.
+- **Step 1 deviations from the plan.** Tool config lives in `pyproject.toml` (not `pytest.ini`). `requirements-local.txt` is deferred to Step 3, which is its first real use.
+
 ## Pending inputs
 
 - [ ] Quiz platform JSON and API details (needed by Day 8, Step 17)
