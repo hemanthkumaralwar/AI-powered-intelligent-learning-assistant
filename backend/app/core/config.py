@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     embedding_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
     embedding_max_attempts: int = Field(default=3, ge=1, le=5)
 
+    # Use a direct (Neon) or session-pooler (Supabase) URL, not a transaction pooler.
+    database_url: SecretStr | None = None
+    # Kept small: free tiers cap connections, and one Render instance needs few.
+    db_pool_size: int = Field(default=5, ge=1, le=20)
+    db_connect_timeout_seconds: int = Field(default=10, ge=1, le=60)
+
     @model_validator(mode="after")
     def _no_fakes_in_production(self) -> Self:
         if self.environment != "production":

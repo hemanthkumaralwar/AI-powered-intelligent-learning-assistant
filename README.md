@@ -56,6 +56,10 @@ All settings come from environment variables or `.env`. `.env.example` lists eve
 | `OPENAI_MODEL` | OpenAI model name | `gpt-4o-mini` |
 | `LLM_TIMEOUT_SECONDS` | `0` < value ≤ `120` | `30` |
 | `LLM_MAX_ATTEMPTS` | `1`–`5`, including the first try | `3` |
+| `DATABASE_URL` | PostgreSQL URL: Neon direct (dev) or Supabase session pooler (prod) | — (required by the API from Step 5) |
+| `TEST_DATABASE_URL` | Neon `test` branch URL, read only by the test suite | — (database tests skip without it) |
+| `DB_POOL_SIZE` | `1`–`20` | `5` |
+| `DB_CONNECT_TIMEOUT_SECONDS` | `1`–`60` | `10` |
 | `EMBEDDING_PROVIDER` | `gemini`, `openai`, `huggingface` (local only), `fake` (`fake` is refused in production) | `gemini` |
 | `GEMINI_EMBEDDING_MODEL` | Gemini embedding model | `gemini-embedding-001` |
 | `OPENAI_EMBEDDING_MODEL` | OpenAI embedding model | `text-embedding-3-small` |
@@ -116,6 +120,40 @@ EMBEDDING_PROVIDER=huggingface python scripts/embedding_smoke.py   # first run d
 
 After the first run the model is cached, so it works offline (`HF_HUB_OFFLINE=1`). Hugging Face vectors are 384-dimensional, a different vector space from Gemini/OpenAI, so switching to or from Hugging Face needs a re-index.
 
+## Database
+
+PostgreSQL through SQLAlchemy 2 (async, psycopg 3), with migrations managed by Alembic.
+
+| Environment | Database | URL to use |
+|---|---|---|
+| Development | Neon branch `dev` | **direct** connection string (not `-pooler`), `?sslmode=require` |
+| Tests / CI | Neon branch `test` | direct; each test run creates and drops its own `test_<random>` schema |
+| Production | Supabase | **session pooler** (port 5432 on `pooler.supabase.com`; works over IPv4 from Render) |
+
+Avoid transaction poolers (Neon `-pooler`, Supabase port 6543): migrations and per-session settings need a real session.
+
+```bash
+alembic upgrade head          # migrate the database in DATABASE_URL
+alembic upgrade head --sql    # print the SQL without connecting, for review
+alembic downgrade -1          # undo the last migration
+```
+
+Migrate production once, from your own terminal, with the Supabase URL set only for that command:
+
+```bash
+DATABASE_URL='postgresql://...pooler.supabase.com:5432/postgres?sslmode=require' alembic upgrade head
+```
+
+**Supabase security:** Supabase publishes tables in `public` through its REST Data API. The first migration enables Row Level Security on every table with no policies, so the public `anon` key can read nothing. Turning the Data API off as well (Supabase → Settings → Data API) is recommended, since the app never uses it.
+
+**CI:** database tests run in GitHub Actions only once the `TEST_DATABASE_URL` repository secret exists:
+
+```bash
+gh secret set TEST_DATABASE_URL
+```
+
+Uploaded originals are stored in Postgres (`document_files`, `bytea`, at most 10 MB each), separately from `documents`, so listing documents never loads file contents.
+
 ## Project layout
 
 ```
@@ -126,6 +164,8 @@ backend/app/        FastAPI application (package "app")
   providers/        shared plumbing: errors, retry, rate limiting, SDK clients
   llm/              LLM client and Gemini/OpenAI/fake chat adapters
   embeddings/       embedding client and Gemini/OpenAI/Hugging Face/fake adapters
+  db/               models, Database (engine/sessions), repositories
+  migrations/       Alembic migrations (config: alembic.ini at the repo root)
 scripts/            manual smoke tests (llm_smoke.py, embedding_smoke.py)
 tests/              mirrors backend/app/
 ```

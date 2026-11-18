@@ -26,6 +26,9 @@ SETTING_NAMES = (
     "EMBEDDING_REQUESTS_PER_MINUTE",
     "EMBEDDING_TIMEOUT_SECONDS",
     "EMBEDDING_MAX_ATTEMPTS",
+    "DATABASE_URL",
+    "DB_POOL_SIZE",
+    "DB_CONNECT_TIMEOUT_SECONDS",
 )
 
 
@@ -44,10 +47,12 @@ def test_llm_defaults_to_gemini_without_requiring_a_key() -> None:
 
 def test_api_keys_are_masked(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GEMINI_API_KEY", "super-secret-value")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:db-password-value@h/db")
 
     settings = Settings(_env_file=None)
 
     assert "super-secret-value" not in repr(settings)
+    assert "db-password-value" not in repr(settings)
     assert settings.gemini_api_key.get_secret_value() == "super-secret-value"
 
 
@@ -106,6 +111,8 @@ def test_reads_env_file(tmp_path: Path) -> None:
         ("EMBEDDING_DIMENSIONS", "4"),
         ("EMBEDDING_BATCH_SIZE", "0"),
         ("EMBEDDING_REQUESTS_PER_MINUTE", "0"),
+        ("DB_POOL_SIZE", "0"),
+        ("DB_CONNECT_TIMEOUT_SECONDS", "61"),
     ],
 )
 def test_rejects_invalid_values(monkeypatch: pytest.MonkeyPatch, name: str, value: str) -> None:

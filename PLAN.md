@@ -326,6 +326,13 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - `gemini-embedding-001` is used at 768 dimensions, because `gemini-embedding-2` merges a batch into a single vector.
 - **Step 1 deviations from the plan.** Tool config lives in `pyproject.toml` (not `pytest.ini`). `requirements-local.txt` is deferred to Step 3, which is its first real use.
 
+- **Step 4 deviations from the plan.**
+  - Supabase Storage was dropped: originals are stored as `bytea` in a separate `document_files` table, in every environment.
+  - The first migration enables Row Level Security on every table, because Supabase's Data API exposes `public`.
+  - Models live in a single `app/db/models.py` (not a `models/` folder); it is small enough.
+- **Step 4 — `Database` wiring (owner: maintainer, fix in Step 5).** `build_database(settings)` is not yet attached to the app. Step 5 must create it in the FastAPI lifespan, provide sessions per request, and call `dispose()` at shutdown.
+- **Step 4 — Windows dev server (owner: maintainer, check in Step 5).** psycopg's async mode cannot run on Windows' default `ProactorEventLoop`. Tests already use a `SelectorEventLoop`. Step 5 must make sure `uvicorn` uses a selector loop on Windows. Render (Linux) is unaffected.
+
 ## Pending inputs
 
 - [ ] Quiz platform JSON and API details (needed by Day 8, Step 17)
