@@ -53,6 +53,10 @@ class LLMClient:
         """Return the model's reply parsed and validated as `schema`."""
         request = self._build_request(messages, options, json_schema=schema.model_json_schema())
         response = await self._run(request)
+        if response.truncated:
+            raise InvalidResponseError(
+                f"{self.provider} reply was cut off at max_output_tokens; raise the limit"
+            )
         try:
             return schema.model_validate_json(response.text)
         except ValidationError as exc:
@@ -82,13 +86,14 @@ class LLMClient:
         )
         logger.info(
             "llm call provider=%s model=%s attempts=%d latency_ms=%d "
-            "input_tokens=%s output_tokens=%s",
+            "input_tokens=%s output_tokens=%s truncated=%s",
             self.provider,
             response.model,
             attempts,
             (time.perf_counter() - started) * 1000,
             response.input_tokens,
             response.output_tokens,
+            response.truncated,
         )
         return response
 

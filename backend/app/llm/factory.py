@@ -32,7 +32,7 @@ def build_chat_model(settings: Settings) -> ChatModel:
                 api_key=_require_key(settings.gemini_api_key, "GEMINI_API_KEY", "gemini"),
                 http_options=types.HttpOptions(timeout=int(timeout * 1000)),
             )
-            return GeminiChatModel(client, settings.gemini_model)
+            return GeminiChatModel(client, settings.gemini_model, settings.gemini_thinking_budget)
         case "openai":
             client = openai.AsyncOpenAI(
                 api_key=_require_key(settings.openai_api_key, "OPENAI_API_KEY", "openai"),

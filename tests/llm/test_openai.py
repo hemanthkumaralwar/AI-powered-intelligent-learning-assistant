@@ -40,8 +40,10 @@ class StubOpenAIClient:
         return self.outcome
 
 
-def completion(content: str | None, usage: bool = True) -> SimpleNamespace:
-    choice = SimpleNamespace(message=SimpleNamespace(content=content))
+def completion(
+    content: str | None, usage: bool = True, finish_reason: str = "stop"
+) -> SimpleNamespace:
+    choice = SimpleNamespace(message=SimpleNamespace(content=content), finish_reason=finish_reason)
     tokens = SimpleNamespace(prompt_tokens=9, completion_tokens=4) if usage else None
     return SimpleNamespace(choices=[choice], usage=tokens)
 
@@ -79,6 +81,16 @@ async def test_complete_handles_missing_usage() -> None:
     )
 
     assert response.output_tokens is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(("finish_reason", "truncated"), [("stop", False), ("length", True)])
+async def test_complete_flags_truncation(finish_reason: str, truncated: bool) -> None:
+    result = completion("partial", finish_reason=finish_reason)
+
+    response = await OpenAIChatModel(StubOpenAIClient(result), "m").complete(REQUEST)
+
+    assert response.truncated is truncated
 
 
 @pytest.mark.anyio

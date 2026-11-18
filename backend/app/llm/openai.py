@@ -33,7 +33,8 @@ class OpenAIChatModel:
         except openai.APIError as exc:
             raise map_api_error(exc) from exc
 
-        text = result.choices[0].message.content if result.choices else None
+        choice = result.choices[0] if result.choices else None
+        text = choice.message.content if choice else None
         if not text:
             raise InvalidResponseError("openai returned an empty response")
         usage = result.usage
@@ -42,6 +43,7 @@ class OpenAIChatModel:
             model=self.model,
             input_tokens=usage.prompt_tokens if usage else None,
             output_tokens=usage.completion_tokens if usage else None,
+            truncated=choice.finish_reason == "length",
         )
 
 

@@ -12,6 +12,7 @@ SETTING_NAMES = (
     "LLM_PROVIDER",
     "GEMINI_API_KEY",
     "GEMINI_MODEL",
+    "GEMINI_THINKING_BUDGET",
     "OPENAI_API_KEY",
     "OPENAI_MODEL",
     "LLM_TIMEOUT_SECONDS",
@@ -83,6 +84,7 @@ def test_reads_env_file(tmp_path: Path) -> None:
         ("LLM_PROVIDER", "claude"),
         ("LLM_TIMEOUT_SECONDS", "0"),
         ("LLM_MAX_ATTEMPTS", "6"),
+        ("GEMINI_THINKING_BUDGET", "-1"),
     ],
 )
 def test_rejects_invalid_values(monkeypatch: pytest.MonkeyPatch, name: str, value: str) -> None:

@@ -26,7 +26,11 @@ class Settings(BaseSettings):
 
     llm_provider: LLMProvider = "gemini"
     gemini_api_key: SecretStr | None = None
-    gemini_model: str = Field(default="gemini-2.5-flash", min_length=1)
+    # gemini-2.5-flash returns 404 for new API keys (checked 2026-11-18).
+    gemini_model: str = Field(default="gemini-3.8-flash", min_length=1)
+    # Tokens Gemini may spend "thinking" before answering, on top of the answer limit.
+    # 0 turns thinking off: fastest and lightest on the free-tier quota.
+    gemini_thinking_budget: int = Field(default=0, ge=0, le=8192)
     openai_api_key: SecretStr | None = None
     openai_model: str = Field(default="gpt-4o-mini", min_length=1)
     llm_timeout_seconds: float = Field(default=30.0, gt=0, le=120)

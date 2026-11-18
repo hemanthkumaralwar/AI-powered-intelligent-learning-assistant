@@ -3,7 +3,7 @@ from typing import Any
 
 import httpx2
 import pytest
-from google.genai import errors
+from google.genai import errors, types
 
 from app.llm.base import ChatMessage, CompletionRequest, GenerationOptions
 from app.llm.errors import (
@@ -47,9 +47,14 @@ class StubGenaiClient:
         return self.outcome
 
 
-def gemini_result(text: str | None, usage: bool = True) -> SimpleNamespace:
+def gemini_result(
+    text: str | None,
+    usage: bool = True,
+    finish_reason: types.FinishReason | None = types.FinishReason.STOP,
+) -> SimpleNamespace:
     metadata = SimpleNamespace(prompt_token_count=12, candidates_token_count=3) if usage else None
-    return SimpleNamespace(text=text, usage_metadata=metadata)
+    candidates = [SimpleNamespace(finish_reason=finish_reason)] if finish_reason else []
+    return SimpleNamespace(text=text, usage_metadata=metadata, candidates=candidates)
 
 
 def test_contents_map_roles_and_drop_system_messages() -> None:
@@ -65,7 +70,15 @@ def test_config_joins_system_text_and_sets_options() -> None:
     assert config.system_instruction == "Be brief.\n\nCite lessons."
     assert config.temperature == 0.1
     assert config.max_output_tokens == 100
+    assert config.thinking_config.thinking_budget == 0
     assert config.response_mime_type is None
+
+
+def test_config_adds_thinking_budget_on_top_of_answer_limit() -> None:
+    config = to_gemini_config(REQUEST, thinking_budget=512)
+
+    assert config.thinking_config.thinking_budget == 512
+    assert config.max_output_tokens == 100 + 512
 
 
 def test_config_without_system_messages_has_no_instruction() -> None:
@@ -99,16 +112,38 @@ async def test_complete_returns_text_and_usage() -> None:
         12,
         3,
     )
+    assert response.truncated is False
     assert client.calls[0]["model"] == "gemini-test"
 
 
 @pytest.mark.anyio
-async def test_complete_handles_missing_usage() -> None:
-    model = GeminiChatModel(StubGenaiClient(gemini_result("ok", usage=False)), "m")
+async def test_complete_passes_thinking_budget() -> None:
+    client = StubGenaiClient(gemini_result("ok"))
 
-    response = await model.complete(REQUEST)
+    await GeminiChatModel(client, "m", thinking_budget=256).complete(REQUEST)
+
+    assert client.calls[0]["config"].max_output_tokens == 100 + 256
+
+
+@pytest.mark.anyio
+async def test_complete_flags_truncated_reply() -> None:
+    result = gemini_result(
+        '{"country":"India","capital":"New', finish_reason=types.FinishReason.MAX_TOKENS
+    )
+
+    response = await GeminiChatModel(StubGenaiClient(result), "m").complete(REQUEST)
+
+    assert response.truncated is True
+
+
+@pytest.mark.anyio
+async def test_complete_handles_missing_usage_and_candidates() -> None:
+    result = gemini_result("ok", usage=False, finish_reason=None)
+
+    response = await GeminiChatModel(StubGenaiClient(result), "m").complete(REQUEST)
 
     assert response.input_tokens is None
+    assert response.truncated is False
 
 
 @pytest.mark.anyio

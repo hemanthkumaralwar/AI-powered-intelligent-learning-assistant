@@ -39,6 +39,8 @@ class LLMResponse(BaseModel):
     model: str
     input_tokens: int | None = None
     output_tokens: int | None = None
+    # True when generation stopped at max_output_tokens, so `text` is incomplete.
+    truncated: bool = False
 
 
 class ChatModel(Protocol):

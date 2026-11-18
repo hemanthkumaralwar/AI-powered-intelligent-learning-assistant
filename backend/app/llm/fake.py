@@ -9,8 +9,14 @@ from app.llm.base import CompletionRequest, LLMResponse
 DEFAULT_REPLY = "This is a fake response."
 
 
+type ScriptStep = str | LLMResponse | Exception
+
+
 class FakeChatModel:
-    """Replays scripted replies in order; an `Exception` in the script is raised instead.
+    """Replays scripted replies in order.
+
+    A `str` becomes a normal reply, an `LLMResponse` is returned as-is (e.g. to simulate
+    truncation), and an `Exception` is raised.
 
     When the script is used up it answers `default_reply`. Every request is recorded in
     `requests` so tests can assert on what the client sent.
@@ -21,7 +27,7 @@ class FakeChatModel:
 
     def __init__(
         self,
-        script: Iterable[str | Exception] = (),
+        script: Iterable[ScriptStep] = (),
         *,
         default_reply: str = DEFAULT_REPLY,
         delay_seconds: float = 0.0,
@@ -38,4 +44,6 @@ class FakeChatModel:
         step = self._script.popleft() if self._script else self._default_reply
         if isinstance(step, Exception):
             raise step
+        if isinstance(step, LLMResponse):
+            return step
         return LLMResponse(text=step, model=self.model, input_tokens=0, output_tokens=0)

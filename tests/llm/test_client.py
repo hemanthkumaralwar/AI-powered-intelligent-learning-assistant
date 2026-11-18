@@ -3,7 +3,7 @@ import logging
 import pytest
 from pydantic import BaseModel
 
-from app.llm.base import ChatMessage, GenerationOptions
+from app.llm.base import ChatMessage, GenerationOptions, LLMResponse
 from app.llm.client import LLMClient
 from app.llm.errors import InvalidResponseError, LLMTimeoutError, ProviderUnavailableError
 from app.llm.fake import FakeChatModel
@@ -104,6 +104,26 @@ async def test_generate_json_returns_validated_model(conversation: list[ChatMess
 
     assert result == Answer(answer="A box for a value", confidence=0.9)
     assert model.requests[0].json_schema == Answer.model_json_schema()
+
+
+async def test_generate_json_reports_truncation(conversation: list[ChatMessage]) -> None:
+    cut_off = LLMResponse(text='{"answer": "A box', model="fake-model", truncated=True)
+    client = make_client(FakeChatModel([cut_off]))
+
+    with pytest.raises(InvalidResponseError, match="cut off at max_output_tokens"):
+        await client.generate_json(conversation, Answer)
+
+
+async def test_chat_returns_truncated_reply_and_logs_it(
+    conversation: list[ChatMessage], caplog: pytest.LogCaptureFixture
+) -> None:
+    cut_off = LLMResponse(text="A long explan", model="fake-model", truncated=True)
+
+    with caplog.at_level(logging.INFO, logger="app.llm.client"):
+        response = await make_client(FakeChatModel([cut_off])).chat(conversation)
+
+    assert response.truncated is True
+    assert "truncated=True" in caplog.text
 
 
 @pytest.mark.parametrize(

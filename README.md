@@ -50,7 +50,8 @@ All settings come from environment variables or `.env`. `.env.example` lists eve
 | `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` | `INFO` |
 | `LLM_PROVIDER` | `gemini`, `openai`, `fake` (`fake` is refused in production) | `gemini` |
 | `GEMINI_API_KEY` | key from https://aistudio.google.com | — (required for `gemini`) |
-| `GEMINI_MODEL` | Gemini model name | `gemini-2.5-flash` |
+| `GEMINI_MODEL` | Gemini model name | `gemini-3.8-flash` |
+| `GEMINI_THINKING_BUDGET` | `0`–`8192`; tokens Gemini may spend thinking, on top of the answer limit | `0` (off) |
 | `OPENAI_API_KEY` | OpenAI API key | — (required for `openai`) |
 | `OPENAI_MODEL` | OpenAI model name | `gpt-4o-mini` |
 | `LLM_TIMEOUT_SECONDS` | `0` < value ≤ `120` | `30` |
@@ -67,6 +68,7 @@ OPENAI_API_KEY=...
 
 - **Retries:** timeouts, 5xx/connection errors and rate limits are retried with exponential backoff (1s, 2s, 4s…, up to 20s). If a provider asks you to wait longer than 20s (e.g. the free-tier daily quota is used up), the call fails at once with `RateLimitedError` instead of hanging.
 - **No retries** for bad keys, invalid requests or malformed replies.
+- **Cut-off replies:** if a reply hits `max_output_tokens`, `LLMResponse.truncated` is `True`, and `generate_json` raises a clear "cut off" error.
 - **Development without a key:** `LLM_PROVIDER=fake` returns canned replies.
 
 Check that a real provider works (this uses API quota):
