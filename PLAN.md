@@ -349,3 +349,5 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 ## Pending inputs
 
 - [ ] Quiz platform JSON and API details (needed by Day 8, Step 17)
+- [ ] Step 6 cold-start check (postponed): leave the API idle 15+ minutes, then time `GET https://archintx-api-kday.onrender.com/health`; record the result in `docs/deployment.md`.
+- [ ] Step 6 memory reading: Render → archintx-api → Metrics had no data right after the first deploy; record the peak once available (expected well under 512 MB; local ~70 MB).

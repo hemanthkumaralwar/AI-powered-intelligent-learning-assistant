@@ -53,12 +53,24 @@ Migrations run automatically on every Render build (`alembic upgrade head`), so 
    ```
    It must be `https://`. The app refuses plain `http://` except for localhost.
 3. Deploy. Streamlit installs [`frontend/requirements.txt`](../frontend/requirements.txt) only (just `streamlit` and `httpx2`).
+4. **Make it public.** Apps deployed from a private repo start **private**: visitors are sent to a Streamlit sign-in page. Go to share.streamlit.io → your app → **⋮ → Settings → Sharing → Who can view this app → public**. This controls only who can open the page; the source code stays private on GitHub.
 
 ## 4. Check it works (Step 6 done-when)
 
+Results of the first deployment (2026-11-18):
+
+| Check | Result |
+|---|---|
+| API | `https://archintx-api-kday.onrender.com`: `/health` 200, `/docs` 200, anonymous `/auth/me` 401, bad login 401, invalid input 422 with no echo |
+| Frontend | `https://ai-powered-intelligent-learning-assistant.streamlit.app/`: public (anonymous visitors reach the app); admin login showed "Signed in as … (admin)", and log out returned to the form |
+| Cold start | **Postponed.** Not yet measured; run the re-check below (leave the API idle 15+ minutes, then time `/health`). |
+| Memory | Render Metrics had no data yet right after the first deploy; local measurement ~70 MB (Windows, Python 3.12). Re-check Render → **Metrics** after a day of use; it should stay well under 512 MB. |
+
+To re-check later:
+
 - [ ] The public Streamlit URL logs in with the admin account (or a student registered through the API's `/docs`).
 - [ ] `https://…onrender.com/health` responds after a cold start (wait 15+ minutes, then load it; the first response may take up to a minute).
-- [ ] Render → service → **Metrics** → memory stays well under 512 MB. Locally the API uses about **70 MB** (measured 2026-11-18 on Windows with Python 3.12).
+- [ ] Render → service → **Metrics** → memory stays well under 512 MB.
 
 ## Cold starts and the demo
 
