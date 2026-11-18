@@ -3,7 +3,7 @@
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-src = ["backend", "tests"]
+src = ["backend", "frontend", "tests"]
 
 [tool.ruff.lint]
 # PEP 8 (E, W), pyflakes (F), import order (I), naming (N), bugbear (B),
@@ -19,10 +19,10 @@ max-complexity = 10
 "tests/**" = ["S101"]
 
 [tool.pytest.ini_options]
-pythonpath = ["backend"]
+pythonpath = ["backend", "frontend"]
 testpaths = ["tests"]
 # importlib mode: tests/ needs no __init__.py files.
-addopts = "--import-mode=importlib --cov=app --cov-report=term-missing"
+addopts = "--import-mode=importlib --cov=app --cov=frontend --cov-report=term-missing"
 
 [tool.coverage.run]
 # SQLAlchemy's async engine runs code inside greenlets; without this, lines after a

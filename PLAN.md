@@ -340,6 +340,12 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - Validation errors never echo input or reveal password length.
 - **Step 5 — brute-force protection (owner: maintainer, fix in Step 20).** Login and registration have no rate limit or lockout yet. Step 20's per-user/IP rate limiting must cover `POST /auth/login` and `POST /auth/register` first.
 
+- **Step 6 deviations from the plan.**
+  - No keep-alive (your decision). A GitHub cron would exceed the private-repo Actions quota (~3,100 of 2,000 free minutes), so cold starts are accepted and the demo warm-up is documented in `docs/deployment.md`.
+  - Migrations run in Render's build command.
+  - Render deploys only after CI passes (`autoDeployTrigger: checksPass`).
+  - Memory was measured locally (~70 MB); the Render figure is to be read from its Metrics tab after the first deploy.
+
 ## Pending inputs
 
 - [ ] Quiz platform JSON and API details (needed by Day 8, Step 17)

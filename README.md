@@ -15,7 +15,7 @@ See [PLAN.md](PLAN.md) for the build plan. This README grows with each step.
 python -m venv .venv
 .venv\Scripts\activate          # Windows
 # source .venv/bin/activate     # macOS / Linux
-pip install -r requirements.txt -r requirements-dev.txt
+pip install -r requirements.txt -r requirements-dev.txt -r frontend/requirements.txt
 cp .env.example .env
 ```
 
@@ -30,13 +30,25 @@ uvicorn app.main:app --app-dir backend --reload --loop asyncio:SelectorEventLoop
 - Health check: http://127.0.0.1:8000/health
 - Interactive API docs: http://127.0.0.1:8000/docs
 
+## Run the frontend
+
+```bash
+API_BASE_URL=http://127.0.0.1:8000 streamlit run frontend/streamlit_app.py
+```
+
+Or copy `frontend/.streamlit/secrets.toml.example` to `.streamlit/secrets.toml`. The frontend only needs `API_BASE_URL`; it must be `https://` except for localhost. For now it offers login, "signed in as", and log out. The access token stays in Streamlit's server-side session state, never in browser storage.
+
+## Deployment
+
+Render (API), Supabase (database) and Streamlit Community Cloud (frontend), all free, no Docker: see **[docs/deployment.md](docs/deployment.md)**.
+
 ## Quality checks
 
 ```bash
 ruff check .
 ruff format --check .
 pytest
-pip-audit -r requirements.txt -r requirements-dev.txt
+pip-audit -r requirements.txt -r requirements-dev.txt -r frontend/requirements.txt
 ```
 
 `pytest` fails if coverage drops below 80%. GitHub Actions runs all four checks on every push and pull request.
@@ -189,6 +201,8 @@ backend/app/        FastAPI application (package "app")
   embeddings/       embedding client and Gemini/OpenAI/Hugging Face/fake adapters
   db/               models, Database (engine/sessions), repositories
   migrations/       Alembic migrations (config: alembic.ini at the repo root)
+frontend/           Streamlit app (streamlit_app.py) and its API client (api_client.py)
+docs/               deployment guide
 scripts/            manual smoke tests (llm_smoke.py, embedding_smoke.py)
 tests/              mirrors backend/app/
 ```

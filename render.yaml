@@ -1,0 +1,39 @@
+# Render Blueprint for the API (free plan, native Python runtime, no Docker).
+# Secrets are declared with `sync: false`: Render asks for them in its dashboard and
+# no value is ever stored in this repository. See docs/deployment.md.
+services:
+  - type: web
+    name: archintx-api
+    runtime: python
+    plan: free
+    # Closest free region to India.
+    region: singapore
+    branch: main
+    # Deploy a commit only after GitHub Actions (lint, tests, audit) has passed.
+    autoDeployTrigger: checksPass
+    # Migrations run at build time, so the schema always matches the code being
+    # deployed and cold starts stay fast. Alembic is idempotent.
+    buildCommand: pip install -r requirements.txt && alembic upgrade head
+    # One worker keeps memory well under the free plan's 512 MB.
+    startCommand: uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT
+    # /health does not touch the database: a database hiccup must not make Render
+    # restart an otherwise healthy app.
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      # Supabase SESSION pooler URL (port 5432, ?sslmode=require).
+      - key: DATABASE_URL
+        sync: false
+      # New random production key, 32+ characters (never reuse the dev one).
+      - key: JWT_SECRET_KEY
+        sync: false
+      # Optional first admin; leave both empty to skip.
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false

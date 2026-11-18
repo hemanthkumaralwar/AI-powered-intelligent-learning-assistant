@@ -1,0 +1,4 @@
+# Streamlit Community Cloud installs this file (it sits next to the entry point), so the
+# frontend never pulls in the backend's database or LLM packages.
+httpx2==2.16.2
+streamlit==1.67.0
