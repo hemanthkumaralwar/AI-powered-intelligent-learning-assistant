@@ -317,7 +317,8 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 
 ## Known technical debt
 
-- **Step 1 — test client warning (owner: maintainer, revisit at Step 20).** Starlette emits `StarletteDeprecationWarning`: using `httpx` with `starlette.testclient` is deprecated, and it suggests `httpx2`. This affects tests only. Not switched yet: the `httpx2` package wasn't vetted. Verify the package on PyPI, then swap it in `requirements-dev.txt`.
+- ~~**Step 1 — test client warning.**~~ Resolved in Step 2. `httpx2` (github.com/pydantic/httpx2) is a dependency of both LLM SDKs and is now pinned in `requirements.txt`, so `httpx` was removed. Tests run with `-W error::DeprecationWarning` and pass.
+- **Step 2 deviations from the plan.** `LLM_MAX_RETRIES` became `LLM_MAX_ATTEMPTS`, since the count includes the first try. The provider is not yet attached to the app; Step 12 wires `build_llm_client(settings)` into `create_app` as its first consumer.
 - **Step 1 deviations from the plan.** Tool config lives in `pyproject.toml` (not `pytest.ini`). `requirements-local.txt` is deferred to Step 3, which is its first real use.
 
 ## Pending inputs
