@@ -32,13 +32,16 @@ class Settings(BaseSettings):
 
     llm_provider: LLMProvider = "gemini"
     gemini_api_key: SecretStr | None = None
-    # gemini-2.5-flash returns 404 for new API keys (checked 2026-11-18).
-    gemini_model: str = Field(default="gemini-3.8-flash", min_length=1)
+    # gemini-2.5-flash returns 404 for new API keys (checked 2026-11-18). On 2026-11-19
+    # gemini-3.8-flash timed out (504) and gemini-3.5-flash was overloaded (503), while
+    # the -lite models answered in about a second, so lite is the default.
+    gemini_model: str = Field(default="gemini-3.5-flash-lite", min_length=1)
     # Tokens Gemini may spend "thinking" before answering, on top of the answer limit.
-    # 0 turns thinking off: fastest and lightest on the free-tier quota. "default" sends
-    # no thinking setting at all, for models that reject one (e.g. gemini-3.5-flash-lite
-    # answers 400 INVALID_ARGUMENT even to a budget of 0).
-    gemini_thinking_budget: int | None = Field(default=0, ge=0, le=8192)
+    # None ("default" in the environment) sends no thinking setting: required by -lite
+    # models, which answer 400 INVALID_ARGUMENT even to a budget of 0. With a thinking
+    # model such as gemini-3.8-flash, set 0 to turn thinking off (fastest, and thinking
+    # cannot cut answers short).
+    gemini_thinking_budget: int | None = Field(default=None, ge=0, le=8192)
     openai_api_key: SecretStr | None = None
     openai_model: str = Field(default="gpt-4o-mini", min_length=1)
     llm_timeout_seconds: float = Field(default=30.0, gt=0, le=120)

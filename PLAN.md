@@ -392,12 +392,13 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - **Prompt injection:** sources and the question sit in separate tagged blocks marked as data; tags inside them are defused. The hints-not-solutions rule for `type: exercise` chunks is in the prompt.
   - **Question quota:** 5 per student per minute and 20 per minute app-wide (in memory, like code runs). The sliding-window quota moved from `runner/` to `core/quota.py` so both use it.
   - **Database connection:** `/chat/ask` commits (releasing its pooled connection) before the slow provider calls. **Debt (owner: maintainer, Step 20):** `/code/run` still holds a connection for up to 30 s through `CurrentUser`; apply the same early commit there.
-  - **`GEMINI_THINKING_BUDGET=default`** sends no thinking setting. `gemini-3.5-flash-lite` answers 400 INVALID_ARGUMENT even to a budget of 0.
+  - **Default model is now `gemini-3.5-flash-lite`** (was `gemini-3.8-flash`, which timed out on 2026-11-19), with `GEMINI_THINKING_BUDGET` defaulting to `default` (no thinking setting): lite models answer 400 INVALID_ARGUMENT even to a budget of 0. Switching back to a thinking model needs `GEMINI_THINKING_BUDGET=0` as well.
   - **Evaluation:** `--answers` adds answer accuracy (LLM judge, cached in `eval/cache/`, gitignored), correct refusals, citation checks and 6 `solution_request` cases. The question embeddings are reused across phases, and a provider failure is recorded per case instead of aborting the run.
 - **Step 12 — Gemini availability (owner: you, watch).** On 2026-11-19 `gemini-3.8-flash` returned 504 or hung for minutes, and `gemini-3.5-flash` returned 503 (high demand); the `-lite` models answered in about 1 s. The same day, repeated evaluation runs used up the daily embedding quota (resets at midnight Pacific), so the API key shared with production could not embed questions until then. Keep evaluation runs to one or two a day.
 
 ## Pending inputs
 
 - [ ] Quiz platform JSON and API details (needed by Day 8, Step 17)
+- [ ] Step 12 Done-when check (postponed until the daily embedding quota resets, 08:00 UTC): `python eval/run_eval.py --answers` (defaults: `gemini-3.5-flash-lite`, no thinking setting); targets hit@5 ≥ 0.8, correct refusals ≥ 0.9, every grounded answer cited. Then record the results here and commit `eval/reports/answers-*`.
 - [ ] Step 6 cold-start check (postponed): leave the API idle 15+ minutes, then time `GET https://archintx-api-kday.onrender.com/health`; record the result in `docs/deployment.md`.
 - [ ] Step 6 memory reading: Render → archintx-api → Metrics had no data right after the first deploy; record the peak once available (expected well under 512 MB; local ~70 MB).

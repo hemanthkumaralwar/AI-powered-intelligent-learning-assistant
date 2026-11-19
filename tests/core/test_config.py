@@ -83,6 +83,9 @@ def test_defaults_without_env() -> None:
     assert settings.environment == "development"
     assert settings.log_level == "INFO"
     assert settings.app_name
+    # -lite models reject any thinking setting, so the two defaults go together.
+    assert settings.gemini_model == "gemini-3.5-flash-lite"
+    assert settings.gemini_thinking_budget is None
 
 
 def test_environment_variables_override_defaults(monkeypatch: pytest.MonkeyPatch) -> None:

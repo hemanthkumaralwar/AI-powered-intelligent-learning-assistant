@@ -64,8 +64,8 @@ All settings come from environment variables or `.env`. `.env.example` lists eve
 | `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` | `INFO` |
 | `LLM_PROVIDER` | `gemini`, `openai`, `fake` (`fake` is refused in production) | `gemini` |
 | `GEMINI_API_KEY` | key from https://aistudio.google.com | — (required for `gemini`) |
-| `GEMINI_MODEL` | Gemini model name | `gemini-3.8-flash` |
-| `GEMINI_THINKING_BUDGET` | `0`–`8192`; tokens Gemini may spend thinking, on top of the answer limit. `default` sends no thinking setting (required by models that reject one, e.g. `gemini-3.5-flash-lite`) | `0` (off) |
+| `GEMINI_MODEL` | Gemini model name | `gemini-3.5-flash-lite` |
+| `GEMINI_THINKING_BUDGET` | `default` sends no thinking setting (required by `-lite` models). `0`–`8192`: tokens a thinking model (e.g. `gemini-3.8-flash`) may spend thinking, on top of the answer limit; `0` turns thinking off | `default` |
 | `OPENAI_API_KEY` | OpenAI API key | — (required for `openai`) |
 | `OPENAI_MODEL` | OpenAI model name | `gpt-4o-mini` |
 | `LLM_TIMEOUT_SECONDS` | `0` < value ≤ `120` | `30` |
