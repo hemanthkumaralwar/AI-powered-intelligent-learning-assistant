@@ -38,7 +38,22 @@ API_BASE_URL=http://127.0.0.1:8000 streamlit run frontend/streamlit_app.py
 
 Or copy `frontend/.streamlit/secrets.toml.example` to `.streamlit/secrets.toml`. The frontend only needs `API_BASE_URL`; it must be `https://` except for localhost. The access token stays in Streamlit's server-side session state, never in browser storage. `.streamlit/config.toml` turns off Streamlit's usage statistics.
 
-After login, **Practice** lets a student pick a course, lesson and exercise, and opens the **compiler panel** (`frontend/components/compiler.py`) with that exercise's starter code:
+After login the sidebar shows the account (log out, explanation level) and the pages for the user's role:
+
+| Page | For | What it does |
+|---|---|---|
+| Courses | everyone | browse modules and lessons; each lesson's explanation, examples, takeaways and platform activities |
+| Ask the assistant | everyone | chat with citations; follow-ups in the same chat; past chats (open, delete); "practise this" pointers |
+| Practice | everyone | a lesson's exercises in the compiler panel (below), graded on submit |
+| Coding helper | everyone | explain code, show an example, practice questions, any language |
+| My progress | everyone | what to do next (review / next lessons) and mastery per module |
+| Manage courses | admins | upload course JSON, indexing status, delete a course, re-index |
+
+- **Admin pages are hidden from students** (they are not in a student's navigation at all), the admin page checks the role itself, and the API refuses admin actions from students (403). Page scripts live in `frontend/views/`, not `pages/`: Streamlit auto-lists a `pages/` folder before login, which would show every page to anyone.
+- **Friendly errors:** rate limits say when to retry (from `Retry-After`); a sleeping or busy server gets a "waking up / busy" message; server details are never shown.
+- **Reloading the browser logs you out:** the token lives only in Streamlit's server-side session, never in the browser.
+
+The **compiler panel** (`frontend/components/compiler.py`) opens with the exercise's starter code:
 
 - **Run** on the remote sandbox (Step 7), with stdin; **Open in Compiler Explorer** (C, C++, Java, Python) creates a *public* link.
 - **Ask AI about this output** sends the code and its last run (or output pasted from a run elsewhere) to `/coding/debug`. Course exercises get hints, not the answer.
@@ -390,7 +405,9 @@ backend/app/        FastAPI application (package "app")
   db/               models, Database (engine/sessions), repositories
   migrations/       Alembic migrations (config: alembic.ini at the repo root)
 frontend/           Streamlit app (streamlit_app.py) and its API client (api_client.py)
-  components/       compiler panel, DOM sandbox (dom_sandbox.html), practice view
+  views/            pages: courses, chat, practice, coding, progress, admin_courses
+  components/       account sidebar, lesson renderer, compiler panel, DOM sandbox, practice view
+  menu.py           which pages each role sees; session.py: client, token and user for pages
 eval/               dataset.jsonl + run_eval.py (RAG), code_cases.jsonl + run_code_eval.py (coding),
                     run_level_demo.py (levels), reports/
   materials/        course files used by tests and evaluation (javascript-beginner.json)

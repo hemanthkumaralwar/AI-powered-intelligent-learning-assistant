@@ -73,7 +73,7 @@ def test_login_sends_credentials_and_returns_token() -> None:
         (respond(401, {"detail": "Invalid username or password"}), "Invalid username or password"),
         (respond(422, {"detail": []}), "Enter both a username and a password"),
         (respond(500, {"detail": "Internal server error"}), "server had a problem"),
-        (respond(503, text="<html>bad gateway</html>"), "server had a problem"),
+        (respond(503, text="<html>bad gateway</html>"), "busy or still starting up"),
         (respond(418, {"detail": "I'm a teapot"}), "I'm a teapot"),
         (respond(418, text="teapot"), r"Unexpected response from the server \(418\)"),
         (respond(200, text="not json"), "Unexpected response"),
@@ -187,7 +187,7 @@ def test_run_share_and_debug_send_the_right_bodies() -> None:
         (429, {"detail": "You are running code too often; wait a moment."}, "too often"),
         (502, {"detail": "The assistant couldn't produce a valid answer."}, "valid answer"),
         (502, None, "couldn't answer"),
-        (503, {"detail": "secret internals"}, "server had a problem"),
+        (503, {"detail": "secret internals"}, "busy or still starting up"),
         (422, {"detail": [{"msg": "Code must be at most 8 KB"}]}, "Check your input: Code must"),
         (422, {"detail": [{}]}, r"Unexpected response from the server \(422\)"),
     ],
@@ -225,3 +225,52 @@ def test_submit_attempt_posts_the_code() -> None:
     assert result["passed"] is True
     assert seen[0].url.raw_path == b"/exercises/e%2F1/attempts"
     assert json.loads(seen[0].content) == {"code": "x = 1"}
+
+
+def test_rate_limit_message_says_when_to_retry() -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        detail = {"detail": "You are sending requests to the assistant too quickly; wait a moment."}
+        return httpx2.Response(429, json=detail, headers={"Retry-After": "12"})
+
+    with pytest.raises(ApiError, match=r"too quickly; wait a moment\. Try again in 12 seconds\."):
+        client_returning(handler).ask("tok", "q")
+
+
+def test_chat_progress_coding_and_admin_calls() -> None:
+    handler, seen = recording(body={"ok": True})
+    client = client_returning(handler)
+
+    client.ask("tok", "What is let?", session_id="s1")
+    client.chat_sessions("tok")
+    client.chat_session("tok", "s1")
+    client.coding("tok", "explain", "python", code="x = 1")
+    client.progress("tok", course_id="js")
+    client.recommendations("tok")
+    client.documents("tok")
+    client.upload_course("tok", "c.json", b"{}", "javascript")
+    client.reindex("tok")
+
+    calls = [(r.method, r.url.path) for r in seen]
+    assert calls == [
+        ("POST", "/chat/ask"),
+        ("GET", "/chat/sessions"),
+        ("GET", "/chat/sessions/s1"),
+        ("POST", "/coding/explain"),
+        ("GET", "/me/progress"),
+        ("GET", "/me/recommendations"),
+        ("GET", "/admin/documents"),
+        ("POST", "/admin/documents"),
+        ("POST", "/admin/reindex"),
+    ]
+    assert json.loads(seen[0].content) == {"question": "What is let?", "session_id": "s1"}
+    assert seen[4].url.params["course_id"] == "js" and "course_id" not in seen[5].url.params
+    assert b'name="language"' in seen[7].content and b'filename="c.json"' in seen[7].content
+
+
+def test_deletes_return_nothing_and_unknown_coding_task_is_refused() -> None:
+    client = client_returning(lambda request: httpx2.Response(204))
+
+    assert client.delete_chat("tok", "s1") is None
+    assert client.delete_course("tok", "js") is None
+    with pytest.raises(ValueError, match="unknown coding task"):
+        client.coding("tok", "hack", "python", code="x")

@@ -13,6 +13,13 @@ import httpx2
 # Render's free tier sleeps when idle; waking takes ~30-60 s, so be patient.
 DEFAULT_TIMEOUT_SECONDS = 60.0
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+CODING_TASKS = ("explain", "debug", "example", "practice")
+WAKING_UP = "The server is waking up (free hosting sleeps when idle). Please try again in a minute."
+# 503: the assistant's AI provider is busy, or the host is still starting.
+UNAVAILABLE = (
+    "The service is busy or still starting up (free hosting sleeps when idle). "
+    "Please try again in a minute."
+)
 
 
 class ApiError(Exception):
@@ -105,6 +112,64 @@ class ApiClient:
         path = f"/exercises/{quote(exercise_id, safe='')}/attempts"
         return self._authed("POST", path, token, json={"code": code})
 
+    def coding(self, token: str, task: str, language: str, **body: str) -> dict[str, Any]:
+        """`task`: explain or debug (with `code`), example or practice (with `topic`)."""
+        if task not in CODING_TASKS:
+            raise ValueError(f"unknown coding task {task!r}")
+        return self._authed("POST", f"/coding/{task}", token, json={"language": language, **body})
+
+    # ---- chat ------------------------------------------------------------------------
+
+    def ask(
+        self,
+        token: str,
+        question: str,
+        *,
+        course_id: str | None = None,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Answer with citations and practice pointers; returns the chat's `session_id`."""
+        body = {"question": question, "course_id": course_id, "session_id": session_id}
+        return self._authed(
+            "POST", "/chat/ask", token, json={k: v for k, v in body.items() if v is not None}
+        )
+
+    def chat_sessions(self, token: str) -> list[dict[str, Any]]:
+        return self._authed("GET", "/chat/sessions", token, params={"limit": 50})
+
+    def chat_session(self, token: str, session_id: str) -> dict[str, Any]:
+        return self._authed("GET", f"/chat/sessions/{quote(session_id, safe='')}", token)
+
+    def delete_chat(self, token: str, session_id: str) -> None:
+        self._authed("DELETE", f"/chat/sessions/{quote(session_id, safe='')}", token)
+
+    # ---- progress --------------------------------------------------------------------
+
+    def progress(self, token: str, course_id: str | None = None) -> dict[str, Any]:
+        return self._authed("GET", "/me/progress", token, params=_only(course_id=course_id))
+
+    def recommendations(self, token: str, course_id: str | None = None) -> dict[str, Any]:
+        return self._authed("GET", "/me/recommendations", token, params=_only(course_id=course_id))
+
+    # ---- admin -----------------------------------------------------------------------
+
+    def documents(self, token: str) -> list[dict[str, Any]]:
+        return self._authed("GET", "/admin/documents", token)
+
+    def upload_course(
+        self, token: str, filename: str, content: bytes, language: str
+    ) -> dict[str, Any]:
+        files = {"file": (filename, content, "application/json")}
+        return self._authed(
+            "POST", "/admin/documents", token, files=files, data={"language": language}
+        )
+
+    def delete_course(self, token: str, course_id: str) -> None:
+        self._authed("DELETE", f"/admin/courses/{quote(course_id, safe='')}", token)
+
+    def reindex(self, token: str) -> dict[str, Any]:
+        return self._authed("POST", "/admin/reindex", token)
+
     def close(self) -> None:
         self._http.close()
 
@@ -120,17 +185,21 @@ class ApiClient:
         try:
             return self._http.request(method, path, **kwargs)
         except httpx2.TimeoutException as exc:
-            raise ApiError(
-                "The server is waking up (free hosting sleeps when idle). "
-                "Please try again in a minute."
-            ) from exc
+            raise ApiError(WAKING_UP) from exc
         except httpx2.TransportError as exc:
             raise ApiError("Cannot reach the server. Check your connection and try again.") from exc
 
     @staticmethod
     def _json(response: httpx2.Response) -> Any:
+        if response.status_code == 204:
+            return None
+        if response.status_code == 429:
+            raise ApiError(_rate_limited(response))
         if response.status_code == 502:
             raise ApiError(_detail(response) or "The assistant couldn't answer. Please try again.")
+        if response.status_code == 503:
+            # A fixed message, never the body: 5xx details are not shown to students.
+            raise ApiError(UNAVAILABLE)
         if response.status_code >= 500:
             raise ApiError("The server had a problem. Please try again shortly.")
         if not response.is_success:
@@ -155,3 +224,17 @@ def _detail(response: httpx2.Response) -> str | None:
         message = detail[0].get("msg")
         return f"Check your input: {message}" if message else None
     return None
+
+
+def _rate_limited(response: httpx2.Response) -> str:
+    """The API's quota message plus when to retry, from Retry-After."""
+    message = _detail(response) or "Too many requests right now."
+    retry_after = response.headers.get("Retry-After", "")
+    if retry_after.isdigit():
+        seconds = int(retry_after)
+        return f"{message} Try again in {seconds} second{'s' if seconds != 1 else ''}."
+    return message
+
+
+def _only(**params: str | None) -> dict[str, str]:
+    return {key: value for key, value in params.items() if value is not None}

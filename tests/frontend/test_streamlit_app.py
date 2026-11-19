@@ -14,6 +14,7 @@ from streamlit.testing.v1 import AppTest
 GOOD_TOKEN = "good"  # noqa: S105
 EXPIRED_TOKEN = "expired"  # noqa: S105
 BROKEN_TOKEN = "broken"  # noqa: S105
+ADMIN_TOKEN = "admin-token"  # noqa: S105
 
 APP = str(Path(__file__).resolve().parents[2] / "frontend" / "streamlit_app.py")
 
@@ -168,7 +169,125 @@ DEBUG_ANSWER = {
         }
     ],
 }
+CHAT_REPLY = {
+    "session_id": "s1",
+    "answer": "`let` is block-scoped [1].",
+    "grounded": True,
+    "citations": [
+        {
+            "number": 1,
+            "course_title": "JavaScript",
+            "module_title": "Basics",
+            "lesson_id": "l1",
+            "lesson_title": "Variables",
+            "section": "Explanation",
+            "link": "/lessons/l1",
+        }
+    ],
+    "practice": [
+        {
+            "lesson_id": "l1",
+            "lesson_title": "Variables",
+            "url": None,
+            "activities": [{"kind": "quiz", "title": "Quiz", "count": 10}],
+        }
+    ],
+}
+GET_ROUTES |= {
+    "/chat/sessions": [
+        {
+            "id": "s1",
+            "title": "What is let?",
+            "created_at": "2026-11-19T10:00:00Z",
+            "updated_at": "2026-11-19T10:00:00Z",
+        }
+    ],
+    "/chat/sessions/s1": {
+        "id": "s1",
+        "title": "What is let?",
+        "created_at": "2026-11-19T10:00:00Z",
+        "updated_at": "2026-11-19T10:00:00Z",
+        "messages": [
+            {
+                "role": "user",
+                "content": "What is let?",
+                "grounded": None,
+                "citations": None,
+                "created_at": "2026-11-19T10:00:00Z",
+            },
+            {
+                "role": "assistant",
+                "content": "`let` is block-scoped [1].",
+                "grounded": True,
+                "citations": CHAT_REPLY["citations"],
+                "created_at": "2026-11-19T10:00:01Z",
+            },
+        ],
+    },
+    "/me/recommendations": {
+        "course_id": "js",
+        "course_title": "JavaScript",
+        "recommendations": [
+            {
+                "kind": "review",
+                "lesson_id": "l1",
+                "lesson_title": "Variables",
+                "module_title": "Basics",
+                "reason": "Review: 0% on this lesson's exercises",
+                "mastery": 0.0,
+                "exercises": [
+                    {
+                        "exercise_id": "e1",
+                        "title": "Fix the counter",
+                        "kind": "bug_hunt",
+                        "score": 0.0,
+                    }
+                ],
+                "practice": [{"kind": "quiz", "title": "Quiz", "count": 10}],
+                "practice_url": None,
+            },
+        ],
+    },
+    "/me/progress": {
+        "course_id": "js",
+        "course_title": "JavaScript",
+        "weak_threshold": 0.6,
+        "modules": [
+            {
+                "module_id": "m1",
+                "title": "Basics",
+                "mastery": 0.0,
+                "coverage": 0.5,
+                "lessons": [
+                    {"lesson_id": "l1", "title": "Variables", "mastery": 0.0, "weak": True},
+                    {"lesson_id": "l2", "title": "The DOM", "mastery": None, "weak": False},
+                ],
+            }
+        ],
+    },
+    "/admin/documents": [
+        {
+            "id": "d1",
+            "course_id": "js",
+            "filename": "javascript-beginner.json",
+            "content_type": "application/json",
+            "size_bytes": 2048000,
+            "status": "ready",
+            "error_message": None,
+            "created_at": "2026-11-19T10:00:00Z",
+        }
+    ],
+}
 POST_ROUTES = {
+    "/chat/ask": CHAT_REPLY,
+    "/coding/explain": {
+        "summary": "Declares x.",
+        "lines": [{"line": 1, "explanation": "Sets x."}],
+        "related_lessons": [],
+        "practice": [],
+    },
+    "/admin/documents": GET_ROUTES["/admin/documents"][0] | {"status": "pending"},
+    "/admin/reindex": {"queued": 1},
     "/code/run": RUN_RESULT,
     "/coding/debug": DEBUG_ANSWER,
     "/code/share": {"url": "https://godbolt.org/z/abc"},
@@ -189,7 +308,9 @@ class FakeApi(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 - name required by BaseHTTPRequestHandler
         length = int(self.headers.get("Content-Length", 0))
-        body = json.loads(self.rfile.read(length) or b"{}")
+        raw = self.rfile.read(length) or b"{}"
+        multipart = "multipart" in self.headers.get("Content-Type", "")
+        body = {"multipart": raw.decode("latin-1")} if multipart else json.loads(raw)
         if self.path == "/auth/login":
             if body == {"username": "asha", "password": "right-password"}:
                 token = {"access_token": GOOD_TOKEN, "token_type": "bearer", "expires_in": 60}
@@ -208,12 +329,26 @@ class FakeApi(BaseHTTPRequestHandler):
             self._reply(200, GET_ROUTES["/auth/me"] | body)
 
     def do_GET(self) -> None:  # noqa: N802
+        if not self._authorised():
+            return
+        path = self.path.split("?")[0]
+        if path == "/auth/me" and self._is_admin():
+            self._reply(200, GET_ROUTES[path] | {"username": "boss", "role": "admin"})
+        else:
+            self._reply(200, GET_ROUTES[path])
+
+    def do_DELETE(self) -> None:  # noqa: N802
         if self._authorised():
-            self._reply(200, GET_ROUTES[self.path])
+            FakeApi.received[f"DELETE {self.path}"] = {}
+            self.send_response(204)
+            self.end_headers()
+
+    def _is_admin(self) -> bool:
+        return self.headers.get("Authorization") == f"Bearer {ADMIN_TOKEN}"
 
     def _authorised(self) -> bool:
         authorization = self.headers.get("Authorization")
-        if authorization == f"Bearer {GOOD_TOKEN}":
+        if authorization in (f"Bearer {GOOD_TOKEN}", f"Bearer {ADMIN_TOKEN}"):
             return True
         if authorization == f"Bearer {BROKEN_TOKEN}":
             self._reply(500, {"detail": "Internal server error"})
@@ -255,15 +390,41 @@ def test_wrong_password_shows_friendly_error(fake_api_url: str) -> None:
     assert len(app.text_input) == 2
 
 
-def test_login_shows_account_then_logout_returns_to_form(fake_api_url: str) -> None:
+def test_login_shows_the_account_in_the_sidebar(fake_api_url: str) -> None:
     app = log_in(run_app(fake_api_url), "asha", "right-password")
 
-    assert app.success[0].value == "Signed in as **asha** (student)"
+    assert app.sidebar.success[0].value == "Signed in as **asha** (student)"
     assert app.session_state["access_token"] == GOOD_TOKEN
 
-    app = app.button[0].click().run()
-    assert "access_token" not in app.session_state
-    assert [field.label for field in app.text_input] == ["Username", "Password"]
+
+def account_sidebar() -> None:
+    """The signed-in sidebar on its own: AppTest re-runs only the current page after the
+    first run, so widgets drawn by the entry point are tested here instead."""
+    import streamlit as st
+
+    from api_client import ApiClient
+    from components.account import show_account
+
+    if st.session_state.get("access_token"):
+        user = {"username": "asha", "role": "student", "level": "beginner"}
+        show_account(ApiClient(st.secrets["API_BASE_URL"]), st.session_state["access_token"], user)
+
+
+def sidebar_app(fake_api_url: str) -> AppTest:
+    FakeApi.received.clear()
+    app = AppTest.from_function(account_sidebar, default_timeout=30)
+    app.secrets["API_BASE_URL"] = fake_api_url
+    app.session_state["access_token"] = GOOD_TOKEN
+    app.session_state["user"] = {"username": "asha"}
+    return app.run()
+
+
+def test_log_out_forgets_the_session(fake_api_url: str) -> None:
+    app = sidebar_app(fake_api_url)
+
+    app = app.sidebar.button(key="account:logout").click().run()
+
+    assert "access_token" not in app.session_state and "user" not in app.session_state
 
 
 def test_expired_session_returns_to_login(fake_api_url: str) -> None:
@@ -289,12 +450,17 @@ def test_server_error_on_account_page_is_shown_plainly(fake_api_url: str) -> Non
 # ---- practice and the compiler panel (Step 15) ------------------------------------------
 
 
-def signed_in(fake_api_url: str) -> AppTest:
+def signed_in(
+    fake_api_url: str, page: str | None = "views/practice.py", token: str = GOOD_TOKEN
+) -> AppTest:
+    """Signed in, then on `page` (None: the entry point's run, where the sidebar lives;
+    AppTest's switch_page runs only the page script)."""
     FakeApi.received.clear()
-    app = AppTest.from_file(APP, default_timeout=30)
+    app = AppTest.from_file(APP, default_timeout=60)
     app.secrets["API_BASE_URL"] = fake_api_url
-    app.session_state["access_token"] = GOOD_TOKEN
-    return app.run()
+    app.session_state["access_token"] = token
+    app.run()
+    return app if page is None else app.switch_page(page).run()
 
 
 def button(app: AppTest, label: str):
@@ -345,7 +511,7 @@ def test_share_appears_for_compiler_explorer_languages(fake_api_url: str) -> Non
 
     app = button(app, "Open in Compiler Explorer").click().run()
 
-    assert "https://godbolt.org/z/abc" in app.success[-1].value
+    assert any("https://godbolt.org/z/abc" in s.value for s in app.success)
     assert FakeApi.received["/code/share"]["language"] == "python"
 
 
@@ -362,13 +528,14 @@ def test_dom_exercise_offers_the_page_sandbox(fake_api_url: str) -> None:
 
 
 def test_level_selector_saves_to_the_profile(fake_api_url: str) -> None:
-    app = signed_in(fake_api_url)
-    level = next(s for s in app.selectbox if s.label == "Explanation level")
+    app = sidebar_app(fake_api_url)
+    level = app.sidebar.selectbox(key="account:level")
     assert level.value == "beginner"
 
     app = level.set_value("advanced").run()
 
     assert FakeApi.received["/auth/me"] == {"level": "advanced"}
+    assert app.session_state["user"]["level"] == "advanced"
     assert not app.exception
 
 
@@ -386,3 +553,118 @@ def test_submit_for_grading_shows_hint_feedback(fake_api_url: str) -> None:
     assert FakeApi.received["/exercises/e1/attempts"] == {"code": BUG_HUNT}
     assert app.warning[0].value == "Not yet. Can a const be reassigned?"
     assert not app.exception
+
+
+# ---- full frontend (Step 19) ------------------------------------------------------------
+
+
+def test_admin_pages_are_only_in_the_admin_menu() -> None:
+    from menu import ADMIN_PAGES, pages_for
+
+    student = [path for pages in pages_for("student").values() for path, _, _ in pages]
+    admin = [path for pages in pages_for("admin").values() for path, _, _ in pages]
+
+    assert ADMIN_PAGES[0][0] not in student
+    assert ADMIN_PAGES[0][0] in admin and set(student) < set(admin)
+
+
+def test_a_student_cannot_open_the_admin_page(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url, page=None)
+
+    # Not registered in a student's navigation at all, so it cannot be reached.
+    with pytest.raises(ValueError, match="Could not find a navigation page"):
+        app.switch_page("views/admin_courses.py")
+    assert "/admin/documents" not in FakeApi.received
+
+
+def admin_page_as(user: dict) -> None:
+    """The admin page's own role check, run directly (second guard behind the menu)."""
+    import streamlit as st
+
+    st.session_state["user"] = user
+    st.session_state["access_token"] = "t"  # noqa: S105 - placeholder, never sent
+    import runpy
+
+    runpy.run_path(st.secrets["PAGE"])
+
+
+def test_the_admin_page_itself_refuses_students(fake_api_url: str) -> None:
+    app = AppTest.from_function(admin_page_as, args=({"role": "student"},), default_timeout=60)
+    app.secrets["API_BASE_URL"] = fake_api_url
+    app.secrets["PAGE"] = str(Path(APP).parent / "views" / "admin_courses.py")
+
+    app.run()
+
+    assert app.error[0].value == "This page is for admins."
+
+
+def test_courses_page_shows_the_lesson_and_its_activities(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url, page="views/courses.py")
+
+    assert app.header[0].value == "Variables"
+    assert any("learning platform" in box.value for box in app.info)
+    assert not app.exception
+
+
+def test_chat_asks_then_shows_history_sources_and_practice(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url, page="views/chat.py")
+
+    app = app.chat_input[0].set_value("What is let?").run()
+
+    assert FakeApi.received["/chat/ask"] == {"question": "What is let?"}
+    assert app.session_state["chat:active"] == "s1"
+    markdown = [m.value for m in app.markdown]
+    assert "`let` is block-scoped [1]." in markdown
+    assert any("Sources: [1] Basics › Variables — Explanation" in c.value for c in app.caption)
+    assert any("Practise Variables on the learning platform" in box.value for box in app.info)
+
+
+def test_follow_up_goes_to_the_same_chat(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url, page="views/chat.py")
+    app = app.chat_input[0].set_value("What is let?").run()
+
+    app.chat_input[0].set_value("And const?").run()
+
+    assert FakeApi.received["/chat/ask"] == {"question": "And const?", "session_id": "s1"}
+
+
+def test_coding_helper_explains_code(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url, page="views/coding.py")
+    app.text_area(key="helper:code").input("x = 1")
+
+    app = button(app.run(), "Explain").click().run()
+
+    assert FakeApi.received["/coding/explain"]["code"] == "x = 1"
+    assert "- **Line 1:** Sets x." in [m.value for m in app.markdown]
+
+
+def test_progress_page_shows_what_to_do_next(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url, page="views/progress.py")
+
+    markdown = [m.value for m in app.markdown]
+    assert "🔁 **Variables** · Basics" in markdown
+    assert "- Bug hunt: Fix the counter (0%)" in markdown
+    assert any("Needs review: Variables" in c.value for c in app.caption)
+    assert not app.exception
+
+
+def test_admin_sees_documents_and_can_reindex(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url, page="views/admin_courses.py", token=ADMIN_TOKEN)
+
+    assert app.title[0].value == "Manage courses"
+    assert app.dataframe[0].value["Course"][0] == "js"
+
+    app = button(app, "Re-index").click().run()
+
+    assert "/admin/reindex" in FakeApi.received
+    assert any("Queued 1 document" in s.value for s in app.success)
+
+
+def test_the_login_screen_lists_no_pages(fake_api_url: str) -> None:
+    app = run_app(fake_api_url)
+
+    # No auto-discovered page menu before sign-in (page scripts live in views/, not pages/).
+    assert not (Path(APP).parent / "pages").exists()
+    assert not app.sidebar.children or not any(
+        "admin" in str(child).lower() for child in app.sidebar.children.values()
+    )

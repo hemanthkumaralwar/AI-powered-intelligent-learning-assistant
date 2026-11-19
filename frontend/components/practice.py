@@ -32,8 +32,8 @@ EXERCISE_LABELS = {
 def show_practice(client: ApiClient, token: str) -> None:
     st.header("Practice")
     try:
-        course = _pick_course(client, token)
-        lesson = _pick_lesson(client, token, course) if course else None
+        course = pick_course(client, token)
+        lesson = pick_lesson(client, token, course) if course else None
     except ApiError as exc:
         st.error(str(exc))
         return
@@ -71,14 +71,27 @@ def activity_label(activity: dict[str, Any]) -> str:
     return f"{ACTIVITY_NAMES.get(activity['kind'], activity['kind'])}: {activity['title']}{size}"
 
 
-def show_platform_activities(activities: list[dict[str, Any]]) -> None:
+def show_platform_activities(activities: list[dict[str, Any]], url: str | None = None) -> None:
     """The lesson's quizzes and activities, which run on the learning platform."""
     if activities:
         lines = "\n".join(f"- {activity_label(a)}" for a in activities)
-        st.info(f"**Practise this lesson on the learning platform:**\n{lines}")
+        link = f"\n\n[Open this lesson on the platform]({url})" if url else ""
+        st.info(f"**Practise this lesson on the learning platform:**\n{lines}{link}")
 
 
-def _pick_course(client: ApiClient, token: str) -> dict[str, Any] | None:
+def show_practice_pointers(pointers: list[dict[str, Any]]) -> None:
+    """Practice pointers from chat or coding answers: each lesson's platform activities."""
+    for pointer in pointers:
+        lines = "\n".join(f"- {activity_label(a)}" for a in pointer["activities"])
+        title = (
+            f"[{pointer['lesson_title']}]({pointer['url']})"
+            if pointer.get("url")
+            else (pointer["lesson_title"])
+        )
+        st.info(f"**Practise {title} on the learning platform:**\n{lines}")
+
+
+def pick_course(client: ApiClient, token: str) -> dict[str, Any] | None:
     courses = client.courses(token)
     if not courses:
         st.info("No courses yet. An admin needs to upload one first.")
@@ -86,7 +99,7 @@ def _pick_course(client: ApiClient, token: str) -> dict[str, Any] | None:
     return st.selectbox("Course", courses, format_func=lambda c: c["title"])
 
 
-def _pick_lesson(client: ApiClient, token: str, course: dict[str, Any]) -> dict[str, Any] | None:
+def pick_lesson(client: ApiClient, token: str, course: dict[str, Any]) -> dict[str, Any] | None:
     outline = client.course(token, course["id"])
     lessons = [
         (module["title"], lesson) for module in outline["modules"] for lesson in module["lessons"]
