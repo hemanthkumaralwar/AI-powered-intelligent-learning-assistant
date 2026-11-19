@@ -1,7 +1,8 @@
 {
   "name": "Python 3",
-  // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-  "image": "mcr.microsoft.com/devcontainers/python:1-3.11-bookworm",
+  // GitHub Codespaces only; production does not use containers (Render runs Python).
+  // 3.12 matches the project (.python-version, used by CI; PYTHON_VERSION in render.yaml).
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
   "customizations": {
     "codespaces": {
       "openFiles": [
@@ -17,9 +18,12 @@
       ]
     }
   },
-  "updateContentCommand": "[ -f packages.txt ] && sudo apt update && sudo apt upgrade -y && sudo xargs apt install -y <packages.txt; [ -f requirements.txt ] && pip3 install --user -r requirements.txt; pip3 install --user streamlit; echo '✅ Packages installed and Requirements met'",
+  // Pinned versions only (the same files CI and Render install).
+  "updateContentCommand": "pip3 install --user -r requirements.txt -r frontend/requirements.txt && echo '✅ Requirements installed'",
+  // XSRF and CORS protection stay on: the app has no file uploads that would need them off.
+  // Set API_BASE_URL as a Codespaces secret (or in .streamlit/secrets.toml) to reach the API.
   "postAttachCommand": {
-    "server": "streamlit run frontend/streamlit_app.py --server.enableCORS false --server.enableXsrfProtection false"
+    "server": "streamlit run frontend/streamlit_app.py"
   },
   "portsAttributes": {
     "8501": {
