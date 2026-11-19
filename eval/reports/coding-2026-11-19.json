@@ -1,0 +1,221 @@
+{
+  "run": {
+    "date": "2026-11-19",
+    "llm_model": "gemini-3.5-flash-lite",
+    "dataset": "code_cases.jsonl"
+  },
+  "summary": {
+    "cases": 18,
+    "identified": 1.0,
+    "valid_json": 1.0,
+    "by_language": {
+      "c": 1.0,
+      "cpp": 1.0,
+      "java": 1.0,
+      "python": 1.0,
+      "javascript": 1.0,
+      "sql": 1.0
+    }
+  },
+  "results": [
+    {
+      "case_id": "js-const-reassign",
+      "language": "javascript",
+      "identified": true,
+      "valid_json": true,
+      "exercise": true,
+      "reported_lines": [
+        1,
+        2
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "js-rest-not-last",
+      "language": "javascript",
+      "identified": true,
+      "valid_json": true,
+      "exercise": true,
+      "reported_lines": [
+        1
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "js-map-no-return",
+      "language": "javascript",
+      "identified": true,
+      "valid_json": true,
+      "exercise": true,
+      "reported_lines": [
+        1
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "py-range-off-by-one",
+      "language": "python",
+      "identified": true,
+      "valid_json": true,
+      "exercise": false,
+      "reported_lines": [
+        3
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "py-mutable-default",
+      "language": "python",
+      "identified": true,
+      "valid_json": true,
+      "exercise": false,
+      "reported_lines": [
+        1
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "py-str-plus-int",
+      "language": "python",
+      "identified": true,
+      "valid_json": true,
+      "exercise": false,
+      "reported_lines": [
+        2
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "c-array-out-of-bounds",
+      "language": "c",
+      "identified": true,
+      "valid_json": true,
+      "exercise": false,
+      "reported_lines": [
+        6
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "c-scanf-missing-ampersand",
+      "language": "c",
+      "identified": true,
+      "valid_json": true,
+      "exercise": false,
+      "reported_lines": [
+        5
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "c-assignment-in-if",
+      "language": "c",
+      "identified": true,
+      "valid_json": true,
+      "exercise": false,
+      "reported_lines": [
+        5
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "cpp-uninitialised-sum",
+      "language": "cpp",
+      "identified": true,
+      "valid_json": true,
+      "exercise": false,
+      "reported_lines": [
+        4
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "cpp-missing-return",
+      "language": "cpp",
+      "identified": true,
+      "valid_json": true,
+      "exercise": false,
+      "reported_lines": [
+        5
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "cpp-integer-division",
+      "language": "cpp",
+      "identified": true,
+      "valid_json": true,
+      "exercise": false,
+      "reported_lines": [
+        5
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "java-string-equals",
+      "language": "java",
+      "identified": true,
+      "valid_json": true,
+      "exercise": false,
+      "reported_lines": [
+        5
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "java-array-bounds",
+      "language": "java",
+      "identified": true,
+      "valid_json": true,
+      "exercise": false,
+      "reported_lines": [
+        4
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "java-null-pointer",
+      "language": "java",
+      "identified": true,
+      "valid_json": true,
+      "exercise": false,
+      "reported_lines": [
+        4
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "sql-equals-null",
+      "language": "sql",
+      "identified": true,
+      "valid_json": true,
+      "exercise": false,
+      "reported_lines": [
+        3
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "sql-aggregate-in-where",
+      "language": "sql",
+      "identified": true,
+      "valid_json": true,
+      "exercise": false,
+      "reported_lines": [
+        3
+      ],
+      "reason": ""
+    },
+    {
+      "case_id": "sql-join-without-on",
+      "language": "sql",
+      "identified": true,
+      "valid_json": true,
+      "exercise": false,
+      "reported_lines": [
+        5
+      ],
+      "reason": ""
+    }
+  ]
+}

@@ -56,15 +56,21 @@ class DatasetError(ValueError):
 
 
 def load_dataset(path: Path) -> list[EvalCase]:
-    cases: list[EvalCase] = []
+    return load_cases(path, EvalCase)
+
+
+def load_cases[CaseT: BaseModel](path: Path, model: type[CaseT]) -> list[CaseT]:
+    """Validate each JSON line as `model` (which must have an `id`); ids must be unique."""
+    cases: list[CaseT] = []
     for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         if not line.strip():
             continue
         try:
-            cases.append(EvalCase.model_validate(json.loads(line)))
+            cases.append(model.model_validate(json.loads(line)))
         except (json.JSONDecodeError, ValidationError) as exc:
             raise DatasetError(f"{path.name} line {number}: {exc}") from exc
-    duplicates = sorted({c.id for c in cases if [x.id for x in cases].count(c.id) > 1})
+    ids = [case.id for case in cases]  # type: ignore[attr-defined]
+    duplicates = sorted({case_id for case_id in ids if ids.count(case_id) > 1})
     if duplicates:
         raise DatasetError(f"duplicate case ids: {', '.join(duplicates)}")
     return cases

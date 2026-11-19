@@ -311,6 +311,27 @@ Check the real runners (sends ~30 small programs; `--share` creates one public l
 python scripts/code_runner_smoke.py
 ```
 
+## Coding assistant
+
+Any logged-in user, for `javascript`, `python`, `c`, `cpp`, `java` and `sql`. Code is up to 8 KB and 200 lines; topics up to 200 characters. Every response is validated JSON and lists up to 3 `related_lessons` (with `link`) found from the concepts involved.
+
+| Endpoint | Body | Returns |
+|---|---|---|
+| `POST /coding/explain` | `language`, `code` | `summary`, `lines: [{line, explanation}]` |
+| `POST /coding/debug` | `language`, `code`, optional `run` (the `/code/run` result) | `summary`, `issues: [{line, problem, fix_hint}]`, `corrected_code`, `exercise` |
+| `POST /coding/example` | `language`, `topic` | `title`, `code`, `explanation` |
+| `POST /coding/practice` | `language`, `topic` | `questions: [{question, hints, expected_output}]`, never solutions |
+
+- **Course exercises get hints only:** if the code is (nearly) a course bug hunt or mini challenge in that language, `/debug` answers with hints, `corrected_code: null` and `exercise: true`. Matching is by text similarity (≥ 0.8), so a heavily rewritten copy is not caught; the prompt's hints-only rule is the fallback.
+- **Line numbers are checked:** issues or explanations pointing outside the code are dropped.
+- **Errors:** 422 invalid input, 429 over the shared AI quota (chat and coding share `CHAT_QUESTIONS_*`), 502 when the model's reply is still not valid JSON after one retry, 503 when the provider is unavailable. Code and model output are never logged.
+
+Evaluate bug finding on 18 known-bug snippets (3 per language; the JavaScript ones are course bug hunts), about 18 LLM calls and no embeddings:
+
+```bash
+python eval/run_code_eval.py   # writes eval/reports/coding-<date>.{md,json}
+```
+
 ## Project layout
 
 ```
@@ -324,6 +345,7 @@ backend/app/        FastAPI application (package "app")
   vectorstore/      in-memory FAISS index, one per course
   rag/              grounded answers: follow-up rewriting, retriever, prompt, citation checks
   chat/             chat sessions: ownership, history window, saving exchanges (ChatService)
+  coding/           coding assistant: prompts, output schemas, exercise matching, CodingService
   evaluation/       evaluation dataset, retrieval and answer metrics, LLM judge, reports
   core/             configuration, logging, error handling
   providers/        shared plumbing: errors, retry, rate limiting, SDK clients
@@ -332,7 +354,7 @@ backend/app/        FastAPI application (package "app")
   db/               models, Database (engine/sessions), repositories
   migrations/       Alembic migrations (config: alembic.ini at the repo root)
 frontend/           Streamlit app (streamlit_app.py) and its API client (api_client.py)
-eval/               dataset.jsonl, run_eval.py, reports/ (committed baselines)
+eval/               dataset.jsonl + run_eval.py (RAG), code_cases.jsonl + run_code_eval.py (coding), reports/
   materials/        course files used by tests and evaluation (javascript-beginner.json)
 docs/               deployment guide
 scripts/            manual smoke tests (llm, embedding, code runner)

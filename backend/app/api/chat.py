@@ -1,11 +1,11 @@
 """Course questions answered from the course materials, with citations and history."""
 
-import logging
 import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
+from app.api.ai_errors import ai_errors
 from app.api.deps import CurrentUser, Session
 from app.api.schemas.chat import AskRequest, AskResponse, SessionDetail, SessionSummary
 from app.chat.service import (
@@ -16,11 +16,7 @@ from app.chat.service import (
     SessionFullError,
     SessionNotFoundError,
 )
-from app.core.quota import QuotaExceededError
 from app.db.errors import DuplicateError
-from app.providers.errors import ProviderCallError
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -56,21 +52,10 @@ async def ask(body: AskRequest, user: CurrentUser, session: Session, chats: Chat
     # and the pool is small. ChatService opens its own short transactions.
     await session.commit()
     try:
-        reply = await chats.ask(user_id, body.question, body.course_id, body.session_id)
+        with ai_errors():
+            reply = await chats.ask(user_id, body.question, body.course_id, body.session_id)
     except ChatError as exc:
         raise _http_error(exc) from exc
-    except QuotaExceededError as exc:
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            str(exc),
-            headers={"Retry-After": str(max(1, round(exc.retry_after)))},
-        ) from exc
-    except ProviderCallError as exc:
-        logger.warning("chat provider failure: %s", type(exc).__name__)
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            "The assistant is unavailable right now. Please try again shortly.",
-        ) from exc
     except DuplicateError as exc:
         raise HTTPException(
             status.HTTP_409_CONFLICT,

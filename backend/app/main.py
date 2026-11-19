@@ -16,11 +16,14 @@ from app.api.admin_documents import router as admin_documents_router
 from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
 from app.api.code_run import router as code_router
+from app.api.coding import router as coding_router
 from app.api.health import router as health_router
 from app.api.materials import router as materials_router
 from app.auth.seed import seed_admin
 from app.auth.service import AuthService, build_auth_service
 from app.chat.service import ChatService
+from app.coding.factory import build_coding_service
+from app.coding.service import CodingService
 from app.core.body_limit import BodySizeLimitMiddleware
 from app.core.config import Settings
 from app.core.errors import register_exception_handlers
@@ -29,8 +32,9 @@ from app.db.session import Database, build_database
 from app.indexing.factory import build_indexing_service
 from app.indexing.service import IndexingService
 from app.ingestion.files import MAX_UPLOAD_BYTES
+from app.llm.factory import build_llm_client
 from app.rag.answer import AnswerService
-from app.rag.factory import build_answer_service
+from app.rag.factory import build_answer_service, question_quota
 from app.runner.factory import build_code_runner_service
 from app.runner.service import CodeRunnerService
 
@@ -46,6 +50,7 @@ def create_app(
     code_runner: CodeRunnerService | None = None,
     indexing: IndexingService | None = None,
     answers: AnswerService | None = None,
+    coding: CodingService | None = None,
 ) -> FastAPI:
     """Build the app from explicit settings.
 
@@ -62,7 +67,14 @@ def create_app(
         app.state.database = database or build_database(settings)
         app.state.code_runner = code_runner or build_code_runner_service(settings)
         app.state.indexing = indexing or build_indexing_service(settings, app.state.database)
-        app.state.answers = answers or build_answer_service(settings, app.state.indexing)
+        # Chat and the coding assistant share one LLM client and one request quota: both
+        # spend the same free tier. The app owns the client and closes it at shutdown.
+        llm = build_llm_client(settings) if answers is None or coding is None else None
+        quota = question_quota(settings)
+        app.state.answers = answers or build_answer_service(
+            settings, app.state.indexing, llm, quota
+        )
+        app.state.coding = coding or build_coding_service(settings, app.state.indexing, llm, quota)
         app.state.chats = ChatService(app.state.database, app.state.answers)
         try:
             if settings.admin_username and settings.admin_password:
@@ -78,8 +90,8 @@ def create_app(
             yield
         finally:
             # Only close what we created; injected services belong to the caller.
-            if answers is None:
-                await app.state.answers.aclose()
+            if llm is not None:
+                await llm.aclose()
             if indexing is None:
                 await app.state.indexing.aclose()
             else:
@@ -104,6 +116,7 @@ def create_app(
     app.include_router(materials_router)
     app.include_router(admin_documents_router)
     app.include_router(chat_router)
+    app.include_router(coding_router)
     return app
 
 

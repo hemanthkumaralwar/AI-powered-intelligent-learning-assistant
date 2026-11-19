@@ -24,3 +24,12 @@ async def test_raises_scripted_exceptions() -> None:
 
     with pytest.raises(ProviderRequestError, match="boom"):
         await model.complete(REQUEST)
+
+
+async def test_push_queues_more_replies() -> None:
+    model = FakeChatModel(["first"])
+    model.push("second", "third")
+
+    replies = [(await model.complete(REQUEST)).text for _ in range(4)]
+
+    assert replies == ["first", "second", "third", DEFAULT_REPLY]

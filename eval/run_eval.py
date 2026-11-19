@@ -48,16 +48,14 @@ from app.evaluation.answer_report import (  # noqa: E402
 from app.evaluation.answers import AnswerReport, evaluate_answers  # noqa: E402
 from app.evaluation.dataset import EvalCase, load_dataset, unknown_lessons  # noqa: E402
 from app.evaluation.judge import JudgeCache, LLMJudge  # noqa: E402
+from app.evaluation.pacing import paced_llm  # noqa: E402
 from app.evaluation.report import render_markdown, to_json  # noqa: E402
 from app.evaluation.retrieval import RetrievalReport, evaluate_retrieval  # noqa: E402
 from app.indexing.service import IndexingService  # noqa: E402
 from app.ingestion.chunking import ChunkingConfig, chunk_course  # noqa: E402
 from app.ingestion.course_json import parse_course  # noqa: E402
-from app.llm.base import ChatMessage, ChatModel, CompletionRequest, LLMResponse  # noqa: E402
+from app.llm.base import ChatMessage  # noqa: E402
 from app.llm.client import LLMClient  # noqa: E402
-from app.llm.factory import build_chat_model  # noqa: E402
-from app.providers.rate_limit import RateLimiter  # noqa: E402
-from app.providers.retry import RetryPolicy  # noqa: E402
 from app.rag.answer import AnswerService  # noqa: E402
 from app.rag.condense import Condenser  # noqa: E402
 from app.rag.retriever import Retriever  # noqa: E402
@@ -67,23 +65,6 @@ COURSE_FILE = ROOT / "eval" / "materials" / "javascript-beginner.json"
 JUDGE_CACHE = ROOT / "eval" / "cache" / "judge.json"
 COURSE_ID = "javascript-beginner-v1"
 TOP_K = 10
-
-
-class PacedChatModel:
-    """Spaces out LLM calls (answers and judge alike) to stay inside the free tier."""
-
-    def __init__(self, inner: ChatModel, limiter: RateLimiter) -> None:
-        self._inner = inner
-        self._limiter = limiter
-        self.provider = inner.provider
-        self.model = inner.model
-
-    async def complete(self, request: CompletionRequest) -> LLMResponse:
-        await self._limiter.acquire()
-        return await self._inner.complete(request)
-
-    async def aclose(self) -> None:
-        await self._inner.aclose()
 
 
 class CachedSearch:
@@ -127,15 +108,6 @@ async def live(
             await llm.aclose()
         await service.aclose()
         await database.dispose()
-
-
-def paced_llm(settings: Settings, per_minute: int) -> LLMClient:
-    """One LLM client for every model call of the run (rewrites, answers, judge)."""
-    return LLMClient(
-        PacedChatModel(build_chat_model(settings), RateLimiter(per_minute)),
-        timeout_seconds=settings.llm_timeout_seconds,
-        retry_policy=RetryPolicy(max_attempts=settings.llm_max_attempts),
-    )
 
 
 def follow_up_rewriter(condenser: Condenser):

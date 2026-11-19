@@ -102,14 +102,6 @@ async def test_logs_metadata_never_text(caplog: pytest.LogCaptureFixture, servic
     assert "private" not in caplog.text and "secret" not in caplog.text
 
 
-async def test_aclose_closes_the_llm(service) -> None:
-    answers, model, _ = service([])
-
-    await answers.aclose()
-
-    assert model.closed
-
-
 async def test_follow_up_is_rewritten_before_retrieval_and_answering(service, hit) -> None:
     answers, model, search = service([hit(0.8)], "How do I loop over an array?", "Use for-of [1].")
     history = [

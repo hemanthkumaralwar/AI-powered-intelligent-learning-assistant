@@ -2,7 +2,7 @@ from sqlalchemy import delete, exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models import Course, Lesson, Module
+from app.db.models import Course, Exercise, Lesson, Module
 from app.db.repositories._integrity import unique_violation_as
 
 
@@ -35,6 +35,18 @@ class CourseRepository:
 
     async def exists(self, course_id: str) -> bool:
         return bool(await self._session.scalar(select(exists().where(Course.id == course_id))))
+
+    async def exercise_code(self, language: str) -> list[str]:
+        """Starter code of every bug hunt and mini challenge in courses of `language`, so
+        the coding assistant can recognise an exercise and hold back its solution."""
+        rows = await self._session.scalars(
+            select(Exercise.starter_code)
+            .join(Lesson, Exercise.lesson_id == Lesson.id)
+            .join(Module, Lesson.module_id == Module.id)
+            .join(Course, Module.course_id == Course.id)
+            .where(Course.language == language, Exercise.kind.in_(("bug_hunt", "mini_challenge")))
+        )
+        return list(rows)
 
     async def delete(self, course_id: str) -> bool:
         """Delete a course; its modules, lessons, quizzes, exercises and documents go with it."""

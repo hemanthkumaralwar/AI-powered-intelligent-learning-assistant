@@ -4,6 +4,8 @@ import pytest
 
 from app.core.config import Settings
 from app.core.quota import QuotaExceededError
+from app.llm.client import LLMClient
+from app.llm.factory import build_llm_client
 from app.rag.answer import AnswerService
 from app.rag.factory import THRESHOLD_EMBEDDING_ID, build_answer_service, question_quota
 
@@ -20,11 +22,17 @@ def settings(**overrides) -> Settings:
     return Settings(_env_file=None, llm_provider="fake", **overrides)
 
 
+def fake_llm() -> LLMClient:
+    return build_llm_client(settings())
+
+
 def test_builds_without_warning_in_the_measured_embedding_space(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     with caplog.at_level(logging.WARNING, logger="app.rag.factory"):
-        service = build_answer_service(settings(), StubIndexing(THRESHOLD_EMBEDDING_ID))
+        service = build_answer_service(
+            settings(), StubIndexing(THRESHOLD_EMBEDDING_ID), fake_llm(), question_quota(settings())
+        )
 
     assert isinstance(service, AnswerService)
     assert caplog.text == ""
@@ -32,7 +40,9 @@ def test_builds_without_warning_in_the_measured_embedding_space(
 
 def test_warns_when_the_threshold_was_measured_elsewhere(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level(logging.WARNING, logger="app.rag.factory"):
-        build_answer_service(settings(), StubIndexing("huggingface:bge:384"))
+        build_answer_service(
+            settings(), StubIndexing("huggingface:bge:384"), fake_llm(), question_quota(settings())
+        )
 
     assert "re-run eval/run_eval.py" in caplog.text
 

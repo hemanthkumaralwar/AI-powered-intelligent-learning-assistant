@@ -41,6 +41,10 @@ class FakeChatModel:
     async def aclose(self) -> None:
         self.closed = True
 
+    def push(self, *steps: ScriptStep) -> None:
+        """Queue more scripted replies (for a fake already wired into an app)."""
+        self._script.extend(steps)
+
     async def complete(self, request: CompletionRequest) -> LLMResponse:
         self.requests.append(request)
         if self._delay_seconds:

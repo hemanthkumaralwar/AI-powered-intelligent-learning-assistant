@@ -74,9 +74,6 @@ class AnswerService:
         self._condenser = condenser
         self._options = options
 
-    async def aclose(self) -> None:
-        await self._llm.aclose()
-
     async def ask(
         self,
         user_key: Hashable,
