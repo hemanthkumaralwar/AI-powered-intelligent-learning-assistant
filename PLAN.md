@@ -379,6 +379,13 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - **New endpoints:** admin `POST /admin/search` and `POST /admin/reindex`.
 - **Step 10 — `GEMINI_API_KEY` required on Render (owner: you, before this deploy).** The API builds the embedding client at startup. Without the key, Render rejects the new version and keeps the previous one running.
 - **Step 10 — free-tier embedding budget (owner: maintainer, watch).** About 1,000 texts a day are shared by indexing (424 per course) and student questions (1 each). A second course, or a re-index after changing the embedding model, may take two days. Each document's `error_message` shows when it is waiting.
+- **Step 11 results (2026-11-19; reports in `eval/reports/`).**
+  - **Baseline (Gemini `gemini-embedding-001`, 424 chunks, 78 cases):** answerable hit@1 98%, hit@3/5/10 100%, MRR 0.989. Follow-ups as asked: hit@5 62%, hit@10 88%; rewritten into standalone questions: 100%.
+  - **Chunk size: kept at 1,500 / 150** after an offline comparison with the local Hugging Face model (no quota). 1,000 / 150 found one more question (hit@5 98% vs 97%) but did worse on follow-ups (38% vs 50%) and on telling answerable from out-of-course questions (91% vs 94%), with twice the chunks (865 vs 424), so twice the daily quota. 2,000 / 200 scored the same as 1,500. **No Gemini re-index.**
+  - **For Step 12:** `k = 5` (hit@3 is already 100%; 5 leaves headroom). Similarity threshold **0.63**: every answerable question scored ≥ 0.640 and every out-of-course one ≤ 0.624. The margin is thin (0.016), so Step 12 re-measures refusals with the LLM in the loop.
+  - **For Step 13:** follow-ups must be rewritten into standalone questions before retrieval (62% → 100% hit@5).
+  - **Caveat:** the questions were written from the course text, so these scores are optimistic. Real student questions will score lower; add misses from Step 21's live evaluation to the dataset.
+  - **Threshold depends on the embedding model.** It is measured for `gemini-embedding-001` at 768 dimensions; re-run `eval/run_eval.py` after any change of embedding provider or model (the Hugging Face model's best threshold is about 0.70).
 
 ## Pending inputs
 

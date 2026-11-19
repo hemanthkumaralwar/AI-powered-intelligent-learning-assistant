@@ -1,0 +1,890 @@
+{
+  "run": {
+    "index": "live (rebuilt from the database)",
+    "chunks": 424,
+    "embedding_id": "gemini:gemini-embedding-001:768",
+    "date": "2026-11-19",
+    "dataset": "dataset.jsonl",
+    "cases": 78
+  },
+  "answerable": {
+    "count": 58,
+    "hit_at": {
+      "1": 0.9827586206896551,
+      "3": 1.0,
+      "5": 1.0,
+      "10": 1.0
+    },
+    "mrr": 0.9885057471264368
+  },
+  "multi_turn_raw": {
+    "count": 8,
+    "hit_at": {
+      "1": 0.375,
+      "3": 0.5,
+      "5": 0.625,
+      "10": 0.875
+    },
+    "mrr": 0.48333333333333334
+  },
+  "multi_turn_rewritten": {
+    "count": 8,
+    "hit_at": {
+      "1": 1.0,
+      "3": 1.0,
+      "5": 1.0,
+      "10": 1.0
+    },
+    "mrr": 1.0
+  },
+  "hit_at_5_by_module": {
+    "mod-1": 1.0,
+    "mod-2": 1.0,
+    "mod-3": 1.0,
+    "mod-4": 1.0,
+    "mod-5": 1.0,
+    "mod-6": 1.0,
+    "mod-7": 1.0,
+    "mod-8": 1.0
+  },
+  "threshold": {
+    "value": 0.6319653987884521,
+    "accuracy": 1.0
+  },
+  "unanswerable_top_scores": {
+    "react-hooks": 0.6188611388206482,
+    "python-decorators": 0.5839836597442627,
+    "sql-joins": 0.5308157205581665,
+    "docker-compose": 0.5258162021636963,
+    "typescript-generics": 0.5896595120429993,
+    "css-grid": 0.5499451160430908,
+    "git-rebase": 0.5394207835197449,
+    "web-workers": 0.6240119934082031,
+    "node-streams": 0.5793361663818359,
+    "java-interfaces": 0.526373565196991,
+    "graphql": 0.6018916368484497,
+    "regex-lookahead": 0.5718082785606384
+  },
+  "results": {
+    "answerable": [
+      {
+        "case_id": "let-vs-const",
+        "module": "mod-1",
+        "rank": 1,
+        "top_score": 0.7321516275405884,
+        "top_lessons": [
+          "javascript-beginner-mod-1-lesson-1",
+          "javascript-beginner-mod-1-lesson-1",
+          "javascript-beginner-mod-1-lesson-1"
+        ]
+      },
+      {
+        "case_id": "why-avoid-var",
+        "module": "mod-1",
+        "rank": 1,
+        "top_score": 0.66945481300354,
+        "top_lessons": [
+          "javascript-beginner-mod-1-lesson-1",
+          "javascript-beginner-mod-1-lesson-1",
+          "javascript-beginner-mod-1-lesson-1"
+        ]
+      },
+      {
+        "case_id": "primitive-types",
+        "module": "mod-1",
+        "rank": 1,
+        "top_score": 0.7494820356369019,
+        "top_lessons": [
+          "javascript-beginner-mod-1-lesson-2",
+          "javascript-beginner-mod-1-lesson-2",
+          "javascript-beginner-mod-1-lesson-2"
+        ]
+      },
+      {
+        "case_id": "typeof-null",
+        "module": "mod-1",
+        "rank": 1,
+        "top_score": 0.7105683088302612,
+        "top_lessons": [
+          "javascript-beginner-mod-1-lesson-8",
+          "javascript-beginner-mod-1-lesson-8",
+          "javascript-beginner-mod-1-lesson-8"
+        ]
+      },
+      {
+        "case_id": "falsy-values",
+        "module": "mod-3",
+        "rank": 1,
+        "top_score": 0.7427480220794678,
+        "top_lessons": [
+          "javascript-beginner-mod-3-lesson-5",
+          "javascript-beginner-mod-3-lesson-5",
+          "javascript-beginner-mod-3-lesson-5"
+        ]
+      },
+      {
+        "case_id": "float-precision",
+        "module": "mod-1",
+        "rank": 1,
+        "top_score": 0.646634578704834,
+        "top_lessons": [
+          "javascript-beginner-mod-1-lesson-4",
+          "javascript-beginner-mod-1-lesson-4",
+          "javascript-beginner-mod-1-lesson-4"
+        ]
+      },
+      {
+        "case_id": "slice-indexes",
+        "module": "mod-1",
+        "rank": 1,
+        "top_score": 0.6658545732498169,
+        "top_lessons": [
+          "javascript-beginner-mod-1-lesson-5",
+          "javascript-beginner-mod-1-lesson-5",
+          "javascript-beginner-mod-1-lesson-5"
+        ]
+      },
+      {
+        "case_id": "template-literals",
+        "module": "mod-1",
+        "rank": 1,
+        "top_score": 0.6983948349952698,
+        "top_lessons": [
+          "javascript-beginner-mod-1-lesson-6",
+          "javascript-beginner-mod-1-lesson-6",
+          "javascript-beginner-mod-1-lesson-6"
+        ]
+      },
+      {
+        "case_id": "triple-equals",
+        "module": "mod-1",
+        "rank": 1,
+        "top_score": 0.7402757406234741,
+        "top_lessons": [
+          "javascript-beginner-mod-1-lesson-7",
+          "javascript-beginner-mod-1-lesson-7",
+          "javascript-beginner-mod-1-lesson-7"
+        ]
+      },
+      {
+        "case_id": "nan-check",
+        "module": "mod-1",
+        "rank": 1,
+        "top_score": 0.6399188041687012,
+        "top_lessons": [
+          "javascript-beginner-mod-1-lesson-7",
+          "javascript-beginner-mod-4-lesson-7",
+          "javascript-beginner-mod-1-lesson-7"
+        ]
+      },
+      {
+        "case_id": "plus-string-coercion",
+        "module": "mod-1",
+        "rank": 1,
+        "top_score": 0.6952820420265198,
+        "top_lessons": [
+          "javascript-beginner-mod-1-lesson-3",
+          "javascript-beginner-mod-1-lesson-3",
+          "javascript-beginner-mod-1-lesson-3"
+        ]
+      },
+      {
+        "case_id": "hoisting",
+        "module": "mod-2",
+        "rank": 1,
+        "top_score": 0.6773858070373535,
+        "top_lessons": [
+          "javascript-beginner-mod-2-lesson-1",
+          "javascript-beginner-mod-2-lesson-1",
+          "javascript-beginner-mod-2-lesson-1"
+        ]
+      },
+      {
+        "case_id": "arrow-object-return",
+        "module": "mod-2",
+        "rank": 1,
+        "top_score": 0.727430522441864,
+        "top_lessons": [
+          "javascript-beginner-mod-2-lesson-2",
+          "javascript-beginner-mod-2-lesson-2",
+          "javascript-beginner-mod-2-lesson-2"
+        ]
+      },
+      {
+        "case_id": "rest-parameters",
+        "module": "mod-2",
+        "rank": 1,
+        "top_score": 0.6718879342079163,
+        "top_lessons": [
+          "javascript-beginner-mod-2-lesson-3",
+          "javascript-beginner-mod-2-lesson-3",
+          "javascript-beginner-mod-2-lesson-3"
+        ]
+      },
+      {
+        "case_id": "higher-order",
+        "module": "mod-2",
+        "rank": 1,
+        "top_score": 0.7337930202484131,
+        "top_lessons": [
+          "javascript-beginner-mod-2-lesson-4",
+          "javascript-beginner-mod-2-lesson-4",
+          "javascript-beginner-mod-2-lesson-4"
+        ]
+      },
+      {
+        "case_id": "pure-function",
+        "module": "mod-2",
+        "rank": 1,
+        "top_score": 0.7361945509910583,
+        "top_lessons": [
+          "javascript-beginner-mod-2-lesson-6",
+          "javascript-beginner-mod-2-lesson-6",
+          "javascript-beginner-mod-2-lesson-6"
+        ]
+      },
+      {
+        "case_id": "recursion-base-case",
+        "module": "mod-2",
+        "rank": 1,
+        "top_score": 0.7004092931747437,
+        "top_lessons": [
+          "javascript-beginner-mod-2-lesson-7",
+          "javascript-beginner-mod-2-lesson-7",
+          "javascript-beginner-mod-2-lesson-7"
+        ]
+      },
+      {
+        "case_id": "closure",
+        "module": "mod-2",
+        "rank": 1,
+        "top_score": 0.7217057943344116,
+        "top_lessons": [
+          "javascript-beginner-mod-2-lesson-8",
+          "javascript-beginner-mod-2-lesson-8",
+          "javascript-beginner-mod-2-lesson-8"
+        ]
+      },
+      {
+        "case_id": "error-first-callback",
+        "module": "mod-2",
+        "rank": 1,
+        "top_score": 0.725035548210144,
+        "top_lessons": [
+          "javascript-beginner-mod-8-lesson-2",
+          "javascript-beginner-mod-2-lesson-5",
+          "javascript-beginner-mod-8-lesson-2"
+        ]
+      },
+      {
+        "case_id": "ternary",
+        "module": "mod-3",
+        "rank": 1,
+        "top_score": 0.7113671898841858,
+        "top_lessons": [
+          "javascript-beginner-mod-3-lesson-1",
+          "javascript-beginner-mod-3-lesson-1",
+          "javascript-beginner-mod-3-lesson-1"
+        ]
+      },
+      {
+        "case_id": "switch-break",
+        "module": "mod-3",
+        "rank": 1,
+        "top_score": 0.7138543128967285,
+        "top_lessons": [
+          "javascript-beginner-mod-3-lesson-2",
+          "javascript-beginner-mod-3-lesson-2",
+          "javascript-beginner-mod-3-lesson-2"
+        ]
+      },
+      {
+        "case_id": "loop-choice",
+        "module": "mod-3",
+        "rank": 1,
+        "top_score": 0.7066304683685303,
+        "top_lessons": [
+          "javascript-beginner-mod-3-lesson-7",
+          "javascript-beginner-mod-4-lesson-3",
+          "javascript-beginner-mod-4-lesson-3"
+        ]
+      },
+      {
+        "case_id": "nullish-vs-or",
+        "module": "mod-3",
+        "rank": 1,
+        "top_score": 0.7117807865142822,
+        "top_lessons": [
+          "javascript-beginner-mod-3-lesson-4",
+          "javascript-beginner-mod-3-lesson-4",
+          "javascript-beginner-mod-3-lesson-4"
+        ]
+      },
+      {
+        "case_id": "empty-array-truthy",
+        "module": "mod-3",
+        "rank": 1,
+        "top_score": 0.7495875358581543,
+        "top_lessons": [
+          "javascript-beginner-mod-3-lesson-5",
+          "javascript-beginner-mod-3-lesson-5",
+          "javascript-beginner-mod-3-lesson-5"
+        ]
+      },
+      {
+        "case_id": "break-continue",
+        "module": "mod-3",
+        "rank": 1,
+        "top_score": 0.717678427696228,
+        "top_lessons": [
+          "javascript-beginner-mod-3-lesson-6",
+          "javascript-beginner-mod-3-lesson-6",
+          "javascript-beginner-mod-3-lesson-6"
+        ]
+      },
+      {
+        "case_id": "for-in-vs-for-of",
+        "module": "mod-3",
+        "rank": 1,
+        "top_score": 0.7682557106018066,
+        "top_lessons": [
+          "javascript-beginner-mod-3-lesson-7",
+          "javascript-beginner-mod-3-lesson-7",
+          "javascript-beginner-mod-3-lesson-7"
+        ]
+      },
+      {
+        "case_id": "try-catch-finally",
+        "module": "mod-3",
+        "rank": 1,
+        "top_score": 0.7131784558296204,
+        "top_lessons": [
+          "javascript-beginner-mod-3-lesson-8",
+          "javascript-beginner-mod-3-lesson-8",
+          "javascript-beginner-mod-3-lesson-8"
+        ]
+      },
+      {
+        "case_id": "last-element",
+        "module": "mod-4",
+        "rank": 1,
+        "top_score": 0.6730380058288574,
+        "top_lessons": [
+          "javascript-beginner-mod-4-lesson-1",
+          "javascript-beginner-mod-4-lesson-1",
+          "javascript-beginner-mod-4-lesson-1"
+        ]
+      },
+      {
+        "case_id": "push-vs-unshift",
+        "module": "mod-4",
+        "rank": 1,
+        "top_score": 0.7202978134155273,
+        "top_lessons": [
+          "javascript-beginner-mod-4-lesson-2",
+          "javascript-beginner-mod-4-lesson-2",
+          "javascript-beginner-mod-4-lesson-2"
+        ]
+      },
+      {
+        "case_id": "break-foreach",
+        "module": "mod-4",
+        "rank": 3,
+        "top_score": 0.7249379754066467,
+        "top_lessons": [
+          "javascript-beginner-mod-3-lesson-6",
+          "javascript-beginner-mod-3-lesson-6",
+          "javascript-beginner-mod-3-lesson-7"
+        ]
+      },
+      {
+        "case_id": "map-undefined",
+        "module": "mod-4",
+        "rank": 1,
+        "top_score": 0.7116428017616272,
+        "top_lessons": [
+          "javascript-beginner-mod-4-lesson-4",
+          "javascript-beginner-mod-4-lesson-4",
+          "javascript-beginner-mod-4-lesson-4"
+        ]
+      },
+      {
+        "case_id": "filter-length",
+        "module": "mod-4",
+        "rank": 1,
+        "top_score": 0.7070587277412415,
+        "top_lessons": [
+          "javascript-beginner-mod-4-lesson-5",
+          "javascript-beginner-mod-4-lesson-5",
+          "javascript-beginner-mod-4-lesson-5"
+        ]
+      },
+      {
+        "case_id": "reduce-initial",
+        "module": "mod-4",
+        "rank": 1,
+        "top_score": 0.7165071964263916,
+        "top_lessons": [
+          "javascript-beginner-mod-4-lesson-6",
+          "javascript-beginner-mod-4-lesson-6",
+          "javascript-beginner-mod-4-lesson-6"
+        ]
+      },
+      {
+        "case_id": "find-vs-filter",
+        "module": "mod-4",
+        "rank": 1,
+        "top_score": 0.7082523107528687,
+        "top_lessons": [
+          "javascript-beginner-mod-4-lesson-7",
+          "javascript-beginner-mod-4-lesson-5",
+          "javascript-beginner-mod-4-lesson-5"
+        ]
+      },
+      {
+        "case_id": "sort-numbers",
+        "module": "mod-4",
+        "rank": 1,
+        "top_score": 0.683337390422821,
+        "top_lessons": [
+          "javascript-beginner-mod-4-lesson-8",
+          "javascript-beginner-mod-4-lesson-8",
+          "javascript-beginner-mod-4-lesson-8"
+        ]
+      },
+      {
+        "case_id": "dot-vs-bracket",
+        "module": "mod-5",
+        "rank": 1,
+        "top_score": 0.7777148485183716,
+        "top_lessons": [
+          "javascript-beginner-mod-5-lesson-2",
+          "javascript-beginner-mod-5-lesson-2",
+          "javascript-beginner-mod-5-lesson-2"
+        ]
+      },
+      {
+        "case_id": "destructuring-defaults",
+        "module": "mod-5",
+        "rank": 1,
+        "top_score": 0.7375580668449402,
+        "top_lessons": [
+          "javascript-beginner-mod-5-lesson-3",
+          "javascript-beginner-mod-5-lesson-3",
+          "javascript-beginner-mod-5-lesson-3"
+        ]
+      },
+      {
+        "case_id": "spread-copy",
+        "module": "mod-5",
+        "rank": 1,
+        "top_score": 0.742085337638855,
+        "top_lessons": [
+          "javascript-beginner-mod-5-lesson-4",
+          "javascript-beginner-mod-5-lesson-4",
+          "javascript-beginner-mod-5-lesson-4"
+        ]
+      },
+      {
+        "case_id": "optional-chaining",
+        "module": "mod-5",
+        "rank": 1,
+        "top_score": 0.7133086919784546,
+        "top_lessons": [
+          "javascript-beginner-mod-5-lesson-5",
+          "javascript-beginner-mod-5-lesson-5",
+          "javascript-beginner-mod-5-lesson-5"
+        ]
+      },
+      {
+        "case_id": "object-entries-loop",
+        "module": "mod-5",
+        "rank": 1,
+        "top_score": 0.7419230937957764,
+        "top_lessons": [
+          "javascript-beginner-mod-5-lesson-6",
+          "javascript-beginner-mod-5-lesson-6",
+          "javascript-beginner-mod-5-lesson-6"
+        ]
+      },
+      {
+        "case_id": "freeze-nested",
+        "module": "mod-5",
+        "rank": 1,
+        "top_score": 0.6993486285209656,
+        "top_lessons": [
+          "javascript-beginner-mod-5-lesson-7",
+          "javascript-beginner-mod-5-lesson-7",
+          "javascript-beginner-mod-5-lesson-7"
+        ]
+      },
+      {
+        "case_id": "json-stringify-pretty",
+        "module": "mod-5",
+        "rank": 1,
+        "top_score": 0.6966449022293091,
+        "top_lessons": [
+          "javascript-beginner-mod-5-lesson-8",
+          "javascript-beginner-mod-5-lesson-8",
+          "javascript-beginner-mod-5-lesson-8"
+        ]
+      },
+      {
+        "case_id": "innerhtml-danger",
+        "module": "mod-6",
+        "rank": 1,
+        "top_score": 0.71671462059021,
+        "top_lessons": [
+          "javascript-beginner-mod-6-lesson-2",
+          "javascript-beginner-mod-6-lesson-2",
+          "javascript-beginner-mod-6-lesson-2"
+        ]
+      },
+      {
+        "case_id": "classlist",
+        "module": "mod-6",
+        "rank": 1,
+        "top_score": 0.6979297995567322,
+        "top_lessons": [
+          "javascript-beginner-mod-6-lesson-3",
+          "javascript-beginner-mod-6-lesson-3",
+          "javascript-beginner-mod-6-lesson-3"
+        ]
+      },
+      {
+        "case_id": "dom-ready",
+        "module": "mod-6",
+        "rank": 1,
+        "top_score": 0.7026163935661316,
+        "top_lessons": [
+          "javascript-beginner-mod-6-lesson-8",
+          "javascript-beginner-mod-6-lesson-8",
+          "javascript-beginner-mod-6-lesson-8"
+        ]
+      },
+      {
+        "case_id": "target-vs-currenttarget",
+        "module": "mod-7",
+        "rank": 1,
+        "top_score": 0.7429699301719666,
+        "top_lessons": [
+          "javascript-beginner-mod-7-lesson-2",
+          "javascript-beginner-mod-7-lesson-2",
+          "javascript-beginner-mod-7-lesson-2"
+        ]
+      },
+      {
+        "case_id": "event-delegation",
+        "module": "mod-7",
+        "rank": 1,
+        "top_score": 0.7219171524047852,
+        "top_lessons": [
+          "javascript-beginner-mod-7-lesson-7",
+          "javascript-beginner-mod-7-lesson-7",
+          "javascript-beginner-mod-7-lesson-7"
+        ]
+      },
+      {
+        "case_id": "fetch-errors",
+        "module": "mod-8",
+        "rank": 1,
+        "top_score": 0.6955522298812866,
+        "top_lessons": [
+          "javascript-beginner-mod-8-lesson-5",
+          "javascript-beginner-mod-8-lesson-5",
+          "javascript-beginner-mod-8-lesson-5"
+        ]
+      },
+      {
+        "case_id": "promise-all-vs-allsettled",
+        "module": "mod-8",
+        "rank": 1,
+        "top_score": 0.7633976936340332,
+        "top_lessons": [
+          "javascript-beginner-mod-8-lesson-7",
+          "javascript-beginner-mod-8-lesson-7",
+          "javascript-beginner-mod-8-lesson-7"
+        ]
+      },
+      {
+        "case_id": "practice-loops-exercise",
+        "module": "mod-3",
+        "rank": 1,
+        "top_score": 0.7210749387741089,
+        "top_lessons": [
+          "javascript-beginner-mod-3-lesson-3",
+          "javascript-beginner-mod-3-lesson-5",
+          "javascript-beginner-mod-4-lesson-3"
+        ]
+      },
+      {
+        "case_id": "static-vs-live",
+        "module": "mod-6",
+        "rank": 1,
+        "top_score": 0.6975811719894409,
+        "top_lessons": [
+          "javascript-beginner-mod-6-lesson-1",
+          "javascript-beginner-mod-6-lesson-1",
+          "javascript-beginner-mod-6-lesson-1"
+        ]
+      },
+      {
+        "case_id": "append-vs-appendchild",
+        "module": "mod-6",
+        "rank": 1,
+        "top_score": 0.7202699184417725,
+        "top_lessons": [
+          "javascript-beginner-mod-6-lesson-5",
+          "javascript-beginner-mod-6-lesson-5",
+          "javascript-beginner-mod-6-lesson-5"
+        ]
+      },
+      {
+        "case_id": "closest",
+        "module": "mod-6",
+        "rank": 1,
+        "top_score": 0.6784376502037048,
+        "top_lessons": [
+          "javascript-beginner-mod-6-lesson-7",
+          "javascript-beginner-mod-6-lesson-7",
+          "javascript-beginner-mod-6-lesson-7"
+        ]
+      },
+      {
+        "case_id": "remove-listener",
+        "module": "mod-7",
+        "rank": 1,
+        "top_score": 0.6767365336418152,
+        "top_lessons": [
+          "javascript-beginner-mod-7-lesson-1",
+          "javascript-beginner-mod-7-lesson-1",
+          "javascript-beginner-mod-7-lesson-1"
+        ]
+      },
+      {
+        "case_id": "key-vs-code",
+        "module": "mod-7",
+        "rank": 1,
+        "top_score": 0.7765467762947083,
+        "top_lessons": [
+          "javascript-beginner-mod-7-lesson-4",
+          "javascript-beginner-mod-7-lesson-4",
+          "javascript-beginner-mod-7-lesson-4"
+        ]
+      },
+      {
+        "case_id": "form-submit-reload",
+        "module": "mod-7",
+        "rank": 1,
+        "top_score": 0.6414092779159546,
+        "top_lessons": [
+          "javascript-beginner-mod-7-lesson-5",
+          "javascript-beginner-mod-7-lesson-5",
+          "javascript-beginner-mod-7-lesson-8"
+        ]
+      },
+      {
+        "case_id": "async-returns",
+        "module": "mod-8",
+        "rank": 1,
+        "top_score": 0.7113151550292969,
+        "top_lessons": [
+          "javascript-beginner-mod-8-lesson-4",
+          "javascript-beginner-mod-8-lesson-4",
+          "javascript-beginner-mod-8-lesson-4"
+        ]
+      },
+      {
+        "case_id": "event-loop",
+        "module": "mod-8",
+        "rank": 1,
+        "top_score": 0.7348944544792175,
+        "top_lessons": [
+          "javascript-beginner-mod-8-lesson-1",
+          "javascript-beginner-mod-8-lesson-1",
+          "javascript-beginner-mod-8-lesson-1"
+        ]
+      }
+    ],
+    "multi_turn_raw": [
+      {
+        "case_id": "mt-array-loop",
+        "module": "mod-3",
+        "rank": 1,
+        "top_score": 0.6895577907562256,
+        "top_lessons": [
+          "javascript-beginner-mod-3-lesson-3",
+          "javascript-beginner-mod-3-lesson-7",
+          "javascript-beginner-mod-3-lesson-7"
+        ]
+      },
+      {
+        "case_id": "mt-promise-errors",
+        "module": "mod-8",
+        "rank": 5,
+        "top_score": 0.6970677375793457,
+        "top_lessons": [
+          "javascript-beginner-mod-3-lesson-8",
+          "javascript-beginner-mod-3-lesson-8",
+          "javascript-beginner-mod-3-lesson-8"
+        ]
+      },
+      {
+        "case_id": "mt-arrow-this",
+        "module": "mod-2",
+        "rank": 6,
+        "top_score": 0.6027995347976685,
+        "top_lessons": [
+          "javascript-beginner-mod-2-lesson-3",
+          "javascript-beginner-mod-2-lesson-1",
+          "javascript-beginner-mod-2-lesson-3"
+        ]
+      },
+      {
+        "case_id": "mt-reduce-sum",
+        "module": "mod-4",
+        "rank": 3,
+        "top_score": 0.6592516899108887,
+        "top_lessons": [
+          "javascript-beginner-mod-1-lesson-4",
+          "javascript-beginner-mod-3-lesson-3",
+          "javascript-beginner-mod-4-lesson-6"
+        ]
+      },
+      {
+        "case_id": "mt-event-stop",
+        "module": "mod-7",
+        "rank": 6,
+        "top_score": 0.639103889465332,
+        "top_lessons": [
+          "javascript-beginner-mod-7-lesson-8",
+          "javascript-beginner-mod-7-lesson-8",
+          "javascript-beginner-mod-7-lesson-8"
+        ]
+      },
+      {
+        "case_id": "mt-object-copy",
+        "module": "mod-5",
+        "rank": 1,
+        "top_score": 0.6441769003868103,
+        "top_lessons": [
+          "javascript-beginner-mod-5-lesson-4",
+          "javascript-beginner-mod-5-lesson-4",
+          "javascript-beginner-mod-5-lesson-4"
+        ]
+      },
+      {
+        "case_id": "mt-timer-cancel",
+        "module": "mod-8",
+        "rank": null,
+        "top_score": 0.6331010460853577,
+        "top_lessons": [
+          "javascript-beginner-mod-7-lesson-8",
+          "javascript-beginner-mod-7-lesson-8",
+          "javascript-beginner-mod-7-lesson-8"
+        ]
+      },
+      {
+        "case_id": "mt-string-case",
+        "module": "mod-1",
+        "rank": 1,
+        "top_score": 0.5915049910545349,
+        "top_lessons": [
+          "javascript-beginner-mod-1-lesson-5",
+          "javascript-beginner-mod-3-lesson-2",
+          "javascript-beginner-mod-5-lesson-7"
+        ]
+      }
+    ],
+    "multi_turn_rewritten": [
+      {
+        "case_id": "mt-array-loop",
+        "module": "mod-3",
+        "rank": 1,
+        "top_score": 0.6986011266708374,
+        "top_lessons": [
+          "javascript-beginner-mod-4-lesson-3",
+          "javascript-beginner-mod-3-lesson-7",
+          "javascript-beginner-mod-4-lesson-3"
+        ]
+      },
+      {
+        "case_id": "mt-promise-errors",
+        "module": "mod-8",
+        "rank": 1,
+        "top_score": 0.7297614216804504,
+        "top_lessons": [
+          "javascript-beginner-mod-8-lesson-6",
+          "javascript-beginner-mod-3-lesson-8",
+          "javascript-beginner-mod-8-lesson-6"
+        ]
+      },
+      {
+        "case_id": "mt-arrow-this",
+        "module": "mod-2",
+        "rank": 1,
+        "top_score": 0.7383291125297546,
+        "top_lessons": [
+          "javascript-beginner-mod-2-lesson-2",
+          "javascript-beginner-mod-2-lesson-2",
+          "javascript-beginner-mod-2-lesson-2"
+        ]
+      },
+      {
+        "case_id": "mt-reduce-sum",
+        "module": "mod-4",
+        "rank": 1,
+        "top_score": 0.7156186103820801,
+        "top_lessons": [
+          "javascript-beginner-mod-4-lesson-6",
+          "javascript-beginner-mod-4-lesson-6",
+          "javascript-beginner-mod-4-lesson-6"
+        ]
+      },
+      {
+        "case_id": "mt-event-stop",
+        "module": "mod-7",
+        "rank": 1,
+        "top_score": 0.7311201095581055,
+        "top_lessons": [
+          "javascript-beginner-mod-7-lesson-6",
+          "javascript-beginner-mod-7-lesson-6",
+          "javascript-beginner-mod-7-lesson-6"
+        ]
+      },
+      {
+        "case_id": "mt-object-copy",
+        "module": "mod-5",
+        "rank": 1,
+        "top_score": 0.7299243211746216,
+        "top_lessons": [
+          "javascript-beginner-mod-5-lesson-4",
+          "javascript-beginner-mod-5-lesson-4",
+          "javascript-beginner-mod-5-lesson-4"
+        ]
+      },
+      {
+        "case_id": "mt-timer-cancel",
+        "module": "mod-8",
+        "rank": 1,
+        "top_score": 0.680823564529419,
+        "top_lessons": [
+          "javascript-beginner-mod-8-lesson-8",
+          "javascript-beginner-mod-8-lesson-8",
+          "javascript-beginner-mod-8-lesson-8"
+        ]
+      },
+      {
+        "case_id": "mt-string-case",
+        "module": "mod-1",
+        "rank": 1,
+        "top_score": 0.6165540218353271,
+        "top_lessons": [
+          "javascript-beginner-mod-1-lesson-5",
+          "javascript-beginner-mod-1-lesson-5",
+          "javascript-beginner-mod-3-lesson-2"
+        ]
+      }
+    ]
+  }
+}

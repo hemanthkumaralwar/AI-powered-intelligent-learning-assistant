@@ -243,6 +243,17 @@ Uploading a course starts indexing in the background: chunk → embed → save v
 - **`POST /admin/search`** (admin) `{query, course_id?, k}`: what retrieval would return. Use it to check retrieval quality.
 - **FAISS, not ChromaDB:** ChromaDB would add 34 packages (onnxruntime, kubernetes, grpcio…) to a 512 MB server whose disk is wiped on restart. FAISS adds one, and the index is rebuilt from Postgres anyway.
 
+### Retrieval evaluation
+
+`eval/dataset.jsonl` holds 78 hand-written cases from the JavaScript course: 58 answerable questions (each with the acceptable `lessonId`s and an expected answer), 12 out-of-course questions, and 8 follow-ups (with history and a rewritten standalone question).
+
+```bash
+python eval/run_eval.py                                          # live: Neon dev index + Gemini, ~86 query embeddings
+python eval/run_eval.py --offline --max-body 1000 --overlap 150  # local Hugging Face, no quota (needs requirements-local.txt)
+```
+
+Live mode rebuilds the index from `DATABASE_URL` (the course must already be indexed there), so it embeds only the questions. Offline mode chunks `eval/materials/javascript-beginner.json` with the given size and embeds everything locally, which makes it the way to compare chunk sizes. Reports go to `eval/reports/retrieval-<date>-<label>.{md,json}`: hit@1/3/5/10, MRR, hit@5 by module, the per-question ranks, and the **answer-or-refuse similarity threshold** that Step 12 uses.
+
 ## Running code
 
 Student code **never runs on our server**. It is sent to free, open-source remote sandboxes:
@@ -280,7 +291,7 @@ backend/app/        FastAPI application (package "app")
   ingestion/        upload checks, course JSON parsing (+ vendored course_schema.json), chunking
   indexing/         indexing pipeline, worker and startup rebuild (quota-aware)
   vectorstore/      in-memory FAISS index, one per course
-eval/materials/     course files used by tests and evaluation (javascript-beginner.json)
+  evaluation/       evaluation dataset model, retrieval metrics, report rendering
   core/             configuration, logging, error handling
   providers/        shared plumbing: errors, retry, rate limiting, SDK clients
   llm/              LLM client and Gemini/OpenAI/fake chat adapters
@@ -288,6 +299,8 @@ eval/materials/     course files used by tests and evaluation (javascript-beginn
   db/               models, Database (engine/sessions), repositories
   migrations/       Alembic migrations (config: alembic.ini at the repo root)
 frontend/           Streamlit app (streamlit_app.py) and its API client (api_client.py)
+eval/               dataset.jsonl, run_eval.py, reports/ (committed baselines)
+  materials/        course files used by tests and evaluation (javascript-beginner.json)
 docs/               deployment guide
 scripts/            manual smoke tests (llm, embedding, code runner)
 tests/              mirrors backend/app/

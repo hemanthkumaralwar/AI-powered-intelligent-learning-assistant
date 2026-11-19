@@ -32,12 +32,30 @@ OVERLAP_CHARS = 150
 MAX_CHUNK_CHARS = 1750
 PARAGRAPH = "\n\n"
 
-_SPLITTER = RecursiveCharacterTextSplitter(
-    chunk_size=MAX_BODY_CHARS,
-    chunk_overlap=OVERLAP_CHARS,
-    # Paragraphs first, then lines, so code blocks stay together when they fit.
-    separators=[PARAGRAPH, "\n", " ", ""],
-)
+
+@dataclass(frozen=True)
+class ChunkingConfig:
+    """Size settings. Production uses DEFAULT_CHUNKING; the evaluation script compares
+    other sizes offline (local embeddings) without touching the free quota."""
+
+    max_body_chars: int = MAX_BODY_CHARS
+    overlap_chars: int = OVERLAP_CHARS
+
+    @property
+    def max_chunk_chars(self) -> int:
+        # Same header allowance as the defaults (1,750 - 1,500 = 250 characters).
+        return self.max_body_chars + (MAX_CHUNK_CHARS - MAX_BODY_CHARS)
+
+    def splitter(self) -> RecursiveCharacterTextSplitter:
+        return RecursiveCharacterTextSplitter(
+            chunk_size=self.max_body_chars,
+            chunk_overlap=self.overlap_chars,
+            # Paragraphs first, then lines, so code blocks stay together when they fit.
+            separators=[PARAGRAPH, "\n", " ", ""],
+        )
+
+
+DEFAULT_CHUNKING = ChunkingConfig()
 
 EXERCISE_TITLES = {
     "interactive": "Try it yourself",
@@ -59,15 +77,25 @@ class Section:
     extra: dict[str, Any] = field(default_factory=dict)
 
 
-def chunk_course(course: Course, document_id: uuid.UUID) -> list[NewChunk]:
+def chunk_course(
+    course: Course, document_id: uuid.UUID, config: ChunkingConfig = DEFAULT_CHUNKING
+) -> list[NewChunk]:
     """All chunks for a course, positions 0..n in reading order."""
+    splitter = config.splitter()
     chunks: list[NewChunk] = []
+
+    def add(module: Module, lesson: Lesson | None, section: Section) -> None:
+        start = len(chunks)
+        chunks.extend(
+            _pieces(course, module, lesson, section, document_id, start, config, splitter)
+        )
+
     for module in course.modules:
         for section in module_sections(module):
-            chunks.extend(_pieces(course, module, None, section, document_id, len(chunks)))
+            add(module, None, section)
         for lesson in module.lessons:
-            for section in lesson_sections(lesson, course.language):
-                chunks.extend(_pieces(course, module, lesson, section, document_id, len(chunks)))
+            for section in lesson_sections(lesson, course.language, config):
+                add(module, lesson, section)
     return chunks
 
 
@@ -77,12 +105,14 @@ def module_sections(module: Module) -> Iterator[Section]:
         yield Section(f"{module.id}:overview", "Module overview", body)
 
 
-def lesson_sections(lesson: Lesson, language: str) -> Iterator[Section]:
+def lesson_sections(
+    lesson: Lesson, language: str, config: ChunkingConfig = DEFAULT_CHUNKING
+) -> Iterator[Section]:
     content = lesson.content
     sections = [
         Section(f"{lesson.id}:explanation", "Explanation", _explanation(lesson)),
         Section(f"{lesson.id}:concepts", "Key concepts", _concepts(content, language)),
-        *_example_sections(lesson, language),
+        *_example_sections(lesson, language, config.max_body_chars),
         Section(f"{lesson.id}:context", "Analogy, story and use cases", _context(content)),
         Section(f"{lesson.id}:summary", "Summary", _summary(content)),
         _practice_section(lesson, language),
@@ -90,13 +120,13 @@ def lesson_sections(lesson: Lesson, language: str) -> Iterator[Section]:
     return (section for section in sections if section.body.strip())
 
 
-def _example_sections(lesson: Lesson, language: str) -> Iterator[Section]:
-    """Pack consecutive examples into as few chunks as fit MAX_BODY_CHARS (code kept whole)."""
+def _example_sections(lesson: Lesson, language: str, max_body: int) -> Iterator[Section]:
+    """Pack consecutive examples into as few chunks as fit `max_body` (code kept whole)."""
     group: list[tuple[int, str]] = []
     for number, example in enumerate(lesson.content.get("example") or [], 1):
         body = _example(example, language)
         candidate = PARAGRAPH.join(b for _, b in [*group, (number, body)])
-        if group and len(candidate) > MAX_BODY_CHARS:
+        if group and len(candidate) > max_body:
             yield _examples(lesson, group)
             group = []
         group.append((number, body))
@@ -118,17 +148,16 @@ def _pieces(
     section: Section,
     document_id: uuid.UUID,
     start: int,
+    config: ChunkingConfig,
+    splitter: RecursiveCharacterTextSplitter,
 ) -> Iterable[NewChunk]:
     trail = " › ".join(t for t in (course.title, module.title, lesson and lesson.title) if t)
     header = f"{trail} — {section.name}"
-    bodies = (
-        [section.body]
-        if len(section.body) <= MAX_BODY_CHARS
-        else _SPLITTER.split_text(section.body)
-    )
+    body = section.body
+    bodies = [body] if len(body) <= config.max_body_chars else splitter.split_text(body)
     for n, body in enumerate(bodies):
         text = f"{header}{PARAGRAPH}{body.strip()}"
-        if len(text) > MAX_CHUNK_CHARS:
+        if len(text) > config.max_chunk_chars:
             raise ChunkTooLargeError(f"chunk for {section.key} is {len(text)} characters")
         yield NewChunk(
             id=chunk_id(document_id, section.key, n),
