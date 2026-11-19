@@ -2,3 +2,7 @@
 [browser]
 # Do not send usage statistics to Streamlit, locally or on Streamlit Cloud.
 gatherUsageStats = false
+
+[server]
+# Matches the API's upload limit (10 MB), so the uploader does not offer 200 MB.
+maxUploadSize = 10

@@ -12,6 +12,7 @@ from components.compiler import LANGUAGES
 from session import current
 
 STATUS_ICONS = {"pending": "⏳", "processing": "⚙️", "ready": "✅", "failed": "❌"}
+FLASH = "admin:flash"
 
 
 def main() -> None:
@@ -20,6 +21,8 @@ def main() -> None:
         st.error("This page is for admins.")
         st.stop()
     st.title("Manage courses")
+    if flash := st.session_state.pop(FLASH, None):
+        st.success(flash)
     upload(session.client, session.token)
     documents = show_documents(session.client, session.token)
     if documents:
@@ -93,7 +96,8 @@ def delete_course(client: ApiClient, token: str, documents: list[dict[str, Any]]
             except ApiError as exc:
                 st.error(str(exc))
                 return
-            st.success(f"Deleted `{course_id}`.")
+            # Shown after the rerun (a message drawn now would vanish with it).
+            st.session_state[FLASH] = f"Deleted `{course_id}`."
             st.rerun()
 
 

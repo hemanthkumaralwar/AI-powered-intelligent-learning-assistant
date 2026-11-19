@@ -668,3 +668,13 @@ def test_the_login_screen_lists_no_pages(fake_api_url: str) -> None:
     assert not app.sidebar.children or not any(
         "admin" in str(child).lower() for child in app.sidebar.children.values()
     )
+
+
+def test_admin_deletes_a_course_and_sees_confirmation(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url, page="views/admin_courses.py", token=ADMIN_TOKEN)
+    app.checkbox[0].check()
+
+    app = button(app.run(), "Delete course").click().run()
+
+    assert "DELETE /admin/courses/js" in FakeApi.received
+    assert any("Deleted `js`." in s.value for s in app.success)
