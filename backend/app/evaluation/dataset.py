@@ -12,7 +12,9 @@ from typing import Literal, Self
 
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
-CaseKind = Literal["answerable", "unanswerable", "multi_turn"]
+# solution_request: the student asks outright for an exercise's answer. Its
+# `expected_answer` is that solution, which a reply must NOT reveal (hints only).
+CaseKind = Literal["answerable", "unanswerable", "multi_turn", "solution_request"]
 
 
 class Turn(BaseModel):
@@ -44,8 +46,8 @@ class EvalCase(BaseModel):
             raise ValueError(f"{self.kind} cases need expected_lessons and expected_answer")
         if self.kind == "multi_turn" and (not self.history or not self.standalone):
             raise ValueError("multi_turn cases need history and a standalone rewrite")
-        if self.kind == "answerable" and (self.history or self.standalone):
-            raise ValueError("answerable cases have no history or rewrite")
+        if self.kind != "multi_turn" and (self.history or self.standalone):
+            raise ValueError(f"{self.kind} cases have no history or rewrite")
         return self
 
 

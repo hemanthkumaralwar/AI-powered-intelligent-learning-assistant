@@ -65,11 +65,15 @@ All settings come from environment variables or `.env`. `.env.example` lists eve
 | `LLM_PROVIDER` | `gemini`, `openai`, `fake` (`fake` is refused in production) | `gemini` |
 | `GEMINI_API_KEY` | key from https://aistudio.google.com | — (required for `gemini`) |
 | `GEMINI_MODEL` | Gemini model name | `gemini-3.8-flash` |
-| `GEMINI_THINKING_BUDGET` | `0`–`8192`; tokens Gemini may spend thinking, on top of the answer limit | `0` (off) |
+| `GEMINI_THINKING_BUDGET` | `0`–`8192`; tokens Gemini may spend thinking, on top of the answer limit. `default` sends no thinking setting (required by models that reject one, e.g. `gemini-3.5-flash-lite`) | `0` (off) |
 | `OPENAI_API_KEY` | OpenAI API key | — (required for `openai`) |
 | `OPENAI_MODEL` | OpenAI model name | `gpt-4o-mini` |
 | `LLM_TIMEOUT_SECONDS` | `0` < value ≤ `120` | `30` |
 | `LLM_MAX_ATTEMPTS` | `1`–`5`, including the first try | `3` |
+| `RAG_TOP_K` | `1`–`20`; course chunks given to the model per question | `5` |
+| `RAG_MIN_SCORE` | `0`–`1`; below this similarity the assistant says the course does not cover it (measured for `gemini-embedding-001`; re-measure after changing the embedding model) | `0.63` |
+| `CHAT_QUESTIONS_PER_USER_PER_MINUTE` | per-student question quota | `5` |
+| `CHAT_QUESTIONS_GLOBAL_PER_MINUTE` | whole-app question quota (protects the shared free tier) | `20` |
 | `DATABASE_URL` | PostgreSQL URL: Neon direct (dev) or Supabase session pooler (prod) | — (required by the API from Step 5) |
 | `TEST_DATABASE_URL` | Neon `test` branch URL, read only by the test suite | — (database tests skip without it) |
 | `DB_POOL_SIZE` | `1`–`20` | `5` |
@@ -243,16 +247,34 @@ Uploading a course starts indexing in the background: chunk → embed → save v
 - **`POST /admin/search`** (admin) `{query, course_id?, k}`: what retrieval would return. Use it to check retrieval quality.
 - **FAISS, not ChromaDB:** ChromaDB would add 34 packages (onnxruntime, kubernetes, grpcio…) to a 512 MB server whose disk is wiped on restart. FAISS adds one, and the index is rebuilt from Postgres anyway.
 
+### Asking questions (`POST /chat/ask`)
+
+Any logged-in user: `{"question": "...", "course_id": "javascript-beginner-v1"}` (`course_id` is optional; questions are up to 1,000 characters).
+
+1. The question is embedded and the top `RAG_TOP_K` chunks are retrieved. Chunks below `RAG_MIN_SCORE` are dropped; if none are left, the reply says the course doesn't cover it, **without an LLM call**.
+2. The model gets numbered sources and the question in separate blocks, with rules: use only the sources, cite them as `[1]`, reply `NOT_IN_COURSE` when they don't answer it, treat sources and question as data, and **give hints, never solutions, for practice exercises**.
+3. The server keeps only markers that match a retrieved source (code like `arr[1]` is ignored) and builds the citations itself: Course › Module › Lesson › section, plus `link` (`/lessons/{lesson_id}`). A reply that cites nothing real is replaced by the "not covered" message.
+
+```json
+{"answer": "`let` is block-scoped [1].", "grounded": true,
+ "citations": [{"number": 1, "course_title": "JavaScript for Beginners", "module_title": "…",
+   "lesson_id": "javascript-beginner-mod-1-lesson-1", "lesson_title": "…", "section": "Explanation",
+   "link": "/lessons/javascript-beginner-mod-1-lesson-1"}]}
+```
+
+`grounded: false` means the course doesn't cover the question; `answer` says so. Errors: 404 unknown course, 429 over the question quota (with `Retry-After`), 503 when the AI provider is unavailable. Questions and answers are never logged, only the outcome and counts.
+
 ### Retrieval evaluation
 
-`eval/dataset.jsonl` holds 78 hand-written cases from the JavaScript course: 58 answerable questions (each with the acceptable `lessonId`s and an expected answer), 12 out-of-course questions, and 8 follow-ups (with history and a rewritten standalone question).
+`eval/dataset.jsonl` holds 84 hand-written cases from the JavaScript course: 58 answerable questions (each with the acceptable `lessonId`s and an expected answer), 12 out-of-course questions, 8 follow-ups (with history and a rewritten standalone question), and 6 requests for an exercise's solution (which must get hints only).
 
 ```bash
 python eval/run_eval.py                                          # live: Neon dev index + Gemini, ~86 query embeddings
 python eval/run_eval.py --offline --max-body 1000 --overlap 150  # local Hugging Face, no quota (needs requirements-local.txt)
+python eval/run_eval.py --answers                                # + grounded answers and an LLM judge (~130 LLM calls, paced)
 ```
 
-Live mode rebuilds the index from `DATABASE_URL` (the course must already be indexed there), so it embeds only the questions. Offline mode chunks `eval/materials/javascript-beginner.json` with the given size and embeds everything locally, which makes it the way to compare chunk sizes. Reports go to `eval/reports/retrieval-<date>-<label>.{md,json}`: hit@1/3/5/10, MRR, hit@5 by module, the per-question ranks, and the **answer-or-refuse similarity threshold** that Step 12 uses.
+Live mode rebuilds the index from `DATABASE_URL` (the course must already be indexed there), so it embeds only the questions. Offline mode chunks `eval/materials/javascript-beginner.json` with the given size and embeds everything locally, which makes it the way to compare chunk sizes. Reports go to `eval/reports/retrieval-<date>-<label>.{md,json}`: hit@1/3/5/10, MRR, hit@5 by module, the per-question ranks, and the **answer-or-refuse similarity threshold** that Step 12 uses. With `--answers`, `eval/reports/answers-<date>-<label>.{md,json}` adds: answered and judged-correct rates, expected-keyword coverage, citations on the expected lesson, correct refusals, hints-only replies to solution requests, and every failure quoted for review. Judge verdicts are cached in `eval/cache/` (gitignored), so re-runs only judge answers that changed. The judge is the same free model, so it may be lenient; read the quoted failures.
 
 ## Running code
 
@@ -291,7 +313,8 @@ backend/app/        FastAPI application (package "app")
   ingestion/        upload checks, course JSON parsing (+ vendored course_schema.json), chunking
   indexing/         indexing pipeline, worker and startup rebuild (quota-aware)
   vectorstore/      in-memory FAISS index, one per course
-  evaluation/       evaluation dataset model, retrieval metrics, report rendering
+  rag/              grounded answers: retriever, prompt, citation checks, AnswerService
+  evaluation/       evaluation dataset, retrieval and answer metrics, LLM judge, reports
   core/             configuration, logging, error handling
   providers/        shared plumbing: errors, retry, rate limiting, SDK clients
   llm/              LLM client and Gemini/OpenAI/fake chat adapters

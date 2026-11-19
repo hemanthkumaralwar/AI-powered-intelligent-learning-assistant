@@ -12,8 +12,8 @@ from app.api.schemas.code import (
     ShareCodeRequest,
     ShareCodeResponse,
 )
+from app.core.quota import QuotaExceededError
 from app.runner.base import RunRequest
-from app.runner.quota import QuotaExceededError
 from app.runner.service import (
     CodeRunnerService,
     RunnerUnavailableError,

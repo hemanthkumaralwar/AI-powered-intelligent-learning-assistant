@@ -14,6 +14,7 @@ from fastapi import FastAPI
 
 from app.api.admin_documents import router as admin_documents_router
 from app.api.auth import router as auth_router
+from app.api.chat import router as chat_router
 from app.api.code_run import router as code_router
 from app.api.health import router as health_router
 from app.api.materials import router as materials_router
@@ -27,6 +28,8 @@ from app.db.session import Database, build_database
 from app.indexing.factory import build_indexing_service
 from app.indexing.service import IndexingService
 from app.ingestion.files import MAX_UPLOAD_BYTES
+from app.rag.answer import AnswerService
+from app.rag.factory import build_answer_service
 from app.runner.factory import build_code_runner_service
 from app.runner.service import CodeRunnerService
 
@@ -41,6 +44,7 @@ def create_app(
     auth: AuthService | None = None,
     code_runner: CodeRunnerService | None = None,
     indexing: IndexingService | None = None,
+    answers: AnswerService | None = None,
 ) -> FastAPI:
     """Build the app from explicit settings.
 
@@ -57,6 +61,7 @@ def create_app(
         app.state.database = database or build_database(settings)
         app.state.code_runner = code_runner or build_code_runner_service(settings)
         app.state.indexing = indexing or build_indexing_service(settings, app.state.database)
+        app.state.answers = answers or build_answer_service(settings, app.state.indexing)
         try:
             if settings.admin_username and settings.admin_password:
                 await seed_admin(
@@ -71,6 +76,8 @@ def create_app(
             yield
         finally:
             # Only close what we created; injected services belong to the caller.
+            if answers is None:
+                await app.state.answers.aclose()
             if indexing is None:
                 await app.state.indexing.aclose()
             else:
@@ -94,6 +101,7 @@ def create_app(
     app.include_router(code_router)
     app.include_router(materials_router)
     app.include_router(admin_documents_router)
+    app.include_router(chat_router)
     return app
 
 

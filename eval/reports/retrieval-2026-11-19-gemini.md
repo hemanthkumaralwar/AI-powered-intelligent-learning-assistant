@@ -2,7 +2,7 @@
 
 - Embedding space: `gemini:gemini-embedding-001:768`
 - Index: live (rebuilt from the database) (424 chunks)
-- Dataset: `dataset.jsonl` (78 cases)
+- Dataset: `dataset.jsonl` (84 cases)
 
 ## Summary
 

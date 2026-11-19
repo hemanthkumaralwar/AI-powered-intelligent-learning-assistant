@@ -54,7 +54,7 @@ async def evaluate_retrieval(cases: Sequence[EvalCase], search: Search) -> Retri
         elif case.kind == "multi_turn":
             raw.append(await _run(case, case.question, search))
             rewritten.append(await _run(case, case.standalone or case.question, search))
-        else:
+        elif case.kind == "unanswerable":
             hits = await search(case.question)
             refused_scores[case.id] = hits[0].score if hits else 0.0
     threshold = best_threshold([r.top_score for r in answerable], list(refused_scores.values()))

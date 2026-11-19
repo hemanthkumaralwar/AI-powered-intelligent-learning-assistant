@@ -36,6 +36,10 @@ class FakeChatModel:
         self._default_reply = default_reply
         self._delay_seconds = delay_seconds
         self.requests: list[CompletionRequest] = []
+        self.closed = False
+
+    async def aclose(self) -> None:
+        self.closed = True
 
     async def complete(self, request: CompletionRequest) -> LLMResponse:
         self.requests.append(request)

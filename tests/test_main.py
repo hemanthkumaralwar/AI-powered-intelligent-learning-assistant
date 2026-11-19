@@ -43,16 +43,14 @@ def test_startup_fails_fast_without_database_url() -> None:
 
 @pytest.mark.anyio
 async def test_lifespan_builds_and_disposes_its_own_services(
-    test_database_url: str, migrated_schema: str, fake_embeddings: dict
+    test_database_url: str, migrated_schema: str, fake_providers: dict
 ) -> None:
     # The app builds its own Database from DATABASE_URL; `options` points it at the
     # throwaway schema the test run migrated. Async (not TestClient) so Windows uses the
     # selector event loop that psycopg needs.
     separator = "&" if "?" in test_database_url else "?"
     url = f"{test_database_url}{separator}options=-csearch_path%3D{migrated_schema}"
-    settings = Settings(
-        _env_file=None, jwt_secret_key="k" * 32, database_url=url, **fake_embeddings
-    )
+    settings = Settings(_env_file=None, jwt_secret_key="k" * 32, database_url=url, **fake_providers)
     app = create_app(settings)
 
     async with app.router.lifespan_context(app):
@@ -61,7 +59,9 @@ async def test_lifespan_builds_and_disposes_its_own_services(
             assert (await client.get("/health")).status_code == 200
         engine = app.state.database.engine
         embedder_model = app.state.indexing._embedder._model
+        chat_model = app.state.answers._llm._chat_model
         assert app.state.indexing.index.size == 0
 
     assert engine.pool.checkedout() == 0
     assert embedder_model.closed is True
+    assert chat_model.closed is True

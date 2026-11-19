@@ -22,3 +22,6 @@ htmlcov/
 .idea/
 Thumbs.db
 .DS_Store
+
+# Evaluation judge cache (re-creatable; may hold model output)
+eval/cache/

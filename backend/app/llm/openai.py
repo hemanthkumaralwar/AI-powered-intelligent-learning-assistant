@@ -16,6 +16,9 @@ class OpenAIChatModel:
         self._client = client
         self.model = model
 
+    async def aclose(self) -> None:
+        await self._client.close()
+
     async def complete(self, request: CompletionRequest) -> LLMResponse:
         with translate_openai_errors():
             result = await self._client.chat.completions.create(

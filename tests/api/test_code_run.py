@@ -48,7 +48,7 @@ def service(*steps, per_minute: int = 100) -> CodeRunnerService:
 def make_client(null_indexing):
     async def _make(code_runner: CodeRunnerService, *, logged_in: bool = True):
         app: FastAPI = create_app(
-            Settings(_env_file=None, environment="test", log_level="WARNING"),
+            Settings(_env_file=None, environment="test", log_level="WARNING", llm_provider="fake"),
             # Never connects: these tests override authentication.
             database=Database("postgresql://u:p@localhost/db"),
             auth=AuthService(

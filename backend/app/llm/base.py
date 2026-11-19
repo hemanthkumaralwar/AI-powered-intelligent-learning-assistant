@@ -54,3 +54,6 @@ class ChatModel(Protocol):
     model: str
 
     async def complete(self, request: CompletionRequest) -> LLMResponse: ...
+
+    async def aclose(self) -> None:
+        """Release network connections (called once at app shutdown)."""

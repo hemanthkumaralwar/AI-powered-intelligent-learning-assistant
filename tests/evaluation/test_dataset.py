@@ -96,3 +96,15 @@ def test_unknown_lessons_are_listed() -> None:
     cases = [EvalCase.model_validate(answerable(expected_lessons=["js-l1", "js-typo"]))]
 
     assert unknown_lessons(cases, {"js-l1"}) == ["js-typo"]
+
+
+def test_solution_request_needs_lessons_and_the_hidden_solution() -> None:
+    case = EvalCase.model_validate(answerable(kind="solution_request"))
+    assert case.kind == "solution_request"
+
+    with pytest.raises(ValidationError):
+        EvalCase.model_validate(answerable(kind="solution_request", expected_answer=None))
+    with pytest.raises(ValidationError):
+        EvalCase.model_validate(
+            answerable(kind="solution_request", history=[{"role": "user", "content": "hi"}])
+        )

@@ -38,6 +38,13 @@ class LLMClient:
     def provider(self) -> str:
         return self._chat_model.provider
 
+    @property
+    def model(self) -> str:
+        return self._chat_model.model
+
+    async def aclose(self) -> None:
+        await self._chat_model.aclose()
+
     async def chat(
         self, messages: Sequence[ChatMessage], options: GenerationOptions | None = None
     ) -> LLMResponse:

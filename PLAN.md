@@ -319,7 +319,7 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 
 - ~~**Step 1 — test client warning.**~~ Resolved in Step 2. `httpx2` (github.com/pydantic/httpx2) is a dependency of both LLM SDKs and is now pinned in `requirements.txt`, so `httpx` was removed. Tests run with `-W error::DeprecationWarning` and pass.
 - **Step 2 deviations from the plan.** `LLM_MAX_RETRIES` became `LLM_MAX_ATTEMPTS`, since the count includes the first try. The provider is not yet attached to the app; Step 12 wires `build_llm_client(settings)` into `create_app` as its first consumer.
-- **Steps 2–3 — SDK client lifecycle (owner: maintainer, fix in Step 10 for embeddings and Step 12 for the LLM).** The Gemini and OpenAI SDK clients hold HTTP connection pools. They are meant to live for the whole app lifetime, so each must be created once at startup and closed in the FastAPI lifespan shutdown. Step 10 does this for `EmbeddingClient`, Step 12 for `LLMClient`. Today only the smoke scripts create them, and they exit right after.
+- **Steps 2–3 — SDK client lifecycle (owner: maintainer, fix in Step 10 for embeddings and Step 12 for the LLM).** The Gemini and OpenAI SDK clients hold HTTP connection pools. They are meant to live for the whole app lifetime, so each must be created once at startup and closed in the FastAPI lifespan shutdown. Step 10 does this for `EmbeddingClient`, Step 12 for `LLMClient`. **Resolved in Step 12:** `create_app` builds the `AnswerService` (and its `LLMClient`) once and closes it at shutdown.
 - **Step 3 deviations from the plan.**
   - Retry, error types and Gemini/OpenAI SDK plumbing moved from `app/llm/` to a shared `app/providers/` package (embeddings and the Step 7 code runner use them too).
   - The errors were renamed to provider-neutral names: `ProviderCallError`, `ProviderTimeoutError`, `ProviderConfigurationError`, `ProviderRequestError`.
@@ -368,7 +368,7 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - **Course JSON only:** the TXT notes path from Step 8 was removed (upload, `/materials` endpoints, `documents.module_id/lesson_id` via migration `0003`, which refuses to run while notes exist). DOCX/PDF/TXT → course JSON conversion is a **separate project** next to the course generator.
   - **Chunks include exercise prompts and flowcharts,** never answers. The real course gives 1,225 chunks (planned ~600–900; exercises and flowcharts add 256, and long sections split with overlap).
   - **Chunking is pure** (`chunk_course`); storing and embedding chunks is Step 10's pipeline.
-- **Steps 12 & 14 — hints, not solutions (owner: maintainer).** When a retrieved chunk has `type: exercise`, the prompt must tell the model to give hints and guiding questions, never full solution code. That's a prompt rule, so best effort; test it in the Step 11 evaluation.
+- **Steps 12 & 14 — hints, not solutions (owner: maintainer).** When a retrieved chunk has `type: exercise`, the prompt must tell the model to give hints and guiding questions, never full solution code. That's a prompt rule, so best effort. **Step 12:** the rule is in the grounding prompt, and `eval/dataset.jsonl` has 6 `solution_request` cases that the answer evaluation checks with the LLM judge. Step 14 must reuse the rule.
 - **Step 17 — widened scope.** Serve **quizzes, drag-and-drop, card matching and code reordering** through the API, with answers kept and checked **server-side**. Extract the activities from the stored course JSON (`document_files`), and shuffle quiz options.
 - **Course-content note (for the course generator).** In 3 lessons (mod-2 lesson 7, mod-7 lesson 3, mod-8 lesson 6) the bug-hunt fix appears verbatim as a lesson example, so the bug hunt can be solved by reading the examples.
 
@@ -386,6 +386,15 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - **For Step 13:** follow-ups must be rewritten into standalone questions before retrieval (62% → 100% hit@5).
   - **Caveat:** the questions were written from the course text, so these scores are optimistic. Real student questions will score lower; add misses from Step 21's live evaluation to the dataset.
   - **Threshold depends on the embedding model.** It is measured for `gemini-embedding-001` at 768 dimensions; re-run `eval/run_eval.py` after any change of embedding provider or model (the Hugging Face model's best threshold is about 0.70).
+- **Step 12 decisions (2026-11-19).**
+  - **`POST /chat/ask`:** any logged-in user; optional `course_id` (404 if unknown); questions up to 1,000 characters. Retrieval uses `RAG_TOP_K=5` and `RAG_MIN_SCORE=0.63` from Step 11; below the threshold the reply is the fixed "not in your course materials" message **without an LLM call**.
+  - **Citations are built by the server:** the model marks sources as `[n]`; markers that match no retrieved source are dropped (code such as `arr[1]` is ignored), and a reply that cites nothing real becomes the refusal. The link is the API path `/lessons/{lesson_id}`; Step 19 maps it to a page.
+  - **Prompt injection:** sources and the question sit in separate tagged blocks marked as data; tags inside them are defused. The hints-not-solutions rule for `type: exercise` chunks is in the prompt.
+  - **Question quota:** 5 per student per minute and 20 per minute app-wide (in memory, like code runs). The sliding-window quota moved from `runner/` to `core/quota.py` so both use it.
+  - **Database connection:** `/chat/ask` commits (releasing its pooled connection) before the slow provider calls. **Debt (owner: maintainer, Step 20):** `/code/run` still holds a connection for up to 30 s through `CurrentUser`; apply the same early commit there.
+  - **`GEMINI_THINKING_BUDGET=default`** sends no thinking setting. `gemini-3.5-flash-lite` answers 400 INVALID_ARGUMENT even to a budget of 0.
+  - **Evaluation:** `--answers` adds answer accuracy (LLM judge, cached in `eval/cache/`, gitignored), correct refusals, citation checks and 6 `solution_request` cases. The question embeddings are reused across phases, and a provider failure is recorded per case instead of aborting the run.
+- **Step 12 — Gemini availability (owner: you, watch).** On 2026-11-19 `gemini-3.8-flash` returned 504 or hung for minutes, and `gemini-3.5-flash` returned 503 (high demand); the `-lite` models answered in about 1 s. The same day, repeated evaluation runs used up the daily embedding quota (resets at midnight Pacific), so the API key shared with production could not embed questions until then. Keep evaluation runs to one or two a day.
 
 ## Pending inputs
 

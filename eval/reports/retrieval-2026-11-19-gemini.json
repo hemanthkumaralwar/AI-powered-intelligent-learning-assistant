@@ -3,9 +3,13 @@
     "index": "live (rebuilt from the database)",
     "chunks": 424,
     "embedding_id": "gemini:gemini-embedding-001:768",
+    "llm_model": "gemini-3.5-flash-lite",
+    "top_k": 5,
+    "min_score": 0.63,
+    "judge_calls": 0,
     "date": "2026-11-19",
     "dataset": "dataset.jsonl",
-    "cases": 78
+    "cases": 84
   },
   "answerable": {
     "count": 58,

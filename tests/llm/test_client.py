@@ -143,3 +143,13 @@ async def test_generate_json_rejects_bad_replies(
     with pytest.raises(InvalidResponseError, match="did not match Answer") as excinfo:
         await client.generate_json(conversation, Answer)
     assert reply not in str(excinfo.value)
+
+
+async def test_aclose_releases_the_chat_model_and_model_is_exposed() -> None:
+    model = FakeChatModel()
+    client = LLMClient(model, timeout_seconds=1, retry_policy=RetryPolicy(max_attempts=1))
+
+    await client.aclose()
+
+    assert model.closed
+    assert client.model == "fake-model"

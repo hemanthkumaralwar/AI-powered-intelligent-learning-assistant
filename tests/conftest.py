@@ -128,9 +128,10 @@ async def database(test_database_url: str, migrated_schema: str) -> AsyncIterato
 
 # ---- indexing --------------------------------------------------------------------------
 
-# Settings for tests that let the app build its own IndexingService on a test database:
-# deterministic fake embeddings, and no client-side throttling of the fake.
-FAKE_EMBEDDINGS = {
+# Settings for tests that let the app build its own services on a test database:
+# deterministic fake embeddings and LLM, and no client-side throttling of the fake.
+FAKE_PROVIDERS = {
+    "llm_provider": "fake",
     "embedding_provider": "fake",
     "embedding_document_texts_per_minute": 100_000,
     "embedding_query_texts_per_minute": 100_000,
@@ -139,6 +140,11 @@ FAKE_EMBEDDINGS = {
 
 class NullIndexing:
     """Stands in for IndexingService where a test has no database or vectors."""
+
+    embedding_id = "null"
+
+    async def search(self, query: str, k: int, course_id: str | None = None) -> list:
+        return []
 
     async def start(self) -> None:
         return None
@@ -159,5 +165,5 @@ def null_indexing() -> NullIndexing:
 
 
 @pytest.fixture
-def fake_embeddings() -> dict:
-    return dict(FAKE_EMBEDDINGS)
+def fake_providers() -> dict:
+    return dict(FAKE_PROVIDERS)

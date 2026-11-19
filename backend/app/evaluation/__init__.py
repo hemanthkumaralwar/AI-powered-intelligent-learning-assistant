@@ -1,1 +1,1 @@
-"""Evaluation: the question dataset and retrieval (later answer) quality metrics."""
+"""Evaluation: the question dataset, retrieval metrics and answer quality."""

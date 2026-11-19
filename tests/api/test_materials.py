@@ -57,6 +57,7 @@ async def api(database: Database) -> AsyncIterator[httpx2.AsyncClient]:
             _env_file=None,
             environment="test",
             log_level="WARNING",
+            llm_provider="fake",
             embedding_provider="fake",
             embedding_document_texts_per_minute=100_000,
             embedding_query_texts_per_minute=100_000,

@@ -35,13 +35,26 @@ class Settings(BaseSettings):
     # gemini-2.5-flash returns 404 for new API keys (checked 2026-11-18).
     gemini_model: str = Field(default="gemini-3.8-flash", min_length=1)
     # Tokens Gemini may spend "thinking" before answering, on top of the answer limit.
-    # 0 turns thinking off: fastest and lightest on the free-tier quota.
-    gemini_thinking_budget: int = Field(default=0, ge=0, le=8192)
+    # 0 turns thinking off: fastest and lightest on the free-tier quota. "default" sends
+    # no thinking setting at all, for models that reject one (e.g. gemini-3.5-flash-lite
+    # answers 400 INVALID_ARGUMENT even to a budget of 0).
+    gemini_thinking_budget: int | None = Field(default=0, ge=0, le=8192)
     openai_api_key: SecretStr | None = None
     openai_model: str = Field(default="gpt-4o-mini", min_length=1)
     llm_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
     # Total tries per request, including the first one.
     llm_max_attempts: int = Field(default=3, ge=1, le=5)
+
+    # Grounded answers (Step 12). Both values were measured in eval/reports (Step 11):
+    # top-3 already holds the right lesson for every answerable question, and 0.63 sits
+    # between in-course (>= 0.640) and out-of-course (<= 0.624) top scores. The threshold
+    # only holds for gemini-embedding-001 at 768 dimensions: re-run eval/run_eval.py
+    # after changing the embedding model.
+    rag_top_k: int = Field(default=5, ge=1, le=20)
+    rag_min_score: float = Field(default=0.63, ge=0.0, le=1.0)
+    # Each question costs one embedding and one LLM call from the shared free tier.
+    chat_questions_per_user_per_minute: int = Field(default=5, ge=1, le=1000)
+    chat_questions_global_per_minute: int = Field(default=20, ge=1, le=10_000)
 
     embedding_provider: EmbeddingProvider = "gemini"
     # gemini-embedding-2 merges a batch into one vector, so it cannot be used for chunks.
@@ -49,7 +62,7 @@ class Settings(BaseSettings):
     openai_embedding_model: str = Field(default="text-embedding-3-small", min_length=1)
     hf_embedding_model: str = Field(default="BAAI/bge-small-en-v1.5", min_length=1)
     # 768 is supported by Gemini and OpenAI, so switching between them needs no re-index.
-    # Smaller than the 3072 maximum to keep Chroma within Render's 512 MB.
+    # Smaller than the 3072 maximum to keep the FAISS index and Postgres rows small.
     embedding_dimensions: int = Field(default=768, ge=8, le=3072)
     # Gemini's free tier meters every *text* (not call): ~100 per minute and ~1,000 per
     # day per project. Indexing and student questions get separate per-minute budgets
@@ -86,6 +99,13 @@ class Settings(BaseSettings):
     code_runs_per_user_per_minute: int = Field(default=10, ge=1, le=1000)
     code_runs_per_user_per_day: int = Field(default=200, ge=1, le=100_000)
     code_runs_global_per_minute: int = Field(default=30, ge=1, le=10_000)
+
+    @field_validator("gemini_thinking_budget", mode="before")
+    @classmethod
+    def _model_default_thinking(cls, value: object) -> object:
+        if isinstance(value, str) and value.strip().lower() == "default":
+            return None
+        return value
 
     @field_validator("code_runners", mode="before")
     @classmethod

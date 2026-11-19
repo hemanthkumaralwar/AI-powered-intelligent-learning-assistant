@@ -2,6 +2,7 @@ import logging
 
 import pytest
 
+from app.core.quota import QuotaExceededError
 from app.providers.errors import (
     InvalidResponseError,
     ProviderTimeoutError,
@@ -10,7 +11,7 @@ from app.providers.errors import (
 )
 from app.runner.base import RunRequest, RunResult
 from app.runner.fake import FakeRunner
-from app.runner.quota import QuotaExceededError, QuotaLimits, RunQuota
+from app.runner.quota import QuotaLimits, RunQuota
 from app.runner.service import CodeRunnerService, RunnerUnavailableError, UnsupportedLanguageError
 
 pytestmark = pytest.mark.anyio

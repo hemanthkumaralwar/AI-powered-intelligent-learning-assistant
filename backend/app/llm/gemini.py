@@ -16,7 +16,7 @@ _GEMINI_ROLES = {"user": "user", "assistant": "model"}
 class GeminiChatModel:
     provider = "gemini"
 
-    def __init__(self, client: genai.Client, model: str, thinking_budget: int = 0) -> None:
+    def __init__(self, client: genai.Client, model: str, thinking_budget: int | None = 0) -> None:
         self._client = client
         self.model = model
         self._thinking_budget = thinking_budget
@@ -42,6 +42,9 @@ class GeminiChatModel:
             truncated=finish_reason == types.FinishReason.MAX_TOKENS,
         )
 
+    async def aclose(self) -> None:
+        await self._client.aio.aclose()
+
 
 def to_gemini_contents(request: CompletionRequest) -> list[types.Content]:
     return [
@@ -52,7 +55,7 @@ def to_gemini_contents(request: CompletionRequest) -> list[types.Content]:
 
 
 def to_gemini_config(
-    request: CompletionRequest, thinking_budget: int = 0
+    request: CompletionRequest, thinking_budget: int | None = 0
 ) -> types.GenerateContentConfig:
     system_text = "\n\n".join(m.content for m in request.messages if m.role == "system")
     config: dict[str, Any] = {
@@ -61,9 +64,11 @@ def to_gemini_config(
         # Gemini counts thinking tokens against max_output_tokens. Adding the thinking
         # budget keeps the caller's limit for the visible answer, so thinking cannot
         # cut the answer short.
-        "max_output_tokens": request.options.max_output_tokens + thinking_budget,
-        "thinking_config": types.ThinkingConfig(thinking_budget=thinking_budget),
+        "max_output_tokens": request.options.max_output_tokens + (thinking_budget or 0),
     }
+    if thinking_budget is not None:
+        # None: leave thinking to the model; some models reject any thinking setting.
+        config["thinking_config"] = types.ThinkingConfig(thinking_budget=thinking_budget)
     if request.json_schema is not None:
         config["response_mime_type"] = "application/json"
         config["response_json_schema"] = request.json_schema

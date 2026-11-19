@@ -34,6 +34,10 @@ class IndexingService:
         self._worker: asyncio.Task[None] | None = None
         self._retries: set[asyncio.Task[None]] = set()
 
+    @property
+    def embedding_id(self) -> str:
+        return self._embedder.embedding_id
+
     async def start(self) -> None:
         await self.rebuild_index()
         async with self._database.session() as session:

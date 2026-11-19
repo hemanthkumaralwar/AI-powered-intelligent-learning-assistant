@@ -1,6 +1,7 @@
 import pytest
 
-from app.runner.quota import DAY, MINUTE, QuotaExceededError, QuotaLimits, RunQuota, SlidingWindow
+from app.core.quota import DAY, MINUTE, QuotaExceededError, SlidingWindow
+from app.runner.quota import QuotaLimits, RunQuota
 
 
 class Clock:

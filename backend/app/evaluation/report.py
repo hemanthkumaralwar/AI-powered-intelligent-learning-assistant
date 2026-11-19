@@ -47,7 +47,7 @@ def render_markdown(report: RetrievalReport, run: dict[str, Any]) -> str:
     for group, results in report.results.items():
         for r in results:
             rank = str(r.rank) if r.rank else "**miss**"
-            top = ", ".join(_short(lesson) for lesson in r.top_lessons)
+            top = ", ".join(short_lesson(lesson) for lesson in r.top_lessons)
             lines.append(f"| {group} | {r.case_id} | {rank} | {r.top_score:.3f} | {top} |")
     return "\n".join(lines) + "\n"
 
@@ -73,7 +73,7 @@ def _threshold_lines(report: RetrievalReport) -> list[str]:
     ]
 
 
-def _short(lesson_id: str | None) -> str:
+def short_lesson(lesson_id: str | None) -> str:
     if lesson_id is None:
         return "(module overview)"
     return lesson_id.removeprefix("javascript-beginner-")

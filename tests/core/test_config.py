@@ -170,3 +170,12 @@ def test_embedding_batch_must_fit_the_minute_budget(monkeypatch: pytest.MonkeyPa
 
     with pytest.raises(ValidationError, match="EMBEDDING_BATCH_SIZE must not exceed"):
         Settings(_env_file=None)
+
+
+@pytest.mark.parametrize(("raw", "expected"), [("default", None), ("DEFAULT", None), ("256", 256)])
+def test_thinking_budget_accepts_default(
+    monkeypatch: pytest.MonkeyPatch, raw: str, expected: int | None
+) -> None:
+    monkeypatch.setenv("GEMINI_THINKING_BUDGET", raw)
+
+    assert Settings(_env_file=None).gemini_thinking_budget == expected

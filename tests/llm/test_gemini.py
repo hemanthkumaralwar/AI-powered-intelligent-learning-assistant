@@ -192,3 +192,10 @@ async def test_rate_limit_error_carries_retry_delay() -> None:
     with pytest.raises(RateLimitedError) as excinfo:
         await model.complete(REQUEST)
     assert excinfo.value.retry_after == 37.0
+
+
+def test_config_without_budget_sends_no_thinking_setting() -> None:
+    config = to_gemini_config(REQUEST, thinking_budget=None)
+
+    assert config.thinking_config is None
+    assert config.max_output_tokens == 100
