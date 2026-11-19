@@ -82,6 +82,7 @@ All settings come from environment variables or `.env`. `.env.example` lists eve
 | `RAG_MIN_SCORE` | `0`–`1`; below this similarity the assistant says the course does not cover it (measured for `gemini-embedding-001`; re-measure after changing the embedding model) | `0.63` |
 | `CHAT_QUESTIONS_PER_USER_PER_MINUTE` | per-student question quota | `5` |
 | `CHAT_QUESTIONS_GLOBAL_PER_MINUTE` | whole-app question quota (protects the shared free tier) | `20` |
+| `WEAK_MASTERY_THRESHOLD` | `0` < value ≤ `1`; lessons below it are recommended for review | `0.6` |
 | `PLATFORM_LESSON_URL` | `https://` link template to a lesson on the learning platform, containing `{lesson_id}`; makes practice pointers clickable | — (no links) |
 | `DATABASE_URL` | PostgreSQL URL: Neon direct (dev) or Supabase session pooler (prod) | — (required by the API from Step 5) |
 | `TEST_DATABASE_URL` | Neon `test` branch URL, read only by the test suite | — (database tests skip without it) |
@@ -356,6 +357,16 @@ Quizzes, drag and drop, card matching and code reordering run on the **learning 
 python scripts/backfill_practice.py
 ```
 
+### Progress and recommendations
+
+| Endpoint | Returns |
+|---|---|
+| `GET /me/progress?course_id=` | mastery per module and lesson (`null` = not started, not 0%), module coverage, and which lessons are `weak` |
+| `GET /me/recommendations?course_id=` | up to 5: weak lessons to **review** (weakest first, with the exercises still under the threshold) then the **next** lessons after the furthest one worked on; each with its platform practice |
+
+- **Mastery** comes from graded exercise attempts (quiz scores live on the platform). An exercise's score weights recent attempts most (1, 1/2, 1/4...), so failing three times and then passing scores 0.53. A lesson averages its attempted exercises; a module averages its started lessons.
+- **Weak** = mastery below `WEAK_MASTERY_THRESHOLD` (default 0.6). `course_id` defaults to the course you have worked on most. Only your own data is ever returned.
+
 ## Project layout
 
 ```
@@ -370,7 +381,7 @@ backend/app/        FastAPI application (package "app")
   rag/              grounded answers: follow-up rewriting, retriever, prompt, citation checks
   chat/             chat sessions: ownership, history window, saving exchanges (ChatService)
   coding/           coding assistant: prompts, output schemas, exercise matching, CodingService
-  learning/         practice pointers to the platform's activities, AI grading of exercise attempts
+  learning/         practice pointers, AI grading of exercise attempts, progress and recommendations
   evaluation/       evaluation dataset, retrieval and answer metrics, LLM judge, reports
   core/             configuration, logging, error handling
   providers/        shared plumbing: errors, retry, rate limiting, SDK clients

@@ -70,11 +70,12 @@ class PracticeFinder:
             activities = _activities(lesson.content) if lesson else ()
             if activities:
                 pointers.append(
-                    PracticePointer(lesson_id, lesson.title, activities, self._url(lesson_id))
+                    PracticePointer(lesson_id, lesson.title, activities, self.url(lesson_id))
                 )
         return pointers[:MAX_POINTERS]
 
-    def _url(self, lesson_id: str) -> str | None:
+    def url(self, lesson_id: str) -> str | None:
+        """The lesson on the learning platform, when PLATFORM_LESSON_URL is set."""
         if self._template is None:
             return None
         # replace, not str.format: a template with other braces must not break or inject.

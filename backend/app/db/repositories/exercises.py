@@ -3,7 +3,7 @@
 import uuid
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Course, Exercise, ExerciseAttempt, Lesson, Module
@@ -61,6 +61,36 @@ class ExerciseRepository:
         await self._session.flush()
         await self._session.refresh(attempt, ["created_at"])
         return attempt
+
+    async def results_by_exercise(
+        self, user_id: uuid.UUID, course_id: str
+    ) -> dict[str, list[bool]]:
+        """This student's results in one course: exercise id -> passed, newest first."""
+        rows = await self._session.execute(
+            select(ExerciseAttempt.exercise_id, ExerciseAttempt.passed)
+            .join(Exercise, ExerciseAttempt.exercise_id == Exercise.id)
+            .join(Lesson, Exercise.lesson_id == Lesson.id)
+            .join(Module, Lesson.module_id == Module.id)
+            .where(ExerciseAttempt.user_id == user_id, Module.course_id == course_id)
+            .order_by(ExerciseAttempt.created_at.desc(), ExerciseAttempt.id)
+        )
+        results: dict[str, list[bool]] = {}
+        for exercise_id, passed in rows:
+            results.setdefault(str(exercise_id), []).append(passed)
+        return results
+
+    async def most_attempted_course(self, user_id: uuid.UUID) -> str | None:
+        """The course this student has the most exercise attempts in (None: no attempts)."""
+        return await self._session.scalar(
+            select(Module.course_id)
+            .join(Lesson, Lesson.module_id == Module.id)
+            .join(Exercise, Exercise.lesson_id == Lesson.id)
+            .join(ExerciseAttempt, ExerciseAttempt.exercise_id == Exercise.id)
+            .where(ExerciseAttempt.user_id == user_id)
+            .group_by(Module.course_id)
+            .order_by(func.count().desc(), Module.course_id)
+            .limit(1)
+        )
 
     async def attempts(
         self, user_id: uuid.UUID, exercise_id: uuid.UUID, limit: int = 20

@@ -20,6 +20,7 @@ from app.api.coding import router as coding_router
 from app.api.exercises import router as exercises_router
 from app.api.health import router as health_router
 from app.api.materials import router as materials_router
+from app.api.progress import router as progress_router
 from app.auth.seed import seed_admin
 from app.auth.service import AuthService, build_auth_service
 from app.chat.service import ChatService
@@ -125,6 +126,7 @@ def create_app(
     app.include_router(chat_router)
     app.include_router(coding_router)
     app.include_router(exercises_router)
+    app.include_router(progress_router)
     return app
 
 

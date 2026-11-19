@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     # Link to a lesson on the learning platform, where its quizzes and activities run, e.g.
     # https://platform.example/lessons/{lesson_id}. Unset: practice pointers have no link.
     platform_lesson_url: str | None = None
+    # Lessons whose exercise mastery is below this are "weak" and recommended for review.
+    weak_mastery_threshold: float = Field(default=0.6, gt=0.0, le=1.0)
 
     embedding_provider: EmbeddingProvider = "gemini"
     # gemini-embedding-2 merges a batch into one vector, so it cannot be used for chunks.
