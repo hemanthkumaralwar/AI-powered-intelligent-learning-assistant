@@ -21,12 +21,14 @@ from app.api.exercises import router as exercises_router
 from app.api.health import router as health_router
 from app.api.materials import router as materials_router
 from app.api.progress import router as progress_router
+from app.auth.limits import LoginGuard
 from app.auth.seed import seed_admin
 from app.auth.service import AuthService, build_auth_service
 from app.chat.service import ChatService
 from app.coding.factory import build_coding_service
 from app.coding.service import CodingService
 from app.core.body_limit import BodySizeLimitMiddleware
+from app.core.cache import TTLCache
 from app.core.config import Settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
@@ -83,7 +85,19 @@ def create_app(
         app.state.coding = coding or build_coding_service(settings, app.state.indexing, llm, quota)
         app.state.grader = grader or ExerciseGrader(llm, quota)
         app.state.practice = PracticeFinder(settings.platform_lesson_url)
-        app.state.chats = ChatService(app.state.database, app.state.answers, app.state.practice)
+        app.state.chats = ChatService(
+            app.state.database,
+            app.state.answers,
+            app.state.practice,
+            settings.chat_retention_days,
+        )
+        app.state.login_guard = LoginGuard(
+            failures_per_username=settings.login_failures_per_username,
+            logins_per_minute=settings.logins_per_minute,
+            registrations_per_minute=settings.registrations_per_minute,
+        )
+        # CONTENT_CACHE_SECONDS=0 turns caching off (every entry is already expired).
+        app.state.content_cache = TTLCache(256, settings.content_cache_seconds)
         try:
             if settings.admin_username and settings.admin_password:
                 await seed_admin(
@@ -116,6 +130,7 @@ def create_app(
         BodySizeLimitMiddleware,
         default_limit=DEFAULT_BODY_LIMIT,
         path_limits={"/admin/documents": MAX_UPLOAD_BYTES + MULTIPART_OVERHEAD},
+        bearer_required=frozenset({"/admin/documents"}),
     )
     register_exception_handlers(app)
     app.include_router(health_router)

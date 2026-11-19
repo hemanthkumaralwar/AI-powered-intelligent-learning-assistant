@@ -158,6 +158,9 @@ class NullIndexing:
     def enqueue(self, document_id: object) -> None:
         return None
 
+    def remove_course(self, course_id: str) -> None:
+        return None
+
 
 @pytest.fixture
 def null_indexing() -> NullIndexing:

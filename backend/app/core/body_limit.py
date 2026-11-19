@@ -4,6 +4,10 @@ Starlette parses multipart bodies before endpoint code runs, so a size check ins
 upload handler comes too late: a huge body would already be spooled to disk. This ASGI
 middleware counts bytes as they arrive and answers 413 as soon as the limit is passed.
 Bodies within the limit are buffered and replayed to the app unchanged.
+
+Paths with a large limit (uploads) can also require a bearer token header: a request
+without one is refused before its body is read, so anonymous clients cannot make the
+server buffer megabytes. The token itself is still checked by the endpoint.
 """
 
 from collections.abc import Awaitable, Callable, Mapping
@@ -18,17 +22,31 @@ Send = Callable[[Message], Awaitable[None]]
 ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 
 _TOO_LARGE = JSONResponse({"detail": "Request body is too large."}, status_code=413)
+_NOT_AUTHENTICATED = JSONResponse(
+    {"detail": "Not authenticated"}, status_code=401, headers={"WWW-Authenticate": "Bearer"}
+)
 
 
 class BodySizeLimitMiddleware:
-    def __init__(self, app: ASGIApp, *, default_limit: int, path_limits: Mapping[str, int]) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        default_limit: int,
+        path_limits: Mapping[str, int],
+        bearer_required: frozenset[str] = frozenset(),
+    ) -> None:
         self._app = app
         self._default_limit = default_limit
         self._path_limits = dict(path_limits)
+        self._bearer_required = bearer_required
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self._app(scope, receive, send)
+            return
+        if scope["path"] in self._bearer_required and not _has_bearer(scope):
+            await _NOT_AUTHENTICATED(scope, receive, send)
             return
         limit = self._path_limits.get(scope["path"], self._default_limit)
         if _declared_length(scope) > limit:
@@ -39,6 +57,13 @@ class BodySizeLimitMiddleware:
             await _TOO_LARGE(scope, receive, send)
             return
         await self._app(scope, _replay(body, receive), send)
+
+
+def _has_bearer(scope: Scope) -> bool:
+    for name, value in scope.get("headers", []):
+        if name == b"authorization":
+            return value[:7].lower() == b"bearer " and len(value.strip()) > 7
+    return False
 
 
 def _declared_length(scope: Scope) -> int:

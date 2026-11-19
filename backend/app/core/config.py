@@ -64,6 +64,15 @@ class Settings(BaseSettings):
     # Lessons whose exercise mastery is below this are "weak" and recommended for review.
     weak_mastery_threshold: float = Field(default=0.6, gt=0.0, le=1.0)
 
+    # Brute-force protection: failed logins per username per 15 minutes, and app-wide caps.
+    login_failures_per_username: int = Field(default=5, ge=1, le=100)
+    logins_per_minute: int = Field(default=60, ge=1, le=10_000)
+    registrations_per_minute: int = Field(default=20, ge=1, le=10_000)
+    # Chats untouched for this many days are deleted when their owner next lists chats.
+    chat_retention_days: int = Field(default=90, ge=1, le=3650)
+    # Course outlines and lessons are cached this long (cleared on upload/delete anyway).
+    content_cache_seconds: int = Field(default=600, ge=0, le=86_400)
+
     embedding_provider: EmbeddingProvider = "gemini"
     # gemini-embedding-2 merges a batch into one vector, so it cannot be used for chunks.
     gemini_embedding_model: str = Field(default="gemini-embedding-001", min_length=1)

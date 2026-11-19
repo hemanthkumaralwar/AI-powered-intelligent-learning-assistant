@@ -3,6 +3,7 @@
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import delete, func, select, update
@@ -96,6 +97,16 @@ class ChatRepository:
         await self._session.execute(
             update(ChatSession).where(ChatSession.id == session_id).values(updated_at=func.now())
         )
+
+    async def delete_inactive(self, user_id: uuid.UUID, days: int) -> int:
+        """Delete this user's chats untouched for `days` (database clock); returns how many."""
+        result = await self._session.execute(
+            delete(ChatSession).where(
+                ChatSession.user_id == user_id,
+                ChatSession.updated_at < func.now() - timedelta(days=days),
+            )
+        )
+        return result.rowcount
 
     async def delete_session(self, session_id: uuid.UUID) -> None:
         """Delete a session; its messages go with it (ON DELETE CASCADE)."""

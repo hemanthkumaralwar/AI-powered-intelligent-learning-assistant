@@ -20,6 +20,8 @@ UNAVAILABLE = (
     "The service is busy or still starting up (free hosting sleeps when idle). "
     "Please try again in a minute."
 )
+# 504: the AI provider (or the host's gateway) took too long.
+TOO_SLOW = "The assistant took too long to answer. Please try again."
 
 
 class ApiError(Exception):
@@ -200,6 +202,8 @@ class ApiClient:
         if response.status_code == 503:
             # A fixed message, never the body: 5xx details are not shown to students.
             raise ApiError(UNAVAILABLE)
+        if response.status_code == 504:
+            raise ApiError(TOO_SLOW)
         if response.status_code >= 500:
             raise ApiError("The server had a problem. Please try again shortly.")
         if not response.is_success:

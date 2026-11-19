@@ -98,6 +98,11 @@ All settings come from environment variables or `.env`. `.env.example` lists eve
 | `CHAT_QUESTIONS_PER_USER_PER_MINUTE` | per-student question quota | `5` |
 | `CHAT_QUESTIONS_GLOBAL_PER_MINUTE` | whole-app question quota (protects the shared free tier) | `20` |
 | `WEAK_MASTERY_THRESHOLD` | `0` < value ≤ `1`; lessons below it are recommended for review | `0.6` |
+| `LOGIN_FAILURES_PER_USERNAME` | wrong passwords per username in 15 minutes before that account's sign-in is paused | `5` |
+| `LOGINS_PER_MINUTE` | whole-app sign-in attempts per minute | `60` |
+| `REGISTRATIONS_PER_MINUTE` | whole-app new accounts per minute | `20` |
+| `CHAT_RETENTION_DAYS` | chats untouched this long are deleted (when their owner next lists chats) | `90` |
+| `CONTENT_CACHE_SECONDS` | how long course and lesson responses are cached; `0` turns caching off. Admin uploads and deletes clear the cache | `600` |
 | `PLATFORM_LESSON_URL` | `https://` link template to a lesson on the learning platform, containing `{lesson_id}`; makes practice pointers clickable | — (no links) |
 | `DATABASE_URL` | PostgreSQL URL: Neon direct (dev) or Supabase session pooler (prod) | — (required by the API from Step 5) |
 | `TEST_DATABASE_URL` | Neon `test` branch URL, read only by the test suite | — (database tests skip without it) |
@@ -221,6 +226,27 @@ Send the token as `Authorization: Bearer <token>`. In Swagger (`/docs`), use **A
 - **Passwords** are hashed with Argon2id and are never logged or echoed. Validation errors return only where and why, never the submitted value or its length.
 - **Tokens** are HS256 JWTs carrying only the user id, valid for `ACCESS_TOKEN_MINUTES`. The role is read from the database on every request, so role changes and deleted accounts take effect immediately.
 - **Login failures** return the same `401 Invalid username or password` whether the username or the password was wrong.
+- **Brute force:** after `LOGIN_FAILURES_PER_USERNAME` wrong passwords in 15 minutes, that username gets `429` (with `Retry-After`) until the window passes; other accounts are unaffected. Sign-ins and registrations also have app-wide per-minute caps. All limits live in process memory (one Render instance) and reset on restart.
+
+### Errors
+
+Every error is JSON `{"detail": "..."}`. Provider, runner and server internals are never returned or shown to students.
+
+| Status | When |
+|---|---|
+| `401` | missing, invalid or expired token; wrong username or password. Uploads without a token are refused before the file is read |
+| `403` | logged in but not allowed: another student's chat, or a student calling an admin endpoint (`Admin access required`) |
+| `404` | course, lesson, exercise, chat or document does not exist |
+| `409` | username already taken; course already uploaded; chat full or changed while answering (start a new chat or ask again) |
+| `413` | request body too large (64 KB for JSON, 10 MB for uploads) |
+| `422` | invalid input (only where and why, never the submitted value) |
+| `429` | over a quota: questions, code runs, or sign-ins. `Retry-After` says how many seconds to wait |
+| `500` | unexpected bug: a generic message; details only in the server log |
+| `502` | the model's reply was unusable (e.g. still not valid JSON after one retry) |
+| `503` | the AI provider, embedding provider or code runner is unavailable or out of its free quota |
+| `504` | the AI provider took longer than `LLM_TIMEOUT_SECONDS` |
+
+`tests/api/test_failures.py` simulates each failure; `tests/api/test_privacy.py` checks that students only see their own chats, attempts and progress, cannot use admin endpoints or make themselves admin, and that logs hold no questions, code, passwords or tokens.
 - **Admins:** the API cannot create admins; only `ADMIN_USERNAME` / `ADMIN_PASSWORD` can, at startup. Seeding never changes an existing account. After the first production deploy you can remove `ADMIN_PASSWORD` from Render.
 - **Route protection:** `CurrentUser` (any logged-in user) and `AdminUser` (admins only) in `app/api/deps.py`.
 - **Explanation level:** every account starts as `beginner`. Chat answers and the coding assistant adapt depth, vocabulary and length to it; each request can override it with its own `level`. The level never relaxes a rule (grounding, citations, refusals, hints-only for exercises): its guidance is added after the rules and says so. Shared wording: `app/llm/prompt_levels.py`.
@@ -290,7 +316,7 @@ Any logged-in user: `{"question": "...", "course_id": "javascript-beginner-v1", 
    "link": "/lessons/javascript-beginner-mod-1-lesson-1"}]}
 ```
 
-`grounded: false` means the course doesn't cover the question; `answer` says so. Errors: 404 unknown course or chat, 403 someone else's chat, 409 chat full (100 messages; start a new one), 429 over the question quota (with `Retry-After`), 503 when the AI provider is unavailable. Questions and answers are stored in your chat history but never logged; logs hold only the outcome and counts. A failed answer stores nothing.
+`grounded: false` means the course doesn't cover the question; `answer` says so. Errors: 404 unknown course or chat, 403 someone else's chat, 409 chat full (100 messages; start a new one), 429 over the question quota (with `Retry-After`), 503 when the AI provider is unavailable, 504 when it takes longer than `LLM_TIMEOUT_SECONDS`. Questions and answers are stored in your chat history but never logged; logs hold only the outcome and counts. A failed answer stores nothing.
 
 **Chat history** (only your own; anyone else's chat is **403**, admins included):
 
@@ -351,7 +377,7 @@ Any logged-in user, for `javascript`, `python`, `c`, `cpp`, `java` and `sql`. Co
 
 - **Course exercises get hints only:** if the code is (nearly) a course bug hunt or mini challenge in that language, `/debug` answers with hints, `corrected_code: null` and `exercise: true`. Matching is by text similarity (≥ 0.8), so a heavily rewritten copy is not caught; the prompt's hints-only rule is the fallback.
 - **Line numbers are checked:** issues or explanations pointing outside the code are dropped.
-- **Errors:** 422 invalid input, 429 over the shared AI quota (chat and coding share `CHAT_QUESTIONS_*`), 502 when the model's reply is still not valid JSON after one retry, 503 when the provider is unavailable. Code and model output are never logged.
+- **Errors:** 422 invalid input, 429 over the shared AI quota (chat and coding share `CHAT_QUESTIONS_*`), 502 when the model's reply is still not valid JSON after one retry, 503 when the provider is unavailable, 504 when it times out. Code and model output are never logged.
 
 Evaluate bug finding on 18 known-bug snippets (3 per language; the JavaScript ones are course bug hunts), about 18 LLM calls and no embeddings:
 

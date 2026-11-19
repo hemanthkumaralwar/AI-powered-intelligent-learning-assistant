@@ -338,7 +338,7 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - No CORS middleware: Streamlit calls the API from its own server, so the strictest option (none) works.
   - `require_student` became `require_user`: no route should block admins.
   - Validation errors never echo input or reveal password length.
-- **Step 5 — brute-force protection (owner: maintainer, fix in Step 20).** Login and registration have no rate limit or lockout yet. Step 20's per-user/IP rate limiting must cover `POST /auth/login` and `POST /auth/register` first.
+- **Step 5 — brute-force protection (owner: maintainer, fix in Step 20).** Login and registration have no rate limit or lockout yet. Step 20's per-user/IP rate limiting must cover `POST /auth/login` and `POST /auth/register` first. **Resolved in Step 20:** per-username lockout plus app-wide sign-in and registration caps.
 
 - **Step 6 deviations from the plan.**
   - No keep-alive (your decision). A GitHub cron would exceed the private-repo Actions quota (~3,100 of 2,000 free minutes), so cold starts are accepted and the demo warm-up is documented in `docs/deployment.md`.
@@ -351,7 +351,7 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - Compiler Explorer cannot run JavaScript or SQL, so those depend on Judge0 alone.
   - The Java `public class Main` modifier is dropped for Compiler Explorer only.
   - Share links are public and permanent (Compiler Explorer's design) and come with a warning.
-- **Step 7 — in-memory run quotas (owner: maintainer, revisit in Step 20).** Per-student and app-wide limits live in process memory: correct for the single Render instance, reset on restart, and not shared if the API ever runs more than one instance. Step 20 should move them to the shared rate limiter.
+- **Step 7 — in-memory run quotas (owner: maintainer, revisit in Step 20).** Per-student and app-wide limits live in process memory: correct for the single Render instance, reset on restart, and not shared if the API ever runs more than one instance. Step 20 should move them to the shared rate limiter. **Kept in Step 20:** a shared store needs Redis (not free); revisit only if the API runs more than one instance.
 - **Step 7 — free runner dependence (owner: maintainer, watch before the demo).** Neither runner publishes terms or limits, and both are free community services with no SLA. Run `scripts/code_runner_smoke.py` before the demo; if Judge0 is down, C/C++/Java/Python still run via Compiler Explorer, but JavaScript and SQL do not.
 
 - **Step 8 deviations from the plan.**
@@ -361,7 +361,7 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - A request-size middleware was added: 10 MB for uploads, 64 KB for everything else.
   - PDF/DOCX remain a stretch goal (415).
 - **Step 8 — rendering rule (owner: maintainer, enforce in Step 19).** Course text is stored as uploaded. The Streamlit UI must never render it with `unsafe_allow_html=True`.
-- **Step 8 — upload buffering (owner: maintainer, revisit in Step 20).** The size middleware buffers up to ~10 MB per upload request before authentication runs. Step 20's rate limiting should cover `POST /admin/documents`.
+- **Step 8 — upload buffering (owner: maintainer, revisit in Step 20).** The size middleware buffers up to ~10 MB per upload request before authentication runs. Step 20's rate limiting should cover `POST /admin/documents`. **Resolved in Step 20:** requests without a bearer token are refused before the body is read; a logged-in student can still send one ≤ 10 MB body before the 403.
 - **Data quality, for Step 17.** In `javascript-beginner.json` the correct quiz option is index 1 in 64% of questions. Shuffle options when serving quizzes.
 
 - **Step 9 deviations from the plan (your decisions, 2026-11-19).**
@@ -391,7 +391,7 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - **Citations are built by the server:** the model marks sources as `[n]`; markers that match no retrieved source are dropped (code such as `arr[1]` is ignored), and a reply that cites nothing real becomes the refusal. The link is the API path `/lessons/{lesson_id}`; Step 19 maps it to a page.
   - **Prompt injection:** sources and the question sit in separate tagged blocks marked as data; tags inside them are defused. The hints-not-solutions rule for `type: exercise` chunks is in the prompt.
   - **Question quota:** 5 per student per minute and 20 per minute app-wide (in memory, like code runs). The sliding-window quota moved from `runner/` to `core/quota.py` so both use it.
-  - **Database connection:** `/chat/ask` commits (releasing its pooled connection) before the slow provider calls. **Debt (owner: maintainer, Step 20):** `/code/run` still holds a connection for up to 30 s through `CurrentUser`; apply the same early commit there.
+  - **Database connection:** `/chat/ask` commits (releasing its pooled connection) before the slow provider calls. **Debt (owner: maintainer, Step 20):** `/code/run` still holds a connection for up to 30 s through `CurrentUser`; apply the same early commit there. **Resolved in Step 20.**
   - **Default model is now `gemini-3.5-flash-lite`** (was `gemini-3.8-flash`, which timed out on 2026-11-19), with `GEMINI_THINKING_BUDGET` defaulting to `default` (no thinking setting): lite models answer 400 INVALID_ARGUMENT even to a budget of 0. Switching back to a thinking model needs `GEMINI_THINKING_BUDGET=0` as well.
   - **Evaluation:** `--answers` adds answer accuracy (LLM judge, cached in `eval/cache/`, gitignored), correct refusals, citation checks and 6 `solution_request` cases. The question embeddings are reused across phases, and a provider failure is recorded per case instead of aborting the run.
 - **Steps 12 and 13 Done-when results (2026-11-19, `gemini-3.5-flash-lite`, Neon dev, 84 cases).**
@@ -403,6 +403,15 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - **Follow-ups:** `app/rag/condense.py` rewrites the question from the last 3 exchanges (each cut to 500 characters, temperature 0) before retrieval, and only when the chat has history. The answer prompt sees only the rewritten question, not the history, so answers stay grounded. A failed or unusable rewrite falls back to the question as asked.
   - **Storage:** the question, its rewrite, the answer, `grounded` and citations. `ask` loads in one short transaction and saves in another, so no connection is held during the provider calls; a failed answer saves nothing. 100 messages per chat (409). A concurrent write to the same chat is a 409 via the (session, position) unique constraint.
   - **Evaluation:** `--answers` also scores follow-ups rewritten by the app ("Follow-ups, rewritten by the app" row) and lists every rewrite for review.
+- **Step 20 decisions (2026-11-19).**
+  - **Sign-in protection:** after 5 wrong passwords for a username in 15 minutes, that username gets 429 with `Retry-After` (other accounts unaffected); app-wide caps of 60 sign-ins and 20 registrations a minute (`app/auth/limits.py`). Per username, not per IP: behind Render's proxy the client IP is not trustworthy without extra setup.
+  - **Quotas stay in process memory** (`app/core/quota.py`, one Render instance; reset on restart). A shared store would need Redis, which the ₹0 budget rules out. The plan's `app/core/ratelimit.py` is that existing module.
+  - **Uploads:** `POST /admin/documents` without a bearer token is refused (401) before the body is read; students still get 403 after authentication.
+  - **Database connection:** `/code/run` commits before the runner call, like `/chat/ask`.
+  - **Chat retention:** chats untouched for `CHAT_RETENTION_DAYS` (90) are deleted when their owner lists chats (no scheduler on the free tier).
+  - **Caching:** the course list, course and lesson responses are cached for `CONTENT_CACHE_SECONDS` (600) and cleared by any admin upload or delete; question embeddings are cached in memory (512 entries), so repeated questions and evaluation runs spend less of the daily embedding quota. Answers are not cached (they depend on the chat and the student's level).
+  - **Errors:** AI timeouts are now 504 (were 503). The full status table is in the README ("Errors"). The quiz-platform failure case is dropped (Step 17: no quiz platform API).
+  - **Done-when result (2026-11-19):** `tests/api/test_failures.py` simulates AI timeout (504), provider down or out of quota (503), embedding failure (503), unusable reply (502), our AI quota (429 + `Retry-After`), code runner down (503), oversized body (413), token-less upload (401) and account lockout (429); none leaks provider details. `tests/api/test_privacy.py`: another student's chat is 403 for read, follow-up and delete; attempts and progress are per student; students get 403 on admin endpoints and 422 when setting their own role; logs hold no question text, code, passwords or tokens; old chats are purged; admin deletes clear the content cache.
 - **Step 19 decisions (2026-11-19).**
   - **Pages:** Courses, Ask the assistant, Practice, Coding helper, My progress, and (admins only) Manage courses, through `st.navigation` with the menu built from the user's role (`frontend/menu.py`). The account (log out, level) is in the sidebar (`components/account.py`).
   - **"Takes a quiz"** became: the student sees the lesson's quiz and activities and opens them on the learning platform (your Step 17 decision); links appear once `PLATFORM_LESSON_URL` is set.
@@ -444,7 +453,7 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - **Shared AI budget:** chat and coding use one LLM client and one quota (`CHAT_QUESTIONS_*`), owned by `create_app`. Provider errors map to 429/502/503 in one place (`app/api/ai_errors.py`).
   - **Done-when result (2026-11-19, `gemini-3.5-flash-lite`, `eval/reports/coding-2026-11-19.md`):** bugs identified 18/18 (100%, target >= 80%), every language 3/3; JSON validation 100%; the 3 JavaScript course bug hunts were recognised as exercises (hints only). Caveat: the snippets are classic beginner bugs written for this check, so real student code will score lower.
   - **Evaluation:** `eval/code_cases.jsonl` (18 snippets, 3 per language; JavaScript = course bug hunts mod-1 lesson 1, mod-2 lesson 3, mod-4 lesson 4) and `eval/run_code_eval.py`. Identified = an issue within one line of the known bug that names a keyword. A live probe on 2026-11-19 (`gemini-3.5-flash-lite`) found the Python off-by-one on its exact line with valid JSON.
-- **Step 13 — chat retention (owner: maintainer, Step 20).** Chats are kept until the student deletes them. Add an age limit (e.g. 90 days) and count chats against the free-tier storage budget.
+- **Step 13 — chat retention (owner: maintainer, Step 20).** Chats are kept until the student deletes them. Add an age limit (e.g. 90 days) and count chats against the free-tier storage budget. **Resolved in Step 20:** `CHAT_RETENTION_DAYS` (90), purged when the owner lists chats.
 - **Step 12 — Gemini availability (owner: you, watch).** On 2026-11-19 `gemini-3.8-flash` returned 504 or hung for minutes, and `gemini-3.5-flash` returned 503 (high demand); the `-lite` models answered in about 1 s. The same day, repeated evaluation runs used up the daily embedding quota (resets at midnight Pacific), so the API key shared with production could not embed questions until then. Keep evaluation runs to one or two a day.
 
 ## Pending inputs

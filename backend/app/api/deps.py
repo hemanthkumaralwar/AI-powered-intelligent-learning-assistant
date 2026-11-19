@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.errors import InvalidTokenError
 from app.auth.service import AuthService
+from app.core.cache import TTLCache
 from app.db.models import User
 from app.db.session import Database
 
@@ -68,3 +69,11 @@ async def require_admin(user: CurrentUser) -> User:
 
 
 AdminUser = Annotated[User, Depends(require_admin)]
+
+
+def get_content_cache(request: Request) -> TTLCache:
+    """Course outlines and lessons; admins clear it whenever course content changes."""
+    return request.app.state.content_cache
+
+
+ContentCache = Annotated[TTLCache, Depends(get_content_cache)]

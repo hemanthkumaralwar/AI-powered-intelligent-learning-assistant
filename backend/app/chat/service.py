@@ -58,11 +58,16 @@ class ChatReply:
 
 class ChatService:
     def __init__(
-        self, database: Database, answers: AnswerService, practice: PracticeFinder
+        self,
+        database: Database,
+        answers: AnswerService,
+        practice: PracticeFinder,
+        retention_days: int = 90,
     ) -> None:
         self._database = database
         self._answers = answers
         self._practice = practice
+        self._retention_days = retention_days
 
     async def ask(
         self,
@@ -102,11 +107,14 @@ class ChatService:
             pointers = await self._practice.for_lessons(db, lessons) if answer.grounded else []
         return ChatReply(session_id, answer, pointers)
 
-    @staticmethod
     async def list_sessions(
-        db: AsyncSession, user_id: uuid.UUID, limit: int, offset: int = 0
+        self, db: AsyncSession, user_id: uuid.UUID, limit: int, offset: int = 0
     ) -> list[ChatSession]:
-        return await ChatRepository(db).list_sessions(user_id, limit, offset)
+        """This user's chats, after deleting the ones untouched for the retention period
+        (done here, when the owner looks, so no background job is needed)."""
+        repo = ChatRepository(db)
+        await repo.delete_inactive(user_id, self._retention_days)
+        return await repo.list_sessions(user_id, limit, offset)
 
     @staticmethod
     async def history(

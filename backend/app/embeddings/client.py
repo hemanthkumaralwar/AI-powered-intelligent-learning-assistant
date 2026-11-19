@@ -6,12 +6,16 @@ import math
 import time
 from collections.abc import Sequence
 
+from app.core.cache import TTLCache
 from app.embeddings.base import EmbeddingModel, EmbeddingTask
 from app.providers.errors import InvalidResponseError, ProviderTimeoutError
 from app.providers.rate_limit import RateLimiter
 from app.providers.retry import RetryPolicy, Sleep, call_with_retry
 
 logger = logging.getLogger(__name__)
+
+# About 3 MB of 768-dimension vectors.
+QUERY_CACHE_ENTRIES = 512
 
 
 class EmbeddingClient:
@@ -41,6 +45,10 @@ class EmbeddingClient:
             "query": query_rate_limiter or rate_limiter,
         }
         self._sleep = sleep
+        # Students in one course ask the same questions; each repeat would cost a text of
+        # the free tier's daily budget. One client serves one vector space, so the text
+        # alone is the key.
+        self._query_cache: TTLCache[list[float]] = TTLCache(QUERY_CACHE_ENTRIES)
 
     @property
     def provider(self) -> str:
@@ -82,9 +90,13 @@ class EmbeddingClient:
         return vectors
 
     async def embed_query(self, text: str) -> list[float]:
-        """Embed one student question for similarity search."""
+        """Embed one student question for similarity search (repeats come from a cache)."""
         _require_text([text])
+        key = " ".join(text.split())
+        if (cached := self._query_cache.get(key)) is not None:
+            return cached
         (vector,) = await self._embed_batch([text], "query")
+        self._query_cache.set(key, vector)
         return vector
 
     async def _embed_batch(self, texts: Sequence[str], task: EmbeddingTask) -> list[list[float]]:

@@ -227,3 +227,15 @@ async def test_without_a_query_budget_questions_share_the_document_one() -> None
     await make_client(FakeEmbeddingModel(), limiter=shared).embed_query("x")
 
     assert shared.costs == [1]
+
+
+async def test_repeated_questions_are_embedded_once() -> None:
+    model = ScriptedModel([[[1.0, 0.0, 0.0]], [[0.0, 1.0, 0.0]]])
+    client = make_client(model)
+
+    first = await client.embed_query("What is let?")
+    again = await client.embed_query("  What   is let? ")  # same text, other spacing
+    other = await client.embed_query("What is const?")
+
+    assert first == again != other
+    assert model.outcomes == []  # exactly two provider calls

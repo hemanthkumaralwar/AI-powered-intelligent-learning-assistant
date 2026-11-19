@@ -5,7 +5,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from app.api.deps import CurrentUser
+from app.api.deps import CurrentUser, Session
+from app.api.http_errors import too_many_requests
 from app.api.schemas.code import (
     RunCodeRequest,
     RunCodeResponse,
@@ -31,16 +32,18 @@ Runner = Annotated[CodeRunnerService, Depends(get_code_runner)]
 
 
 @router.post("/run")
-async def run_code(body: RunCodeRequest, user: CurrentUser, runner: Runner) -> RunCodeResponse:
+async def run_code(
+    body: RunCodeRequest, user: CurrentUser, session: Session, runner: Runner
+) -> RunCodeResponse:
     """Run code remotely. Compile errors, crashes and timeouts are normal results (200)."""
+    user_id = user.id
+    # Hand back the connection that loaded the user: a run can take up to 30 s and the
+    # pool is small (same as /chat and /coding).
+    await session.commit()
     try:
-        result = await runner.run(user.id, RunRequest(body.language, body.code, body.stdin))
+        result = await runner.run(user_id, RunRequest(body.language, body.code, body.stdin))
     except QuotaExceededError as exc:
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            str(exc),
-            headers={"Retry-After": str(max(1, round(exc.retry_after)))},
-        ) from exc
+        raise too_many_requests(exc) from exc
     except UnsupportedLanguageError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     except RunnerUnavailableError as exc:

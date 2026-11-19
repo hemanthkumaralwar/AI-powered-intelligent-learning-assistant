@@ -16,7 +16,7 @@ from fastapi import (
     status,
 )
 
-from app.api.deps import Session, require_admin
+from app.api.deps import ContentCache, Session, require_admin
 from app.api.downloads import file_response
 from app.api.schemas.materials import DocumentResponse
 from app.api.schemas.search import ReindexResponse, SearchHitResponse, SearchRequest
@@ -59,6 +59,7 @@ async def upload_document(
     session: Session,
     indexing: Indexing,
     background: BackgroundTasks,
+    cache: ContentCache,
     file: Annotated[UploadFile, File(description="A course JSON file")],
     language: Annotated[Language, Form(description="Programming language of the course")],
 ) -> DocumentResponse:
@@ -82,6 +83,7 @@ async def upload_document(
     # Background tasks run after the response, i.e. after the upload has committed, so
     # the worker always finds the document.
     background.add_task(indexing.enqueue, document.id)
+    cache.clear()
     return DocumentResponse.model_validate(document)
 
 
@@ -104,22 +106,32 @@ async def download_document(document_id: uuid.UUID, session: Session) -> Respons
 
 @router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(
-    document_id: uuid.UUID, session: Session, indexing: Indexing, background: BackgroundTasks
+    document_id: uuid.UUID,
+    session: Session,
+    indexing: Indexing,
+    background: BackgroundTasks,
+    cache: ContentCache,
 ) -> None:
     if not await DocumentRepository(session).delete(document_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
     background.add_task(indexing.remove_document, document_id)
+    cache.clear()
 
 
 @router.delete("/courses/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_course(
-    course_id: str, session: Session, indexing: Indexing, background: BackgroundTasks
+    course_id: str,
+    session: Session,
+    indexing: Indexing,
+    background: BackgroundTasks,
+    cache: ContentCache,
 ) -> None:
     """Delete a course and EVERYTHING attached to it: lessons, quizzes, exercises, and all
     of its stored documents and vectors. Use this before re-uploading a changed course."""
     if not await CourseRepository(session).delete(course_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found")
     background.add_task(indexing.remove_course, course_id)
+    cache.clear()
 
 
 @router.post("/reindex", status_code=status.HTTP_202_ACCEPTED)

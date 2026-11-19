@@ -188,10 +188,11 @@ def test_run_share_and_debug_send_the_right_bodies() -> None:
         (502, {"detail": "The assistant couldn't produce a valid answer."}, "valid answer"),
         (502, None, "couldn't answer"),
         (503, {"detail": "secret internals"}, "busy or still starting up"),
+        (504, None, "took too long"),
         (422, {"detail": [{"msg": "Code must be at most 8 KB"}]}, "Check your input: Code must"),
         (422, {"detail": [{}]}, r"Unexpected response from the server \(422\)"),
     ],
-    ids=["429", "502", "502-plain", "503-hides-detail", "422-message", "422-no-message"],
+    ids=["429", "502", "502-plain", "503-hides-detail", "504", "422-message", "422-no-message"],
 )
 def test_api_messages_reach_the_student_except_server_errors(status, body, message) -> None:
     def handler(request: httpx2.Request) -> httpx2.Response:
