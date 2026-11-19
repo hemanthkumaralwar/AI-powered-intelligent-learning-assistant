@@ -46,7 +46,7 @@ class DocumentRepository:
         query = select(DocumentFile.content).where(DocumentFile.document_id == document_id)
         return await self._session.scalar(query)
 
-    async def list(self, course_id: str | None = None) -> list[Document]:
+    async def list_documents(self, course_id: str | None = None) -> list[Document]:
         """Newest first, optionally for one course. Never loads file contents."""
         query = select(Document).order_by(Document.created_at.desc(), Document.id)
         if course_id is not None:
@@ -72,3 +72,17 @@ class DocumentRepository:
         await self._session.delete(document)
         await self._session.flush()
         return True
+
+    async def ids_with_status(self, *statuses: DocumentStatus) -> list[uuid.UUID]:
+        """Oldest first, so interrupted work resumes in upload order."""
+        query = (
+            select(Document.id)
+            .where(Document.status.in_(statuses))
+            .order_by(Document.created_at, Document.id)
+        )
+        return list(await self._session.scalars(query))
+
+    async def mark_all_pending(self) -> list[uuid.UUID]:
+        """Queue every document for re-indexing; returns their ids, oldest first."""
+        await self._session.execute(update(Document).values(status="pending", error_message=None))
+        return await self.ids_with_status("pending")

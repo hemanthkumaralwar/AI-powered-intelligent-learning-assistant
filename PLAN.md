@@ -372,6 +372,14 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 - **Step 17 — widened scope.** Serve **quizzes, drag-and-drop, card matching and code reordering** through the API, with answers kept and checked **server-side**. Extract the activities from the stored course JSON (`document_files`), and shuffle quiz options.
 - **Course-content note (for the course generator).** In 3 lessons (mod-2 lesson 7, mod-7 lesson 3, mod-8 lesson 6) the bug-hunt fix appears verbatim as a lesson example, so the bug hunt can be solved by reading the examples.
 
+- **Step 10 deviations from the plan.**
+  - **FAISS instead of ChromaDB:** 1 package vs 34, no telemetry, and Render's disk is wiped anyway.
+  - **Quota-aware, resumable indexing:** a live run hit Gemini's free tier, which counts *every text in a batch* (about 100/minute, about 1,000/day). Indexing now uses per-text budgets (80/minute; 20/minute reserved for questions) and batches of 40, saves vectors batch by batch, pauses as `pending` on a quota hit, and resumes on its own. Search loads only `ready` documents, so a half-indexed course is never searchable.
+  - **Coarser chunks (changes Step 9):** 1,225 → 424 for the JavaScript course (1,500-character bodies; grouped examples; analogy + story + use cases; takeaways + flowchart; one practice chunk per lesson), so a course fits in one day's quota.
+  - **New endpoints:** admin `POST /admin/search` and `POST /admin/reindex`.
+- **Step 10 — `GEMINI_API_KEY` required on Render (owner: you, before this deploy).** The API builds the embedding client at startup. Without the key, Render rejects the new version and keeps the previous one running.
+- **Step 10 — free-tier embedding budget (owner: maintainer, watch).** About 1,000 texts a day are shared by indexing (424 per course) and student questions (1 each). A second course, or a re-index after changing the embedding model, may take two days. Each document's `error_message` shows when it is waiting.
+
 ## Pending inputs
 
 - [ ] Quiz platform JSON and API details (needed by Day 8, Step 17)

@@ -88,8 +88,9 @@ All settings come from environment variables or `.env`. `.env.example` lists eve
 | `OPENAI_EMBEDDING_MODEL` | OpenAI embedding model | `text-embedding-3-small` |
 | `HF_EMBEDDING_MODEL` | Hugging Face model id | `BAAI/bge-small-en-v1.5` |
 | `EMBEDDING_DIMENSIONS` | `8`–`3072` (Gemini and OpenAI; Hugging Face uses its model's size) | `768` |
-| `EMBEDDING_BATCH_SIZE` | `1`–`2048` texts per request (capped per provider) | `100` |
-| `EMBEDDING_REQUESTS_PER_MINUTE` | client-side request spacing | `60` |
+| `EMBEDDING_BATCH_SIZE` | texts per request; must not exceed the document budget | `40` |
+| `EMBEDDING_DOCUMENT_TEXTS_PER_MINUTE` | texts per minute for indexing | `80` |
+| `EMBEDDING_QUERY_TEXTS_PER_MINUTE` | texts per minute for student questions (own budget) | `20` |
 | `EMBEDDING_TIMEOUT_SECONDS` | `0` < value ≤ `120` | `30` |
 | `EMBEDDING_MAX_ATTEMPTS` | `1`–`5`, including the first try | `3` |
 
@@ -120,7 +121,7 @@ python scripts/llm_smoke.py
 `EmbeddingClient` ([backend/app/embeddings/client.py](backend/app/embeddings/client.py)) turns text into vectors.
 
 - `embed_documents(texts)` embeds course chunks and `embed_query(text)` embeds student questions.
-- **Batching and quota:** it splits work into batches, spaces requests to stay under `EMBEDDING_REQUESTS_PER_MINUTE`, and retries like the LLM client.
+- **Batching and quota:** it splits work into batches and spaces them so that **texts** per minute stay under budget. Gemini's free tier counts every text in a batch as one request: about 100 a minute and about 1,000 a day per project. Indexing and student questions have separate budgets (80 + 20 a minute), so a question never waits behind an indexing batch. It retries like the LLM client.
 - **Checks:** every reply must have one vector per text, each of the expected size.
 - **Normalisation:** vectors are scaled to unit length, so the dot product equals cosine similarity for every provider.
 
@@ -217,13 +218,30 @@ Courses are uploaded as **course JSON only**, by admins. Other material (DOCX, P
 
 ### Chunks for RAG
 
-`chunk_course()` in [backend/app/ingestion/chunking.py](backend/app/ingestion/chunking.py) turns a stored course into searchable chunks: about **1,225** for `javascript-beginner.json`.
+`chunk_course()` in [backend/app/ingestion/chunking.py](backend/app/ingestion/chunking.py) turns a stored course into searchable chunks: **424** for `javascript-beginner.json`. Sections are deliberately coarse (examples packed together; analogy, story and use cases combined; a lesson's exercise prompts in one chunk), so a whole course fits inside one day of the free embedding quota, with room left for questions.
 
 - **Included:** module overviews; each lesson's explanation, key concepts, every example, analogy, **flowchart** (Mermaid), use cases, real-world story and takeaways; and the **prompt part** of each exercise (`interactiveExercise`, `miniChallenge`, `bugHunt`): instructions, starter or buggy code, expected result, hints.
 - **Never included:** quiz questions and answers, bug-hunt fixes and explanations, and drag-and-drop / card-matching / code-reordering. Those are served and graded through the API (Step 17). Tests plant sentinel values in every answer field and check none reaches a chunk.
-- **Format:** each chunk starts with a context header, e.g. `JavaScript Fundamentals › Variables and Data Types › Declaring Variables — Example 2`. The body is at most 1,000 characters (150 overlap when a section is split), at most 1,200 with the header.
+- **Format:** each chunk starts with a context header, e.g. `JavaScript Fundamentals › Variables and Data Types › Declaring Variables — Example 2`. The body is at most 1,500 characters (150 overlap when a section is split), at most 1,750 with the header.
 - **IDs** are a SHA-256 of document + section + piece, so re-chunking gives identical IDs.
 - **Exercise tagging:** exercise chunks are tagged `type: exercise`, so the tutor (Steps 12/14) gives hints, not solutions. That's a prompt rule, so best effort; the hard guarantee is that solutions are never retrievable.
+
+### Indexing and search (FAISS)
+
+Uploading a course starts indexing in the background: chunk → embed → save vectors in Postgres → add to the in-memory **FAISS** index (one per course). Check progress with `GET /admin/documents`:
+
+| `status` | Meaning |
+|---|---|
+| `pending` | queued, or **paused for the embedding quota**: `error_message` says so, and it resumes by itself (about a minute later, or hourly checks while the daily quota is used up) |
+| `processing` | being indexed now |
+| `ready` | searchable |
+| `failed` | `error_message` gives a short, safe reason; fix it, then `POST /admin/reindex` |
+
+- **Resumable:** vectors are saved batch by batch, so a quota pause loses nothing and the next run embeds only what's missing. A document becomes searchable only when complete.
+- **Restart-safe:** at startup the index is rebuilt from Postgres with **no embedding calls** (Render's disk is wiped on restart, so nothing is kept on disk). Documents interrupted by a restart resume automatically.
+- **`POST /admin/reindex`** (admin): re-queues every document. Unchanged content with vectors in the current embedding space costs **no** quota; after changing the embedding provider or model, everything is re-embedded.
+- **`POST /admin/search`** (admin) `{query, course_id?, k}`: what retrieval would return. Use it to check retrieval quality.
+- **FAISS, not ChromaDB:** ChromaDB would add 34 packages (onnxruntime, kubernetes, grpcio…) to a 512 MB server whose disk is wiped on restart. FAISS adds one, and the index is rebuilt from Postgres anyway.
 
 ## Running code
 
@@ -260,6 +278,8 @@ backend/app/        FastAPI application (package "app")
   auth/             password hashing, tokens, auth service, admin seeding
   runner/           code runners (Judge0, Compiler Explorer, fake), quota, fallback service
   ingestion/        upload checks, course JSON parsing (+ vendored course_schema.json), chunking
+  indexing/         indexing pipeline, worker and startup rebuild (quota-aware)
+  vectorstore/      in-memory FAISS index, one per course
 eval/materials/     course files used by tests and evaluation (javascript-beginner.json)
   core/             configuration, logging, error handling
   providers/        shared plumbing: errors, retry, rate limiting, SDK clients

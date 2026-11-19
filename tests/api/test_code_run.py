@@ -45,7 +45,7 @@ def service(*steps, per_minute: int = 100) -> CodeRunnerService:
 
 
 @pytest.fixture
-def make_client():
+def make_client(null_indexing):
     async def _make(code_runner: CodeRunnerService, *, logged_in: bool = True):
         app: FastAPI = create_app(
             Settings(_env_file=None, environment="test", log_level="WARNING"),
@@ -56,6 +56,7 @@ def make_client():
                 TokenService("k" * 64, timedelta(minutes=5)),
             ),
             code_runner=code_runner,
+            indexing=null_indexing,
         )
         if logged_in:
             app.dependency_overrides[require_user] = lambda: STUDENT

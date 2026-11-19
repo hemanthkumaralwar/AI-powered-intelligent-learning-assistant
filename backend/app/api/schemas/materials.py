@@ -17,6 +17,8 @@ class DocumentResponse(BaseModel):
     content_type: str
     size_bytes: int
     status: str
+    # Why indexing failed (fixed, safe wording); None unless status is "failed".
+    error_message: str | None
     created_at: datetime
 
 

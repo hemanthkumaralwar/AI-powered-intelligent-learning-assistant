@@ -26,3 +26,6 @@ class OpenAIEmbeddingModel:
             )
         # Sort by index: the API documents order by `index`, not list position.
         return [item.embedding for item in sorted(result.data, key=lambda item: item.index)]
+
+    async def aclose(self) -> None:
+        await self._client.close()

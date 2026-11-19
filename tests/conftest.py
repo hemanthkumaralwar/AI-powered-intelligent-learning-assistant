@@ -124,3 +124,40 @@ async def database(test_database_url: str, migrated_schema: str) -> AsyncIterato
         async with db.engine.begin() as connection:
             await connection.execute(text(f"TRUNCATE {tables} CASCADE"))
         await db.dispose()
+
+
+# ---- indexing --------------------------------------------------------------------------
+
+# Settings for tests that let the app build its own IndexingService on a test database:
+# deterministic fake embeddings, and no client-side throttling of the fake.
+FAKE_EMBEDDINGS = {
+    "embedding_provider": "fake",
+    "embedding_document_texts_per_minute": 100_000,
+    "embedding_query_texts_per_minute": 100_000,
+}
+
+
+class NullIndexing:
+    """Stands in for IndexingService where a test has no database or vectors."""
+
+    async def start(self) -> None:
+        return None
+
+    async def stop(self) -> None:
+        return None
+
+    async def aclose(self) -> None:
+        return None
+
+    def enqueue(self, document_id: object) -> None:
+        return None
+
+
+@pytest.fixture
+def null_indexing() -> NullIndexing:
+    return NullIndexing()
+
+
+@pytest.fixture
+def fake_embeddings() -> dict:
+    return dict(FAKE_EMBEDDINGS)

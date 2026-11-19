@@ -121,12 +121,12 @@ async def test_course_tree_round_trips_in_position_order(database: Database) -> 
 async def test_course_listing_is_sorted_and_starts_empty(database: Database) -> None:
     async with database.session() as session:
         repo = CourseRepository(session)
-        assert await repo.list() == []
+        assert await repo.list_courses() == []
         await repo.add(make_course("py-v1", "Python"))
         await repo.add(make_course("c-v1", "C"))
 
     async with database.session() as session:
-        assert [c.title for c in await CourseRepository(session).list()] == ["C", "Python"]
+        assert [c.title for c in await CourseRepository(session).list_courses()] == ["C", "Python"]
 
 
 async def test_unknown_course_is_none(database: Database) -> None:
@@ -181,9 +181,9 @@ async def test_document_listing_filters_by_course(database: Database) -> None:
 
     async with database.session() as session:
         documents = DocumentRepository(session)
-        all_ids = {d.id for d in await documents.list()}
-        in_course = await documents.list("js-v1")
-        elsewhere = await documents.list("other-course")
+        all_ids = {d.id for d in await documents.list_documents()}
+        in_course = await documents.list_documents("js-v1")
+        elsewhere = await documents.list_documents("other-course")
 
     assert all_ids == {first, second}
     assert len(in_course) == 2
@@ -286,13 +286,20 @@ async def test_embeddings_are_stored_and_filtered_by_vector_space(database: Data
         await chunks.set_embeddings("gemini:m:3", {})
 
     async with database.session() as session:
-        chunks = ChunkRepository(session)
-        gemini = await chunks.list_embedded("gemini:m:3")
-        other = await chunks.list_embedded("openai:m:3")
+        not_ready_yet = await ChunkRepository(session).list_searchable("gemini:m:3")
+        await DocumentRepository(session).set_status(document_id, "ready")
 
+    async with database.session() as session:
+        chunks = ChunkRepository(session)
+        gemini = await chunks.list_searchable("gemini:m:3")
+        other = await chunks.list_searchable("openai:m:3")
+        stale = await chunks.count_other_spaces("gemini:m:3")
+
+    assert not_ready_yet == []  # a document still being indexed is never searchable
     assert [c.id for c in gemini] == ["c0", "c1"]
     assert gemini[1].embedding == pytest.approx([0.1, 0.2, 0.3])
     assert other == []
+    assert stale == 1  # c2 lives in the huggingface space
 
 
 # ---- Step 8 additions -----------------------------------------------------------------

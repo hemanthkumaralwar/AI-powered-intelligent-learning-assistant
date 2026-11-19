@@ -22,3 +22,6 @@ class EmbeddingModel(Protocol):
     max_batch_size: int
 
     async def embed(self, texts: Sequence[str], task: EmbeddingTask) -> list[list[float]]: ...
+
+    async def aclose(self) -> None:
+        """Release network connections (called once at app shutdown)."""

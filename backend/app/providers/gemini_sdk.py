@@ -42,10 +42,31 @@ def translate_gemini_errors() -> Iterator[None]:
 
 def map_api_error(exc: errors.APIError) -> Exception:
     if exc.code == 429:
-        return RateLimitedError("gemini rate limit reached", parse_retry_delay(exc.details))
+        return RateLimitedError(
+            "gemini rate limit reached",
+            parse_retry_delay(exc.details),
+            daily=is_daily_quota(exc.details),
+        )
     if exc.code is not None and exc.code >= 500:
         return ProviderUnavailableError(f"gemini server error {exc.code}")
     return ProviderRequestError(f"gemini request failed with status {exc.code}")
+
+
+def is_daily_quota(details: Any) -> bool:
+    """True when a QuotaFailure names a per-day quota (e.g. "...RequestsPerDay...")."""
+    return any("PerDay" in str(v.get("quotaId", "")) for v in _quota_violations(details))
+
+
+def _quota_violations(details: Any) -> list[dict[str, Any]]:
+    error = details.get("error") if isinstance(details, dict) else None
+    entries = error.get("details") if isinstance(error, dict) else None
+    return [
+        violation
+        for entry in (entries if isinstance(entries, list) else [])
+        if isinstance(entry, dict) and entry.get("@type", "").endswith("QuotaFailure")
+        for violation in entry.get("violations") or []
+        if isinstance(violation, dict)
+    ]
 
 
 def parse_retry_delay(details: Any) -> float | None:

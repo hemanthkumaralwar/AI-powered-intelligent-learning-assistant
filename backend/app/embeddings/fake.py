@@ -19,10 +19,14 @@ class FakeEmbeddingModel:
     def __init__(self, dimensions: int = 8) -> None:
         self.dimensions = dimensions
         self.calls: list[tuple[list[str], EmbeddingTask]] = []
+        self.closed = False
 
     async def embed(self, texts: Sequence[str], task: EmbeddingTask) -> list[list[float]]:
         self.calls.append((list(texts), task))
         return [fake_vector(text, self.dimensions) for text in texts]
+
+    async def aclose(self) -> None:
+        self.closed = True
 
 
 def fake_vector(text: str, dimensions: int) -> list[float]:

@@ -16,9 +16,13 @@ class ProviderConfigurationError(ProviderCallError):
 class RateLimitedError(ProviderCallError):
     """The provider rejected the request because a quota or rate limit was hit."""
 
-    def __init__(self, message: str, retry_after: float | None = None) -> None:
+    def __init__(
+        self, message: str, retry_after: float | None = None, *, daily: bool = False
+    ) -> None:
         super().__init__(message)
         self.retry_after = retry_after
+        # True when a per-day quota is exhausted: retrying before the reset is pointless.
+        self.daily = daily
 
 
 class ProviderTimeoutError(ProviderCallError):

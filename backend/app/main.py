@@ -24,6 +24,8 @@ from app.core.config import Settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
 from app.db.session import Database, build_database
+from app.indexing.factory import build_indexing_service
+from app.indexing.service import IndexingService
 from app.ingestion.files import MAX_UPLOAD_BYTES
 from app.runner.factory import build_code_runner_service
 from app.runner.service import CodeRunnerService
@@ -38,6 +40,7 @@ def create_app(
     database: Database | None = None,
     auth: AuthService | None = None,
     code_runner: CodeRunnerService | None = None,
+    indexing: IndexingService | None = None,
 ) -> FastAPI:
     """Build the app from explicit settings.
 
@@ -53,6 +56,7 @@ def create_app(
         app.state.auth = auth or build_auth_service(settings)
         app.state.database = database or build_database(settings)
         app.state.code_runner = code_runner or build_code_runner_service(settings)
+        app.state.indexing = indexing or build_indexing_service(settings, app.state.database)
         try:
             if settings.admin_username and settings.admin_password:
                 await seed_admin(
@@ -61,9 +65,16 @@ def create_app(
                     settings.admin_username,
                     settings.admin_password,
                 )
+            # Rebuild the vector index from Postgres before serving any request, so the
+            # first question after a cold start already sees every course.
+            await app.state.indexing.start()
             yield
         finally:
             # Only close what we created; injected services belong to the caller.
+            if indexing is None:
+                await app.state.indexing.aclose()
+            else:
+                await app.state.indexing.stop()
             if code_runner is None:
                 await app.state.code_runner.aclose()
             if database is None:

@@ -40,6 +40,9 @@ class HuggingFaceEmbeddingModel:
         )
         return array.tolist()
 
+    async def aclose(self) -> None:
+        """Nothing to release: the model runs in-process."""
+
 
 def load_sentence_transformer(model: str) -> SentenceEncoder:  # pragma: no cover
     """Import and load the model (downloads it once into the Hugging Face cache)."""

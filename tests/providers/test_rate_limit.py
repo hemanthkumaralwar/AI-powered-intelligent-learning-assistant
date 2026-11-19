@@ -66,3 +66,20 @@ async def test_concurrent_callers_each_get_their_own_slot() -> None:
     await asyncio.gather(rate.acquire(), rate.acquire(), rate.acquire())
 
     assert fake.sleeps == [1.0, 2.0]
+
+
+@pytest.mark.anyio
+async def test_cost_reserves_that_many_units() -> None:
+    fake = FakeTime()
+    rate = limiter(60, fake)  # one unit per second
+
+    await rate.acquire(cost=40)
+    await rate.acquire(cost=1)
+
+    assert fake.sleeps == [40.0]
+
+
+@pytest.mark.anyio
+async def test_cost_must_be_positive() -> None:
+    with pytest.raises(ValueError, match="cost"):
+        await limiter(60, FakeTime()).acquire(cost=0)

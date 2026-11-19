@@ -29,7 +29,7 @@ class CourseRepository:
         )
         return await self._session.scalar(query)
 
-    async def list(self) -> list[Course]:
+    async def list_courses(self) -> list[Course]:
         """All courses by title, without their modules (cheap for listings)."""
         return list(await self._session.scalars(select(Course).order_by(Course.title)))
 
@@ -50,5 +50,18 @@ class CourseRepository:
             select(Lesson)
             .where(Lesson.id == lesson_id)
             .options(selectinload(Lesson.module), selectinload(Lesson.exercises))
+        )
+        return await self._session.scalar(query)
+
+    async def get_full(self, course_id: str) -> Course | None:
+        """A course with modules, lessons and exercises: everything the chunker reads."""
+        query = (
+            select(Course)
+            .where(Course.id == course_id)
+            .options(
+                selectinload(Course.modules)
+                .selectinload(Module.lessons)
+                .selectinload(Lesson.exercises)
+            )
         )
         return await self._session.scalar(query)

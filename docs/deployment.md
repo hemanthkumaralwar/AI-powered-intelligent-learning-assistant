@@ -32,6 +32,7 @@ Migrations run automatically on every Render build (`alembic upgrade head`), so 
    |---|---|
    | `DATABASE_URL` | Supabase session-pooler URL from step 1 |
    | `JWT_SECRET_KEY` | the key you just generated |
+   | `GEMINI_API_KEY` | your Google AI Studio key (required: the API embeds courses and questions) |
    | `ADMIN_USERNAME` | your admin login (optional) |
    | `ADMIN_PASSWORD` | 12+ characters (optional; set both admin values or neither) |
 

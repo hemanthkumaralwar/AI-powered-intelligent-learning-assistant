@@ -28,18 +28,28 @@ class EmbeddingClient:
         timeout_seconds: float,
         retry_policy: RetryPolicy,
         rate_limiter: RateLimiter,
+        query_rate_limiter: RateLimiter | None = None,
         sleep: Sleep = asyncio.sleep,
     ) -> None:
         self._model = model
         self._batch_size = min(batch_size, model.max_batch_size)
         self._timeout_seconds = timeout_seconds
         self._retry_policy = retry_policy
-        self._rate_limiter = rate_limiter
+        # Separate budgets: a student's question never queues behind an indexing batch.
+        self._limiters: dict[EmbeddingTask, RateLimiter] = {
+            "document": rate_limiter,
+            "query": query_rate_limiter or rate_limiter,
+        }
         self._sleep = sleep
 
     @property
     def provider(self) -> str:
         return self._model.provider
+
+    @property
+    def batch_size(self) -> int:
+        """Texts per request; callers that save progress per batch use the same size."""
+        return self._batch_size
 
     @property
     def dimensions(self) -> int:
@@ -49,6 +59,9 @@ class EmbeddingClient:
     def embedding_id(self) -> str:
         """Identifies the vector space; vectors with different ids must not be mixed."""
         return f"{self._model.provider}:{self._model.model}:{self._model.dimensions}"
+
+    async def aclose(self) -> None:
+        await self._model.aclose()
 
     async def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
         """Embed course chunks, preserving order. An empty input makes no API call."""
@@ -82,8 +95,10 @@ class EmbeddingClient:
         return [l2_normalize(vector) for vector in vectors]
 
     async def _embed_once(self, texts: Sequence[str], task: EmbeddingTask) -> list[list[float]]:
-        # Each attempt is a separate request, so each one takes a rate-limit slot.
-        await self._rate_limiter.acquire()
+        # Each attempt is a separate request and every text in it counts against the
+        # provider's quota (Gemini meters batch items individually), so reserve one unit
+        # per text.
+        await self._limiters[task].acquire(cost=len(texts))
         try:
             async with asyncio.timeout(self._timeout_seconds):
                 return await self._model.embed(texts, task)

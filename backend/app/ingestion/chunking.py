@@ -8,6 +8,11 @@ through the API instead, so retrieval can never hand a student an answer.
 
 Each chunk starts with a context header (course > module > lesson - section) so it reads
 on its own; long sections are split by LangChain's recursive splitter with overlap.
+
+Sections are deliberately coarse (examples packed together; analogy, story and use cases
+combined; all exercise prompts in one chunk). The Gemini free tier counts every embedded
+text against roughly 1,000 a day, so ~650 chunks per course instead of ~1,200 lets a
+course be indexed in one day with room left for student questions.
 """
 
 import hashlib
@@ -21,16 +26,17 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from app.db.models import Course, Exercise, Lesson, Module
 from app.db.repositories.chunks import NewChunk
 
-MAX_BODY_CHARS = 1000
+MAX_BODY_CHARS = 1500
 OVERLAP_CHARS = 150
-# Header + body. Kept well under embedding model limits (~250 tokens of body).
-MAX_CHUNK_CHARS = 1200
+# Header + body: ~450 tokens at most, far below the embedding model's 2,048-token limit.
+MAX_CHUNK_CHARS = 1750
+PARAGRAPH = "\n\n"
 
 _SPLITTER = RecursiveCharacterTextSplitter(
     chunk_size=MAX_BODY_CHARS,
     chunk_overlap=OVERLAP_CHARS,
     # Paragraphs first, then lines, so code blocks stay together when they fit.
-    separators=["\n\n", "\n", " ", ""],
+    separators=[PARAGRAPH, "\n", " ", ""],
 )
 
 EXERCISE_TITLES = {
@@ -38,6 +44,7 @@ EXERCISE_TITLES = {
     "mini_challenge": "Mini challenge",
     "bug_hunt": "Bug hunt",
 }
+_EXERCISE_ORDER = {kind: position for position, kind in enumerate(EXERCISE_TITLES)}
 
 
 class ChunkTooLargeError(Exception):
@@ -75,18 +82,33 @@ def lesson_sections(lesson: Lesson, language: str) -> Iterator[Section]:
     sections = [
         Section(f"{lesson.id}:explanation", "Explanation", _explanation(lesson)),
         Section(f"{lesson.id}:concepts", "Key concepts", _concepts(content, language)),
-        *(
-            Section(f"{lesson.id}:example-{i}", f"Example {i}", _example(example, language))
-            for i, example in enumerate(content.get("example") or [], 1)
-        ),
-        Section(f"{lesson.id}:analogy", "Analogy", _analogy(content.get("analogy"))),
-        Section(f"{lesson.id}:flowchart", "Flowchart", _flowchart(content.get("flowchart"))),
-        Section(f"{lesson.id}:use-cases", "Use cases", _use_cases(content.get("useCaseCards"))),
-        Section(f"{lesson.id}:story", "Real-world story", _story(content.get("realWorldStory"))),
-        Section(f"{lesson.id}:takeaways", "Key takeaways", _bullets(content.get("keyTakeaways"))),
-        *(_exercise_section(lesson, exercise, language) for exercise in lesson.exercises),
+        *_example_sections(lesson, language),
+        Section(f"{lesson.id}:context", "Analogy, story and use cases", _context(content)),
+        Section(f"{lesson.id}:summary", "Summary", _summary(content)),
+        _practice_section(lesson, language),
     ]
     return (section for section in sections if section.body.strip())
+
+
+def _example_sections(lesson: Lesson, language: str) -> Iterator[Section]:
+    """Pack consecutive examples into as few chunks as fit MAX_BODY_CHARS (code kept whole)."""
+    group: list[tuple[int, str]] = []
+    for number, example in enumerate(lesson.content.get("example") or [], 1):
+        body = _example(example, language)
+        candidate = PARAGRAPH.join(b for _, b in [*group, (number, body)])
+        if group and len(candidate) > MAX_BODY_CHARS:
+            yield _examples(lesson, group)
+            group = []
+        group.append((number, body))
+    if group:
+        yield _examples(lesson, group)
+
+
+def _examples(lesson: Lesson, group: list[tuple[int, str]]) -> Section:
+    first, last = group[0][0], group[-1][0]
+    name = f"Example {first}" if first == last else f"Examples {first}–{last}"
+    body = PARAGRAPH.join(b for _, b in group)
+    return Section(f"{lesson.id}:examples-{first}-{last}", name, body)
 
 
 def _pieces(
@@ -105,7 +127,7 @@ def _pieces(
         else _SPLITTER.split_text(section.body)
     )
     for n, body in enumerate(bodies):
-        text = f"{header}\n\n{body.strip()}"
+        text = f"{header}{PARAGRAPH}{body.strip()}"
         if len(text) > MAX_CHUNK_CHARS:
             raise ChunkTooLargeError(f"chunk for {section.key} is {len(text)} characters")
         yield NewChunk(
@@ -139,11 +161,29 @@ def chunk_id(document_id: uuid.UUID, section_key: str, piece: int) -> str:
 # ---- exercises: prompt fields only (explicit allowlist) ---------------------------------
 
 
-def _exercise_section(lesson: Lesson, exercise: Exercise, language: str) -> Section:
-    """Only what a student is *asked*. `solution` and `bug_explanation` are never read,
-    and the `type: exercise` tag tells the tutor (Steps 12/14) to give hints, not answers."""
-    name = EXERCISE_TITLES.get(exercise.kind, "Exercise")
-    parts = [exercise.title, exercise.instructions]
+def _practice_section(lesson: Lesson, language: str) -> Section:
+    """All of a lesson's exercises, asking side only. `solution` and `bug_explanation` are
+    never read, and the `type: exercise` tag tells the tutor (Steps 12/14) to give hints,
+    not answers."""
+    # Fixed teaching order, whatever order the exercises were loaded in (file vs database),
+    # so the same course always produces the same chunk text.
+    exercises = sorted(lesson.exercises, key=lambda e: _EXERCISE_ORDER.get(e.kind, 99))
+    return Section(
+        f"{lesson.id}:practice",
+        "Practice exercises",
+        PARAGRAPH.join(_exercise_text(exercise, language) for exercise in exercises),
+        extra={
+            "type": "exercise",
+            "exercise_kinds": [exercise.kind for exercise in exercises],
+        },
+    )
+
+
+def _exercise_text(exercise: Exercise, language: str) -> str:
+    parts = [
+        f"{EXERCISE_TITLES.get(exercise.kind, 'Exercise')}: {exercise.title}",
+        exercise.instructions,
+    ]
     label = "Buggy code" if exercise.kind == "bug_hunt" else "Starter code"
     if exercise.starter_code.strip():
         parts.append(f"{label}:\n{_code(exercise.starter_code, language)}")
@@ -151,12 +191,7 @@ def _exercise_section(lesson: Lesson, exercise: Exercise, language: str) -> Sect
         parts.append(f"Expected result: {exercise.expected_output}")
     if exercise.hints:
         parts.append("Hints:\n" + _bullets(exercise.hints))
-    return Section(
-        f"{lesson.id}:exercise-{exercise.kind}",
-        name,
-        "\n\n".join(p for p in parts if p),
-        extra={"type": "exercise", "exercise_kind": exercise.kind},
-    )
+    return PARAGRAPH.join(p for p in parts if p)
 
 
 # ---- renderers: structured lesson content -> readable text ------------------------------
@@ -170,7 +205,7 @@ def _explanation(lesson: Lesson) -> str:
         _topics(content.get("lessonExplanation")),
         "\n".join(hook for hook in hooks if hook),
     ]
-    return "\n\n".join(p for p in parts if p)
+    return PARAGRAPH.join(p for p in parts if p)
 
 
 def _concepts(content: dict[str, Any], language: str) -> str:
@@ -186,7 +221,7 @@ def _concepts(content: dict[str, Any], language: str) -> str:
         f"Syntax:\n{_code(syntax, language)}" if syntax else "",
         "\n".join(parts_list),
     ]
-    return "\n\n".join(s for s in sections if s)
+    return PARAGRAPH.join(s for s in sections if s)
 
 
 def _example(example: dict[str, Any], language: str) -> str:
@@ -195,7 +230,26 @@ def _example(example: dict[str, Any], language: str) -> str:
         _code(example.get("code", ""), language) if example.get("code") else "",
         example.get("explanation", ""),
     ]
-    return "\n\n".join(p for p in parts if p)
+    return PARAGRAPH.join(p for p in parts if p)
+
+
+def _context(content: dict[str, Any]) -> str:
+    return _titled(
+        ("Analogy", _analogy(content.get("analogy"))),
+        ("Real-world story", _story(content.get("realWorldStory"))),
+        ("Use cases", _use_cases(content.get("useCaseCards"))),
+    )
+
+
+def _summary(content: dict[str, Any]) -> str:
+    return _titled(
+        ("Key takeaways", _bullets(content.get("keyTakeaways"))),
+        ("Flowchart", _flowchart(content.get("flowchart"))),
+    )
+
+
+def _titled(*parts: tuple[str, str]) -> str:
+    return PARAGRAPH.join(f"{title}:\n{body}" for title, body in parts if body)
 
 
 def _analogy(analogy: dict[str, Any] | None) -> str:
@@ -207,7 +261,7 @@ def _analogy(analogy: dict[str, Any] | None) -> str:
         if isinstance(m, dict)
     ]
     parts = [analogy.get("subject", ""), analogy.get("comparison", ""), "\n".join(mapping)]
-    return "\n\n".join(p for p in parts if p)
+    return PARAGRAPH.join(p for p in parts if p)
 
 
 def _flowchart(flowchart: dict[str, Any] | None) -> str:
@@ -231,7 +285,7 @@ def _story(story: dict[str, Any] | None) -> str:
     title = story.get("storyTitle", "")
     company = story.get("storyCompany", "")
     heading = f"{title} ({company})" if company else title
-    return "\n\n".join(p for p in (heading, story.get("storyText", "")) if p)
+    return PARAGRAPH.join(p for p in (heading, story.get("storyText", "")) if p)
 
 
 def _topics(topics: list[dict[str, Any]] | None) -> str:
@@ -240,7 +294,7 @@ def _topics(topics: list[dict[str, Any]] | None) -> str:
         if isinstance(topic, dict):
             points = _bullets(topic.get("points"))
             blocks.append("\n".join(p for p in (topic.get("topic", ""), points) if p))
-    return "\n\n".join(blocks)
+    return PARAGRAPH.join(blocks)
 
 
 def _bullets(items: list[Any] | None) -> str:

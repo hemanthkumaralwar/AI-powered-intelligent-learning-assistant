@@ -12,7 +12,7 @@ router = APIRouter(tags=["courses"])
 
 @router.get("/courses")
 async def list_courses(user: CurrentUser, session: Session) -> list[CourseSummary]:
-    return [CourseSummary.model_validate(c) for c in await CourseRepository(session).list()]
+    return [CourseSummary.model_validate(c) for c in await CourseRepository(session).list_courses()]
 
 
 @router.get("/courses/{course_id}")

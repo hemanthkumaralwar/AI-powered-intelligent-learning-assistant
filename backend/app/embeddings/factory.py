@@ -20,7 +20,8 @@ def build_embedding_client(settings: Settings) -> EmbeddingClient:
         batch_size=settings.embedding_batch_size,
         timeout_seconds=settings.embedding_timeout_seconds,
         retry_policy=RetryPolicy(max_attempts=settings.embedding_max_attempts),
-        rate_limiter=RateLimiter(settings.embedding_requests_per_minute),
+        rate_limiter=RateLimiter(settings.embedding_document_texts_per_minute),
+        query_rate_limiter=RateLimiter(settings.embedding_query_texts_per_minute),
     )
 
 

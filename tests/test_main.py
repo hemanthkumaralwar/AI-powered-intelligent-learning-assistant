@@ -1,3 +1,4 @@
+import httpx2
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -40,15 +41,27 @@ def test_startup_fails_fast_without_database_url() -> None:
         pass
 
 
-def test_lifespan_builds_and_disposes_its_own_database() -> None:
-    # Creating the engine does not connect, so no real database is needed here.
+@pytest.mark.anyio
+async def test_lifespan_builds_and_disposes_its_own_services(
+    test_database_url: str, migrated_schema: str, fake_embeddings: dict
+) -> None:
+    # The app builds its own Database from DATABASE_URL; `options` points it at the
+    # throwaway schema the test run migrated. Async (not TestClient) so Windows uses the
+    # selector event loop that psycopg needs.
+    separator = "&" if "?" in test_database_url else "?"
+    url = f"{test_database_url}{separator}options=-csearch_path%3D{migrated_schema}"
     settings = Settings(
-        _env_file=None, jwt_secret_key="k" * 32, database_url="postgresql://u:p@localhost/db"
+        _env_file=None, jwt_secret_key="k" * 32, database_url=url, **fake_embeddings
     )
     app = create_app(settings)
 
-    with TestClient(app) as client:
-        assert client.get("/health").status_code == 200
+    async with app.router.lifespan_context(app):
+        transport = httpx2.ASGITransport(app=app)
+        async with httpx2.AsyncClient(transport=transport, base_url="http://test") as client:
+            assert (await client.get("/health")).status_code == 200
         engine = app.state.database.engine
+        embedder_model = app.state.indexing._embedder._model
+        assert app.state.indexing.index.size == 0
 
     assert engine.pool.checkedout() == 0
+    assert embedder_model.closed is True

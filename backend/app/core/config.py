@@ -51,8 +51,12 @@ class Settings(BaseSettings):
     # 768 is supported by Gemini and OpenAI, so switching between them needs no re-index.
     # Smaller than the 3072 maximum to keep Chroma within Render's 512 MB.
     embedding_dimensions: int = Field(default=768, ge=8, le=3072)
-    embedding_batch_size: int = Field(default=100, ge=1, le=2048)
-    embedding_requests_per_minute: int = Field(default=60, ge=1, le=10_000)
+    # Gemini's free tier meters every *text* (not call): ~100 per minute and ~1,000 per
+    # day per project. Indexing and student questions get separate per-minute budgets
+    # that together stay under 100, so questions never wait behind an indexing batch.
+    embedding_batch_size: int = Field(default=40, ge=1, le=2048)
+    embedding_document_texts_per_minute: int = Field(default=80, ge=1, le=100_000)
+    embedding_query_texts_per_minute: int = Field(default=20, ge=1, le=100_000)
     embedding_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
     embedding_max_attempts: int = Field(default=3, ge=1, le=5)
 
@@ -96,6 +100,14 @@ class Settings(BaseSettings):
         if not value:
             raise ValueError("CODE_RUNNERS needs at least one runner")
         return value
+
+    @model_validator(mode="after")
+    def _batch_fits_the_minute_budget(self) -> Self:
+        if self.embedding_batch_size > self.embedding_document_texts_per_minute:
+            raise ValueError(
+                "EMBEDDING_BATCH_SIZE must not exceed EMBEDDING_DOCUMENT_TEXTS_PER_MINUTE"
+            )
+        return self
 
     @model_validator(mode="after")
     def _admin_credentials_come_in_pairs(self) -> Self:

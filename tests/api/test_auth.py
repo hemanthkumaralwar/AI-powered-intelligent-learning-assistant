@@ -35,7 +35,15 @@ def fast_auth(ttl: timedelta = timedelta(minutes=60)) -> AuthService:
 
 def build_app(database: Database, auth: AuthService | None = None, **settings) -> FastAPI:
     app = create_app(
-        Settings(_env_file=None, environment="test", log_level="WARNING", **settings),
+        Settings(
+            _env_file=None,
+            environment="test",
+            log_level="WARNING",
+            embedding_provider="fake",
+            embedding_document_texts_per_minute=100_000,
+            embedding_query_texts_per_minute=100_000,
+            **settings,
+        ),
         database=database,
         auth=auth or fast_auth(),
     )

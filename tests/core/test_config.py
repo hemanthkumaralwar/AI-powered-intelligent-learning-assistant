@@ -23,7 +23,8 @@ SETTING_NAMES = (
     "HF_EMBEDDING_MODEL",
     "EMBEDDING_DIMENSIONS",
     "EMBEDDING_BATCH_SIZE",
-    "EMBEDDING_REQUESTS_PER_MINUTE",
+    "EMBEDDING_DOCUMENT_TEXTS_PER_MINUTE",
+    "EMBEDDING_QUERY_TEXTS_PER_MINUTE",
     "EMBEDDING_TIMEOUT_SECONDS",
     "EMBEDDING_MAX_ATTEMPTS",
     "DATABASE_URL",
@@ -114,7 +115,8 @@ def test_reads_env_file(tmp_path: Path) -> None:
         ("EMBEDDING_PROVIDER", "cohere"),
         ("EMBEDDING_DIMENSIONS", "4"),
         ("EMBEDDING_BATCH_SIZE", "0"),
-        ("EMBEDDING_REQUESTS_PER_MINUTE", "0"),
+        ("EMBEDDING_DOCUMENT_TEXTS_PER_MINUTE", "0"),
+        ("EMBEDDING_QUERY_TEXTS_PER_MINUTE", "0"),
         ("DB_POOL_SIZE", "0"),
         ("DB_CONNECT_TIMEOUT_SECONDS", "61"),
         ("JWT_SECRET_KEY", "too-short"),
@@ -160,3 +162,11 @@ def test_copied_env_example_counts_empty_values_as_unset(tmp_path: Path) -> None
     assert settings.jwt_secret_key is None
     assert settings.admin_username is None
     assert settings.database_url is None
+
+
+def test_embedding_batch_must_fit_the_minute_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("EMBEDDING_BATCH_SIZE", "81")
+    monkeypatch.setenv("EMBEDDING_DOCUMENT_TEXTS_PER_MINUTE", "80")
+
+    with pytest.raises(ValidationError, match="EMBEDDING_BATCH_SIZE must not exceed"):
+        Settings(_env_file=None)

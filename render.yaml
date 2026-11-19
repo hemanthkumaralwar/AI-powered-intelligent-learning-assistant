@@ -32,6 +32,10 @@ services:
       # New random production key, 32+ characters (never reuse the dev one).
       - key: JWT_SECRET_KEY
         sync: false
+      # Google AI Studio key. Required from Step 10: the API embeds courses and questions
+      # (and builds the embedding client at startup).
+      - key: GEMINI_API_KEY
+        sync: false
       # Optional first admin; leave both empty to skip.
       - key: ADMIN_USERNAME
         sync: false

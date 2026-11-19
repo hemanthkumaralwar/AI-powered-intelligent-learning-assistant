@@ -17,9 +17,10 @@ from app.auth.seed import seed_admin
 from app.auth.service import AuthService
 from app.auth.tokens import TokenService
 from app.core.config import Settings
-from app.db.models import Course, Document, Exercise, Lesson, Module, QuizQuestion
+from app.db.models import Chunk, Course, Document, Exercise, Lesson, Module, QuizQuestion
 from app.db.session import Database
 from app.main import create_app
+from app.providers.errors import ProviderUnavailableError
 from app.runner.fake import FakeRunner
 from app.runner.quota import QuotaLimits, RunQuota
 from app.runner.service import CodeRunnerService
@@ -52,7 +53,14 @@ async def api(database: Database) -> AsyncIterator[httpx2.AsyncClient]:
     auth = AuthService(hasher, TokenService("j" * 64, timedelta(minutes=30)))
     runner = CodeRunnerService([FakeRunner()], None, RunQuota(QuotaLimits(9, 9, 9)))
     app = create_app(
-        Settings(_env_file=None, environment="test", log_level="WARNING"),
+        Settings(
+            _env_file=None,
+            environment="test",
+            log_level="WARNING",
+            embedding_provider="fake",
+            embedding_document_texts_per_minute=100_000,
+            embedding_query_texts_per_minute=100_000,
+        ),
         database=database,
         auth=auth,
         code_runner=runner,
@@ -62,6 +70,8 @@ async def api(database: Database) -> AsyncIterator[httpx2.AsyncClient]:
         transport = httpx2.ASGITransport(app=app)
         async with httpx2.AsyncClient(transport=transport, base_url="http://test") as client:
             await client.post("/auth/register", json={"username": "student", "password": PASSWORD})
+            # Tests reach the app's services (e.g. to wait for background indexing).
+            client.app_state = app.state  # type: ignore[attr-defined]
             yield client
 
 
@@ -267,3 +277,97 @@ async def test_admin_lists_and_deletes_documents(api: httpx2.AsyncClient) -> Non
     assert (await api.delete(f"/admin/documents/{a['id']}", headers=admin)).status_code == 404
     missing = "00000000-0000-0000-0000-000000000000"
     assert (await api.get(f"/admin/documents/{missing}/download", headers=admin)).status_code == 404
+
+
+# ---- indexing, search and re-index (fake embeddings) ------------------------------------
+
+
+async def upload_and_index(api: httpx2.AsyncClient, admin: dict) -> dict:
+    response = await upload(
+        api, admin, "c.json", json.dumps(small_course()).encode(), language="javascript"
+    )
+    await api.app_state.indexing.wait_until_idle()
+    return response.json()
+
+
+async def test_upload_is_indexed_in_the_background(api: httpx2.AsyncClient) -> None:
+    admin = await token(api, "admin")
+
+    document = await upload_and_index(api, admin)
+
+    listed = (await api.get("/admin/documents", headers=admin)).json()
+    assert [(d["id"], d["status"], d["error_message"]) for d in listed] == [
+        (document["id"], "ready", None)
+    ]
+    assert api.app_state.indexing.index.course_size("small-js") > 20
+
+
+async def test_admin_search_finds_the_chunk(api: httpx2.AsyncClient, database: Database) -> None:
+    admin = await token(api, "admin")
+    await upload_and_index(api, admin)
+    async with database.session() as session:
+        chunk = (await session.scalars(select(Chunk).order_by(Chunk.position).offset(5))).first()
+
+    response = await api.post(
+        "/admin/search", headers=admin, json={"query": chunk.text, "course_id": "small-js", "k": 3}
+    )
+
+    hits = response.json()
+    assert response.status_code == 200
+    assert hits[0]["chunk_id"] == chunk.id
+    assert set(hits[0]) == {"chunk_id", "score", "course_id", "lesson_id", "section", "text"}
+    assert len(hits) == 3
+
+
+@pytest.mark.parametrize("body", [{"query": ""}, {"query": "x", "k": 0}, {"query": "x", "k": 21}])
+async def test_search_validates_input(api: httpx2.AsyncClient, body: dict) -> None:
+    response = await api.post("/admin/search", headers=await token(api, "admin"), json=body)
+
+    assert response.status_code == 422
+
+
+async def test_deleting_a_course_or_document_removes_its_vectors(api: httpx2.AsyncClient) -> None:
+    admin = await token(api, "admin")
+    document = await upload_and_index(api, admin)
+    index = api.app_state.indexing.index
+
+    await api.delete(f"/admin/documents/{document['id']}", headers=admin)
+    assert index.size == 0
+
+    await upload_and_index(api, admin)  # the course still exists, so re-upload is refused
+    await api.delete("/admin/courses/small-js", headers=admin)
+    assert index.course_size("small-js") == 0
+
+
+async def test_reindex_requeues_every_document(api: httpx2.AsyncClient) -> None:
+    admin = await token(api, "admin")
+    await upload_and_index(api, admin)
+
+    response = await api.post("/admin/reindex", headers=admin)
+    await api.app_state.indexing.wait_until_idle()
+
+    assert (response.status_code, response.json()) == (202, {"queued": 1})
+    assert (await api.get("/admin/documents", headers=admin)).json()[0]["status"] == "ready"
+
+
+async def test_students_cannot_search_or_reindex(api: httpx2.AsyncClient) -> None:
+    student = await token(api, "student")
+
+    assert (
+        await api.post("/admin/search", headers=student, json={"query": "x"})
+    ).status_code == 403
+    assert (await api.post("/admin/reindex", headers=student)).status_code == 403
+
+
+async def test_search_is_503_when_embedding_is_down(api: httpx2.AsyncClient, monkeypatch) -> None:
+    async def down(*args, **kwargs):
+        raise ProviderUnavailableError("gemini server error 503")
+
+    monkeypatch.setattr(api.app_state.indexing._embedder, "embed_query", down)
+
+    response = await api.post(
+        "/admin/search", headers=await token(api, "admin"), json={"query": "x"}
+    )
+
+    assert response.status_code == 503
+    assert "gemini" not in response.text

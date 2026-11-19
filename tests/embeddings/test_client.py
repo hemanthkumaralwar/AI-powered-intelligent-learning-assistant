@@ -27,9 +27,11 @@ class CountingLimiter(RateLimiter):
     def __init__(self) -> None:
         super().__init__(60, sleep=no_sleep)
         self.acquired = 0
+        self.costs: list[int] = []
 
-    async def acquire(self) -> None:
+    async def acquire(self, cost: int = 1) -> None:
         self.acquired += 1
+        self.costs.append(cost)
 
 
 class ScriptedModel:
@@ -115,7 +117,8 @@ async def test_documents_are_split_into_batches_with_one_slot_each() -> None:
 
     assert [len(texts) for texts, _ in model.calls] == [2, 2, 1]
     assert len(vectors) == 5
-    assert limiter.acquired == 3
+    # One slot per request, charged one unit per text (Gemini meters every batch item).
+    assert limiter.costs == [2, 2, 1]
 
 
 async def test_batch_size_is_capped_by_the_model() -> None:
@@ -197,3 +200,30 @@ async def test_logs_metadata_but_never_text(caplog: pytest.LogCaptureFixture) ->
 
 def test_l2_normalize() -> None:
     assert l2_normalize([3.0, 4.0]) == [0.6, 0.8]
+
+
+async def test_questions_use_their_own_budget() -> None:
+    documents, questions = CountingLimiter(), CountingLimiter()
+    client = EmbeddingClient(
+        FakeEmbeddingModel(),
+        batch_size=10,
+        timeout_seconds=5,
+        retry_policy=RetryPolicy(max_attempts=1),
+        rate_limiter=documents,
+        query_rate_limiter=questions,
+        sleep=no_sleep,
+    )
+
+    await client.embed_documents(["a", "b", "c"])
+    await client.embed_query("what is a closure?")
+
+    assert (documents.costs, questions.costs) == ([3], [1])
+    assert client.batch_size == 10
+
+
+async def test_without_a_query_budget_questions_share_the_document_one() -> None:
+    shared = CountingLimiter()
+
+    await make_client(FakeEmbeddingModel(), limiter=shared).embed_query("x")
+
+    assert shared.costs == [1]

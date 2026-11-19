@@ -139,3 +139,19 @@ async def test_fake_is_deterministic_and_bounded() -> None:
     assert all(-1.0 <= value <= 1.0 for value in first)
     assert first == fake_vector("loops", 16)
     assert model.calls == [(["loops", "loops", "arrays"], "document")]
+
+
+async def test_gemini_and_openai_release_their_clients() -> None:
+    closed: list[str] = []
+
+    async def gemini_close() -> None:
+        closed.append("gemini")
+
+    async def openai_close() -> None:
+        closed.append("openai")
+
+    gemini = SimpleNamespace(aio=SimpleNamespace(aclose=gemini_close))
+    await GeminiEmbeddingModel(gemini, "m", 2).aclose()
+    await OpenAIEmbeddingModel(SimpleNamespace(close=openai_close), "m", 2).aclose()
+
+    assert closed == ["gemini", "openai"]

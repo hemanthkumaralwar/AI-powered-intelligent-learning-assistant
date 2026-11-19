@@ -34,7 +34,8 @@ def real_chunks(real_course_bytes: bytes):
 
 
 def test_real_course_chunk_count_and_size(real_chunks) -> None:
-    assert 1200 <= len(real_chunks) <= 1300
+    # ~424: coarse sections keep a course inside one day of Gemini's free embedding quota.
+    assert 380 <= len(real_chunks) <= 480
     assert max(len(c.text) for c in real_chunks) <= MAX_CHUNK_CHARS
     assert [c.position for c in real_chunks] == list(range(len(real_chunks)))
 
@@ -58,20 +59,25 @@ def test_every_lesson_has_all_sections(real_chunks) -> None:
     sections = Counter(c.section for c in real_chunks)
 
     assert len(per_lesson) == 64
-    for name in ("Flowchart", "Try it yourself", "Mini challenge", "Bug hunt", "Example 5"):
-        assert sections[name] == 64
+    for name in ("Explanation", "Summary", "Analogy, story and use cases", "Practice exercises"):
+        assert len({c.lesson_id for c in real_chunks if c.section == name}) == 64, name
+    lessons_with_examples = {c.lesson_id for c in real_chunks if c.section.startswith("Example")}
+    assert len(lessons_with_examples) == 64
     assert sections["Module overview"] >= 8
 
 
 def test_exercise_chunks_are_tagged_for_hint_only_tutoring(real_chunks) -> None:
     exercises = [c for c in real_chunks if c.metadata["type"] == "exercise"]
 
-    assert len(exercises) == 192
-    assert Counter(c.metadata["exercise_kind"] for c in exercises) == {
-        "interactive": 64,
-        "mini_challenge": 64,
-        "bug_hunt": 64,
-    }
+    assert {c.section for c in exercises} == {"Practice exercises"}
+    assert len({c.lesson_id for c in exercises}) == 64
+    assert all(
+        c.metadata["exercise_kinds"] == ["interactive", "mini_challenge", "bug_hunt"]
+        for c in exercises
+    )
+    all_text = "\n".join(c.text for c in exercises)
+    for heading in ("Try it yourself:", "Mini challenge:", "Bug hunt:", "Buggy code:"):
+        assert heading in all_text
 
 
 def test_real_course_fixes_appear_only_where_the_lesson_itself_teaches_them(
@@ -100,7 +106,7 @@ def test_chunk_text_has_context_header_and_metadata(real_chunks) -> None:
     assert meta["lesson_id"] == first_lesson_chunk.lesson_id
     assert meta["source"] == "course"
     assert "```javascript" in "\n".join(c.text for c in real_chunks)
-    assert "```mermaid" in "\n".join(c.text for c in real_chunks if c.section == "Flowchart")
+    assert "```mermaid" in "\n".join(c.text for c in real_chunks if c.section == "Summary")
 
 
 # ---- answers can never reach a chunk (sentinel values in every answer field) --------------
@@ -185,7 +191,8 @@ def test_exercise_chunk_uses_prompt_fields_only() -> None:
 
     (chunk,) = chunk_course(build({}, [exercise]), DOC)
 
-    assert chunk.section == "Bug hunt"
+    assert chunk.section == "Practice exercises"
+    assert chunk.text.split("\n\n")[1] == "Bug hunt: Fix it"
     assert "Buggy code:\n```python\nx = 1\nx(\n```" in chunk.text
     assert "- Look at line 2" in chunk.text
     assert "NEVER" not in chunk.text
@@ -203,7 +210,7 @@ def test_module_overview_has_no_lesson() -> None:
 
 def test_oversized_header_is_an_error_not_truncation() -> None:
     course = build({"keyTakeaways": ["short"]})
-    course.title = "T" * 1200
+    course.title = "T" * (MAX_CHUNK_CHARS + 1)
 
     with pytest.raises(ChunkTooLargeError):
         chunk_course(course, DOC)
@@ -212,3 +219,24 @@ def test_oversized_header_is_an_error_not_truncation() -> None:
 def test_chunk_id_is_deterministic() -> None:
     assert chunk_id(DOC, "l1:analogy", 0) == chunk_id(DOC, "l1:analogy", 0)
     assert chunk_id(DOC, "l1:analogy", 0) != chunk_id(DOC, "l1:analogy", 1)
+
+
+def test_exercise_order_does_not_depend_on_load_order() -> None:
+    def make(kind: str) -> Exercise:
+        return Exercise(
+            kind=kind,
+            title=kind,
+            instructions="Do it.",
+            starter_code="",
+            expected_output=None,
+            hints=[],
+        )
+
+    loaded = [make("bug_hunt"), make("interactive"), make("mini_challenge")]  # database order
+    as_file = [make("interactive"), make("mini_challenge"), make("bug_hunt")]  # file order
+
+    (from_db,) = chunk_course(build({}, loaded), DOC)
+    (from_file,) = chunk_course(build({}, as_file), DOC)
+
+    assert from_db.text == from_file.text
+    assert from_db.metadata["exercise_kinds"] == ["interactive", "mini_challenge", "bug_hunt"]

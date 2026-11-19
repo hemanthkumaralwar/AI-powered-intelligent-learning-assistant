@@ -34,3 +34,6 @@ class GeminiEmbeddingModel:
                 ),
             )
         return [list(embedding.values or []) for embedding in result.embeddings or []]
+
+    async def aclose(self) -> None:
+        await self._client.aio.aclose()

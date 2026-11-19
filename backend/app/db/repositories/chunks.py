@@ -3,10 +3,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Chunk
+from app.db.models import Chunk, Document
 
 
 @dataclass(frozen=True)
@@ -62,11 +62,22 @@ class ChunkRepository:
             ],
         )
 
-    async def list_embedded(self, embedding_id: str) -> list[Chunk]:
-        """Every chunk with a vector in `embedding_id`, used to rebuild the Chroma index."""
+    async def count_other_spaces(self, embedding_id: str) -> int:
+        """Chunks embedded in a different vector space (they need a re-index)."""
+        query = select(func.count()).where(
+            Chunk.embedding_id.is_not(None), Chunk.embedding_id != embedding_id
+        )
+        return await self._session.scalar(query) or 0
+
+    async def list_searchable(self, embedding_id: str) -> list[Chunk]:
+        """Chunks of fully indexed (`ready`) documents in `embedding_id`: the search index.
+
+        A document still collecting vectors (quota pause) must not be half-searchable.
+        """
         query = (
             select(Chunk)
-            .where(Chunk.embedding_id == embedding_id)
+            .join(Document, Document.id == Chunk.document_id)
+            .where(Chunk.embedding_id == embedding_id, Document.status == "ready")
             .order_by(Chunk.document_id, Chunk.position)
         )
         return list(await self._session.scalars(query))
