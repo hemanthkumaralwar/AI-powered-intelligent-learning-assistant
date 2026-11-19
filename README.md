@@ -36,7 +36,15 @@ uvicorn app.main:app --app-dir backend --reload --loop asyncio:SelectorEventLoop
 API_BASE_URL=http://127.0.0.1:8000 streamlit run frontend/streamlit_app.py
 ```
 
-Or copy `frontend/.streamlit/secrets.toml.example` to `.streamlit/secrets.toml`. The frontend only needs `API_BASE_URL`; it must be `https://` except for localhost. For now it offers login, "signed in as", and log out. The access token stays in Streamlit's server-side session state, never in browser storage.
+Or copy `frontend/.streamlit/secrets.toml.example` to `.streamlit/secrets.toml`. The frontend only needs `API_BASE_URL`; it must be `https://` except for localhost. The access token stays in Streamlit's server-side session state, never in browser storage. `.streamlit/config.toml` turns off Streamlit's usage statistics.
+
+After login, **Practice** lets a student pick a course, lesson and exercise, and opens the **compiler panel** (`frontend/components/compiler.py`) with that exercise's starter code:
+
+- **Run** on the remote sandbox (Step 7), with stdin; **Open in Compiler Explorer** (C, C++, Java, Python) creates a *public* link.
+- **Ask AI about this output** sends the code and its last run (or output pasted from a run elsewhere) to `/coding/debug`. Course exercises get hints, not the answer.
+- **Page sandbox** for JavaScript that uses `document`/`window`: runs in the student's browser in an iframe with `sandbox="allow-scripts"` only (no access to this site's page, cookies or storage) and a CSP that blocks all network requests. Elements the code looks up (`.output`, `#save`...) are created automatically; optional "Page HTML" adds markup.
+
+The editor is a plain text area: `streamlit-ace` was last released in 2021, and a plain widget adds no third-party JavaScript. Full lesson pages arrive in Step 19.
 
 ## Deployment
 
@@ -354,6 +362,7 @@ backend/app/        FastAPI application (package "app")
   db/               models, Database (engine/sessions), repositories
   migrations/       Alembic migrations (config: alembic.ini at the repo root)
 frontend/           Streamlit app (streamlit_app.py) and its API client (api_client.py)
+  components/       compiler panel, DOM sandbox (dom_sandbox.html), practice view
 eval/               dataset.jsonl + run_eval.py (RAG), code_cases.jsonl + run_code_eval.py (coding), reports/
   materials/        course files used by tests and evaluation (javascript-beginner.json)
 docs/               deployment guide

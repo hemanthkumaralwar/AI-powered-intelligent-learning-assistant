@@ -1,0 +1,4 @@
+# Committed (no secrets here; those live in secrets.toml, which git ignores).
+[browser]
+# Do not send usage statistics to Streamlit, locally or on Streamlit Cloud.
+gatherUsageStats = false

@@ -54,9 +54,11 @@ prints something (else null). Never include the solution."""
 MAX_RUN_OUTPUT_CHARS = 4000
 
 
-def run_output_text(outcome: str, stdout: str, stderr: str, compile_output: str) -> str:
-    """The /code/run result as text for the debug prompt, each stream trimmed to its end."""
-    parts = [f"outcome: {outcome}"]
+def run_output_text(outcome: str | None, stdout: str, stderr: str, compile_output: str) -> str:
+    """The run result as text for the debug prompt, each stream trimmed to its end. No
+    outcome means the student ran the code elsewhere and pasted what they saw."""
+    label = outcome or "unknown (output from a run elsewhere, pasted by the student)"
+    parts = [f"outcome: {label}"]
     for name, text in (("compile output", compile_output), ("stderr", stderr), ("stdout", stdout)):
         if text.strip():
             parts.append(f"{name}:\n{_tail(text)}")

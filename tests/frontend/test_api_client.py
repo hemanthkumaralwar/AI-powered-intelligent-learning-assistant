@@ -74,12 +74,23 @@ def test_login_sends_credentials_and_returns_token() -> None:
         (respond(422, {"detail": []}), "Enter both a username and a password"),
         (respond(500, {"detail": "Internal server error"}), "server had a problem"),
         (respond(503, text="<html>bad gateway</html>"), "server had a problem"),
-        (respond(418, {"detail": "teapot"}), r"Unexpected response from the server \(418\)"),
+        (respond(418, {"detail": "I'm a teapot"}), "I'm a teapot"),
+        (respond(418, text="teapot"), r"Unexpected response from the server \(418\)"),
         (respond(200, text="not json"), "Unexpected response"),
         (raising(httpx2.ReadTimeout), "waking up"),
         (raising(httpx2.ConnectError), "Cannot reach the server"),
     ],
-    ids=["401", "422", "500", "503-html", "418", "bad-json", "timeout", "offline"],
+    ids=[
+        "401",
+        "422",
+        "500",
+        "503-html",
+        "418-detail",
+        "418-no-detail",
+        "bad-json",
+        "timeout",
+        "offline",
+    ],
 )
 def test_login_failures_become_friendly_messages(handler, message: str) -> None:
     with pytest.raises(ApiError, match=message) as excinfo:
@@ -115,3 +126,84 @@ def test_close_releases_connections() -> None:
 
     with pytest.raises(RuntimeError):
         client.me("tok")
+
+
+# ---- content, code runs and the coding assistant -----------------------------------------
+
+
+def recording(status: int = 200, body: object = None):
+    seen: list[httpx2.Request] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        seen.append(request)
+        return httpx2.Response(status, json=body if body is not None else {})
+
+    return handler, seen
+
+
+def test_course_and_lesson_ids_are_path_encoded() -> None:
+    handler, seen = recording(body={"id": "x"})
+    client = client_returning(handler)
+
+    client.course("tok", "js/../admin")
+    client.lesson("tok", "a b")
+
+    assert seen[0].url.raw_path == b"/courses/js%2F..%2Fadmin"
+    assert seen[1].url.raw_path == b"/lessons/a%20b"
+    assert seen[0].headers["authorization"] == "Bearer tok"
+
+
+def test_courses_returns_the_list() -> None:
+    handler, _ = recording(body=[{"id": "js"}])
+
+    assert client_returning(handler).courses("tok") == [{"id": "js"}]
+
+
+def test_run_share_and_debug_send_the_right_bodies() -> None:
+    handler, seen = recording(body={"url": "https://godbolt.org/z/1", "outcome": "ok"})
+    client = client_returning(handler)
+
+    client.run_code("tok", "python", "print(1)", "in")
+    url = client.share_code("tok", "c", "int main(){}")
+    client.debug_code("tok", "python", "x", {"stdout": "pasted"})
+    client.debug_code("tok", "python", "x")
+
+    assert url == "https://godbolt.org/z/1"
+    bodies = [json.loads(r.content) for r in seen]
+    assert [r.url.path for r in seen] == [
+        "/code/run",
+        "/code/share",
+        "/coding/debug",
+        "/coding/debug",
+    ]
+    assert bodies[0] == {"language": "python", "code": "print(1)", "stdin": "in"}
+    assert bodies[2]["run"] == {"stdout": "pasted"}
+    assert "run" not in bodies[3]
+
+
+@pytest.mark.parametrize(
+    ("status", "body", "message"),
+    [
+        (429, {"detail": "You are running code too often; wait a moment."}, "too often"),
+        (502, {"detail": "The assistant couldn't produce a valid answer."}, "valid answer"),
+        (502, None, "couldn't answer"),
+        (503, {"detail": "secret internals"}, "server had a problem"),
+        (422, {"detail": [{"msg": "Code must be at most 8 KB"}]}, "Check your input: Code must"),
+        (422, {"detail": [{}]}, r"Unexpected response from the server \(422\)"),
+    ],
+    ids=["429", "502", "502-plain", "503-hides-detail", "422-message", "422-no-message"],
+)
+def test_api_messages_reach_the_student_except_server_errors(status, body, message) -> None:
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        if body is None:
+            return httpx2.Response(status, text="bad gateway")
+        return httpx2.Response(status, json=body)
+
+    with pytest.raises(ApiError, match=message) as excinfo:
+        client_returning(handler).run_code("tok", "python", "x")
+    assert "secret" not in str(excinfo.value)
+
+
+def test_expired_token_on_any_call_means_session_expired() -> None:
+    with pytest.raises(SessionExpiredError):
+        client_returning(respond(401, {"detail": "x"})).courses("old")

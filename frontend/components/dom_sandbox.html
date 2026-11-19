@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; font-family: system-ui, sans-serif; font-size: 14px; }
+  #page { width: 100%; height: 260px; border: 1px solid #ccc; border-radius: 6px; background: #fff; }
+  .console { margin-top: 8px; }
+  .console strong { font-size: 12px; color: #555; }
+  #log { margin: 4px 0 0; padding: 8px; min-height: 48px; max-height: 120px; overflow: auto;
+         background: #111; color: #eee; border-radius: 6px; font-size: 12px; white-space: pre-wrap; }
+  #log .warn { color: #f0c36d; }
+  #log .error { color: #ff8a80; }
+</style>
+</head>
+<body>
+<!--
+  Two frames, on purpose. Streamlit's component iframe (this page) runs with
+  allow-same-origin, so code here could reach the Streamlit page. Student code therefore
+  runs only in #page: sandbox="allow-scripts" gives it an opaque origin (no parent DOM,
+  cookies or storage), and its CSP forbids every network request. Code and markup are
+  posted in as data, never written into HTML.
+-->
+<iframe id="page" sandbox="allow-scripts" title="Exercise page"></iframe>
+<div class="console"><strong>Console</strong><pre id="log"></pre></div>
+
+<template id="bootstrap">
+<script>
+(function () {
+  "use strict";
+  var send = function (kind, text) {
+    parent.postMessage({ sandbox: true, kind: kind, text: String(text) }, "*");
+  };
+  var format = function (args) {
+    return Array.prototype.map.call(args, function (value) {
+      if (typeof value === "string") { return value; }
+      try { return JSON.stringify(value); } catch (e) { return String(value); }
+    }).join(" ");
+  };
+  ["log", "info", "warn", "error"].forEach(function (level) {
+    console[level] = function () { send(level === "info" ? "log" : level, format(arguments)); };
+  });
+  window.addEventListener("error", function (event) { send("error", event.message); });
+
+  var build = function (spec) {
+    var node = document.createElement(spec.tag);
+    if (spec.id) { node.id = spec.id; }
+    spec.classes.forEach(function (name) { node.classList.add(name); });
+    node.setAttribute("data-sb", spec.tag + (spec.id ? "#" + spec.id : "") +
+      spec.classes.map(function (name) { return "." + name; }).join(""));
+    if (spec.tag === "button") { node.textContent = "Button"; }
+    if (spec.tag === "ul" || spec.tag === "ol") {
+      for (var n = 1; n <= 3; n++) {
+        var item = document.createElement("li");
+        item.textContent = "Item " + n;
+        node.appendChild(item);
+      }
+    }
+    return node;
+  };
+
+  window.addEventListener("message", function (event) {
+    var data = event.data;
+    if (event.source !== parent || !data || data.sandboxRun !== true) { return; }
+    // The student's own markup, in the student's own sandbox; scripts inside it do not run.
+    document.body.insertAdjacentHTML("beforeend", data.html);
+    data.scaffold.forEach(function (spec) { document.body.appendChild(build(spec)); });
+    try {
+      new Function(data.code)();
+    } catch (err) {
+      send("error", err && err.message ? err.message : err);
+    }
+  }, { once: true });
+  send("ready", "");
+})();
+</script>
+</template>
+
+<script>
+(function () {
+  "use strict";
+  var payload = __SANDBOX_PAYLOAD__;
+  var frame = document.getElementById("page");
+  var log = document.getElementById("log");
+  var head =
+    '<!doctype html><meta charset="utf-8">' +
+    '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; ' +
+    'script-src \'unsafe-inline\' \'unsafe-eval\'; style-src \'unsafe-inline\'; img-src data:">' +
+    '<style>body{font-family:system-ui,sans-serif;font-size:14px;margin:8px}' +
+    '[data-sb]{margin:4px 0;min-height:18px}' +
+    '[data-sb]:empty::before{content:attr(data-sb);color:#999;font-size:12px}' +
+    'div[data-sb]{border:1px dashed #ccc;padding:4px}</style>';
+
+  window.addEventListener("message", function (event) {
+    var data = event.data;
+    // Only the sandboxed page may talk to us. Its origin is opaque ("null"), so the
+    // check is on the sending window, and replies must target "*".
+    if (event.source !== frame.contentWindow || !data || data.sandbox !== true) { return; }
+    if (data.kind === "ready") {
+      frame.contentWindow.postMessage({
+        sandboxRun: true, code: payload.code, html: payload.html, scaffold: payload.scaffold
+      }, "*");
+      return;
+    }
+    var line = document.createElement("div");
+    line.className = data.kind;
+    line.textContent = data.text;
+    log.appendChild(line);
+  });
+
+  frame.srcdoc = head + document.getElementById("bootstrap").innerHTML;
+})();
+</script>
+</body>
+</html>

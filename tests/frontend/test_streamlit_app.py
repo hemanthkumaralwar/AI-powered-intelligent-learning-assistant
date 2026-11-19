@@ -67,26 +67,143 @@ def test_rejects_insecure_api_url() -> None:
 # ---- screens that call the API, against a tiny fake API on localhost -------------------
 
 
+BUG_HUNT = "const total = 0;\ntotal = total + 1;\nconsole.log(total);"
+DOM_CODE = "const out = document.querySelector('.output');\nout.textContent = 'hi';"
+COURSE = {
+    "id": "js",
+    "title": "JavaScript",
+    "description": None,
+    "level": None,
+    "language": "javascript",
+}
+GET_ROUTES = {
+    "/auth/me": {"id": "1", "username": "asha", "role": "student"},
+    "/courses": [COURSE],
+    "/courses/js": COURSE
+    | {
+        "modules": [
+            {
+                "id": "m1",
+                "position": 1,
+                "title": "Basics",
+                "description": None,
+                "content": {},
+                "lessons": [
+                    {"id": "l1", "position": 1, "title": "Variables"},
+                    {"id": "l2", "position": 2, "title": "The DOM"},
+                ],
+            }
+        ]
+    },
+    "/lessons/l1": {
+        "id": "l1",
+        "module_id": "m1",
+        "position": 1,
+        "title": "Variables",
+        "objective": None,
+        "content": {},
+        "exercises": [
+            {
+                "id": "e1",
+                "kind": "bug_hunt",
+                "title": "Fix the counter",
+                "instructions": "Find the bug.",
+                "starter_code": BUG_HUNT,
+                "expected_output": None,
+                "hints": ["Can a const change?"],
+                "difficulty": None,
+            }
+        ],
+    },
+    "/lessons/l2": {
+        "id": "l2",
+        "module_id": "m1",
+        "position": 2,
+        "title": "The DOM",
+        "objective": None,
+        "content": {},
+        "exercises": [
+            {
+                "id": "e2",
+                "kind": "interactive",
+                "title": "Write text",
+                "instructions": "Write into .output.",
+                "starter_code": DOM_CODE,
+                "expected_output": None,
+                "hints": [],
+                "difficulty": None,
+            }
+        ],
+    },
+}
+RUN_RESULT = {
+    "outcome": "runtime_error",
+    "stdout": "",
+    "compile_output": "",
+    "stderr": "TypeError: Assignment to constant variable.",
+    "exit_code": 1,
+    "time_ms": 12,
+    "provider": "fake",
+    "truncated": False,
+}
+DEBUG_ANSWER = {
+    "summary": "total is a const.",
+    "exercise": True,
+    "corrected_code": None,
+    "issues": [
+        {"line": 2, "problem": "Reassigns a const.", "fix_hint": "Should it be able to change?"}
+    ],
+    "related_lessons": [
+        {
+            "lesson_id": "l1",
+            "lesson_title": "Variables",
+            "module_title": "Basics",
+            "course_title": "JavaScript",
+            "link": "/lessons/l1",
+        }
+    ],
+}
+POST_ROUTES = {
+    "/code/run": RUN_RESULT,
+    "/coding/debug": DEBUG_ANSWER,
+    "/code/share": {"url": "https://godbolt.org/z/abc"},
+}
+
+
 class FakeApi(BaseHTTPRequestHandler):
-    """Accepts asha/right-password; tokens "good" and "expired" for /auth/me."""
+    """Accepts asha/right-password; token "good" works, "expired" is 401, "broken" is 500.
+    POST bodies are recorded in `received` so tests can check what the UI sent."""
+
+    received: dict[str, dict] = {}
 
     def do_POST(self) -> None:  # noqa: N802 - name required by BaseHTTPRequestHandler
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length) or b"{}")
-        if body == {"username": "asha", "password": "right-password"}:
-            self._reply(200, {"access_token": GOOD_TOKEN, "token_type": "bearer", "expires_in": 60})
-        else:
-            self._reply(401, {"detail": "Invalid username or password"})
+        if self.path == "/auth/login":
+            if body == {"username": "asha", "password": "right-password"}:
+                token = {"access_token": GOOD_TOKEN, "token_type": "bearer", "expires_in": 60}
+                self._reply(200, token)
+            else:
+                self._reply(401, {"detail": "Invalid username or password"})
+        elif self._authorised():
+            FakeApi.received[self.path] = body
+            self._reply(200, POST_ROUTES[self.path])
 
     def do_GET(self) -> None:  # noqa: N802
-        if self.headers.get("Authorization") == f"Bearer {GOOD_TOKEN}":
-            self._reply(200, {"id": "1", "username": "asha", "role": "student"})
-        elif self.headers.get("Authorization") == f"Bearer {BROKEN_TOKEN}":
+        if self._authorised():
+            self._reply(200, GET_ROUTES[self.path])
+
+    def _authorised(self) -> bool:
+        authorization = self.headers.get("Authorization")
+        if authorization == f"Bearer {GOOD_TOKEN}":
+            return True
+        if authorization == f"Bearer {BROKEN_TOKEN}":
             self._reply(500, {"detail": "Internal server error"})
         else:
             self._reply(401, {"detail": "Invalid or expired token"})
+        return False
 
-    def _reply(self, status: int, body: dict) -> None:
+    def _reply(self, status: int, body: object) -> None:
         data = json.dumps(body).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
@@ -149,3 +266,77 @@ def test_server_error_on_account_page_is_shown_plainly(fake_api_url: str) -> Non
 
     assert app.error[0].value == "The server had a problem. Please try again shortly."
     assert not app.exception
+
+
+# ---- practice and the compiler panel (Step 15) ------------------------------------------
+
+
+def signed_in(fake_api_url: str) -> AppTest:
+    FakeApi.received.clear()
+    app = AppTest.from_file(APP, default_timeout=30)
+    app.secrets["API_BASE_URL"] = fake_api_url
+    app.session_state["access_token"] = GOOD_TOKEN
+    return app.run()
+
+
+def button(app: AppTest, label: str):
+    return next(b for b in app.button if b.label == label)
+
+
+def test_exercise_opens_with_its_starter_code(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url)
+
+    assert not app.exception
+    assert app.header[0].value == "Practice"
+    assert app.text_area(key="exercise-e1:code").value == BUG_HUNT
+    assert app.selectbox(key="exercise-e1:language").value == "javascript"
+    # Compiler Explorer cannot run JavaScript, so there is no share button for it.
+    assert "Open in Compiler Explorer" not in [b.label for b in app.button]
+
+
+def test_run_shows_output_then_ai_explains_it(fake_api_url: str) -> None:
+    app = button(signed_in(fake_api_url), "Run").click().run()
+
+    assert "**Runtime error**" in [m.value for m in app.markdown]
+    assert any("TypeError: Assignment" in c.value for c in app.code)
+    assert FakeApi.received["/code/run"]["code"] == BUG_HUNT
+
+    app = button(app, "Ask AI about this output").click().run()
+
+    sent = FakeApi.received["/coding/debug"]
+    assert sent["run"]["outcome"] == "runtime_error"
+    assert "TypeError" in sent["run"]["stderr"]
+    assert "course exercise" in app.info[0].value
+    markdown = [m.value for m in app.markdown]
+    assert "total is a const." in markdown
+    assert "**Line 2:** Reassigns a const." in markdown
+    assert not app.exception
+
+
+def test_pasted_output_is_sent_without_an_outcome(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url)
+    app.text_area(key="exercise-e1:pasted").input("TypeError on my laptop")
+    app = button(app.run(), "Ask AI about this output").click().run()
+
+    assert FakeApi.received["/coding/debug"]["run"] == {"stdout": "TypeError on my laptop"}
+
+
+def test_share_appears_for_compiler_explorer_languages(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url)
+    app = app.selectbox(key="exercise-e1:language").set_value("python").run()
+
+    app = button(app, "Open in Compiler Explorer").click().run()
+
+    assert "https://godbolt.org/z/abc" in app.success[-1].value
+    assert FakeApi.received["/code/share"]["language"] == "python"
+
+
+def test_dom_exercise_offers_the_page_sandbox(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url)
+    app = app.selectbox[1].select_index(1).run()  # the DOM lesson
+
+    assert app.text_area(key="exercise-e2:code").value == DOM_CODE
+    app = button(app, "Run in page sandbox").click().run()
+
+    assert not app.exception
+    assert app.session_state["exercise-e2:sandboxed"] == (DOM_CODE, "")

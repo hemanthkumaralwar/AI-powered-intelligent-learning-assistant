@@ -1,4 +1,5 @@
-"""ArchintX Learning Assistant: Streamlit frontend (walking skeleton: login only).
+"""ArchintX Learning Assistant: Streamlit frontend (login, then practice with the compiler
+panel; full lesson pages arrive in Step 19).
 
 Run locally:  streamlit run frontend/streamlit_app.py
 Config:       API_BASE_URL in .streamlit/secrets.toml (or the environment).
@@ -12,6 +13,7 @@ import os
 import streamlit as st
 
 from api_client import ApiClient, ApiError, SessionExpiredError
+from components.practice import show_practice
 
 TOKEN_KEY = "access_token"  # noqa: S105 - session_state key name, not a secret
 
@@ -48,21 +50,23 @@ def show_login(client: ApiClient) -> None:
     st.rerun()
 
 
-def show_account(client: ApiClient, token: str) -> None:
+def show_account(client: ApiClient, token: str) -> bool:
+    """The signed-in line and Log out button; False when the session cannot be used."""
     try:
         user = client.me(token)
     except SessionExpiredError as exc:
         del st.session_state[TOKEN_KEY]
         st.warning(str(exc))
         st.button("Back to login")
-        return
+        return False
     except ApiError as exc:
         st.error(str(exc))
-        return
+        return False
     st.success(f"Signed in as **{user['username']}** ({user['role']})")
     if st.button("Log out"):
         del st.session_state[TOKEN_KEY]
         st.rerun()
+    return True
 
 
 def main() -> None:
@@ -81,7 +85,8 @@ def main() -> None:
 
     token = st.session_state.get(TOKEN_KEY)
     if token:
-        show_account(client, token)
+        if show_account(client, token):
+            show_practice(client, token)
     else:
         show_login(client)
 

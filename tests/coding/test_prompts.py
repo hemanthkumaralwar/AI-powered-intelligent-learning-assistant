@@ -40,3 +40,10 @@ def test_run_output_text_keeps_the_end_of_long_streams() -> None:
     assert text.startswith("outcome: runtime_error\n\nstderr:\n…")
     assert text.endswith("b" * prompts.MAX_RUN_OUTPUT_CHARS)
     assert "a" not in text and "compile output" not in text and "stdout" not in text
+
+
+def test_pasted_output_has_an_unknown_outcome() -> None:
+    text = prompts.run_output_text(None, "Hello", "", "")
+
+    assert text.startswith("outcome: unknown (output from a run elsewhere")
+    assert text.endswith("stdout:\nHello")

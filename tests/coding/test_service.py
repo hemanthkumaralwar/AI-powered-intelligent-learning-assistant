@@ -9,7 +9,7 @@ from app.coding.service import MAX_TEXT_CHARS, CodingService
 from app.core.quota import MINUTE, Quota, QuotaExceededError, QuotaRule
 from app.llm.client import LLMClient
 from app.llm.fake import FakeChatModel
-from app.providers.errors import InvalidResponseError
+from app.providers.errors import InvalidResponseError, RateLimitedError
 from app.providers.retry import RetryPolicy
 from app.rag.retriever import Retriever
 from app.vectorstore.index import SearchHit
@@ -32,19 +32,24 @@ def hit(lesson: str | None, score: float = 0.8) -> SearchHit:
 
 
 class Search:
-    def __init__(self, hits: list[SearchHit]) -> None:
+    def __init__(self, hits: list[SearchHit], error: Exception | None = None) -> None:
         self.hits = hits
+        self.error = error
         self.queries: list[str] = []
 
     async def __call__(self, query: str, k: int, course_id: str | None) -> list[SearchHit]:
         self.queries.append(query)
+        if self.error is not None:
+            raise self.error
         return self.hits
 
 
-def build(*replies, hits=(), per_minute: int = 100) -> tuple[CodingService, FakeChatModel, Search]:
+def build(
+    *replies, hits=(), per_minute: int = 100, search_error: Exception | None = None
+) -> tuple[CodingService, FakeChatModel, Search]:
     model = FakeChatModel([json.dumps(r) if isinstance(r, dict) else r for r in replies])
     llm = LLMClient(model, timeout_seconds=5, retry_policy=RetryPolicy(max_attempts=1))
-    search = Search(list(hits))
+    search = Search(list(hits), search_error)
     quota = Quota([QuotaRule("slow down", per_minute, MINUTE)])
     return CodingService(llm, quota, Retriever(search, 5, 0.63)), model, search
 
@@ -158,3 +163,13 @@ async def test_logs_metadata_only(caplog: pytest.LogCaptureFixture) -> None:
 
     assert "kind=DebugOutput language=javascript" in caplog.text
     assert "secret" not in caplog.text and "counter" not in caplog.text
+
+
+async def test_related_lessons_failure_does_not_lose_the_answer() -> None:
+    quota_gone = RateLimitedError("daily embedding quota", daily=True)
+    service, _, search = build(DEBUG_REPLY, search_error=quota_gone)
+
+    result = await service.debug("asha", "javascript", CODE, None, [])
+
+    assert result.output.issues and result.related_lessons == []
+    assert len(search.queries) == 1  # it was tried, then skipped

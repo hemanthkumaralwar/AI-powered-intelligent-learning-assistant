@@ -1,11 +1,12 @@
 """Small HTTP client for the ArchintX API, kept free of Streamlit so it can be unit tested.
 
 Every failure becomes an `ApiError` whose message is safe to show to a student: no
-stack traces, URLs, or server internals.
+stack traces, URLs, or server internals. The API's own `detail` messages are shown for
+4xx answers, because the API writes them for students; 5xx details never are.
 """
 
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import httpx2
 
@@ -58,13 +59,53 @@ class ApiClient:
 
     def me(self, token: str) -> dict[str, Any]:
         """Return the signed-in account (`id`, `username`, `role`)."""
-        response = self._send("GET", "/auth/me", headers={"Authorization": f"Bearer {token}"})
-        if response.status_code == 401:
-            raise SessionExpiredError("Your session has expired. Please log in again.")
-        return self._json(response)
+        return self._authed("GET", "/auth/me", token)
+
+    # ---- course content -------------------------------------------------------------
+
+    def courses(self, token: str) -> list[dict[str, Any]]:
+        return self._authed("GET", "/courses", token)
+
+    def course(self, token: str, course_id: str) -> dict[str, Any]:
+        """The course outline: modules with their lessons."""
+        return self._authed("GET", f"/courses/{quote(course_id, safe='')}", token)
+
+    def lesson(self, token: str, lesson_id: str) -> dict[str, Any]:
+        """Lesson content and exercises (starter code and hints, never solutions)."""
+        return self._authed("GET", f"/lessons/{quote(lesson_id, safe='')}", token)
+
+    # ---- running code and the coding assistant -------------------------------------
+
+    def run_code(self, token: str, language: str, code: str, stdin: str = "") -> dict[str, Any]:
+        """Run on the remote sandbox: `outcome`, `stdout`, `stderr`, `compile_output`..."""
+        body = {"language": language, "code": code, "stdin": stdin}
+        return self._authed("POST", "/code/run", token, json=body)
+
+    def share_code(self, token: str, language: str, code: str) -> str:
+        """A public, permanent Compiler Explorer link (C, C++, Java, Python)."""
+        body = {"language": language, "code": code}
+        return self._authed("POST", "/code/share", token, json=body)["url"]
+
+    def debug_code(
+        self, token: str, language: str, code: str, run: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Issues with line numbers, a summary, and (unless it is a course exercise) a fix.
+        `run` is the run result, or {"stdout": pasted} for output from elsewhere."""
+        body: dict[str, Any] = {"language": language, "code": code}
+        if run is not None:
+            body["run"] = run
+        return self._authed("POST", "/coding/debug", token, json=body)
 
     def close(self) -> None:
         self._http.close()
+
+    # ---- plumbing --------------------------------------------------------------------
+
+    def _authed(self, method: str, path: str, token: str, **kwargs: Any) -> Any:
+        response = self._send(method, path, headers={"Authorization": f"Bearer {token}"}, **kwargs)
+        if response.status_code == 401:
+            raise SessionExpiredError("Your session has expired. Please log in again.")
+        return self._json(response)
 
     def _send(self, method: str, path: str, **kwargs: Any) -> httpx2.Response:
         try:
@@ -78,12 +119,30 @@ class ApiClient:
             raise ApiError("Cannot reach the server. Check your connection and try again.") from exc
 
     @staticmethod
-    def _json(response: httpx2.Response) -> dict[str, Any]:
+    def _json(response: httpx2.Response) -> Any:
+        if response.status_code == 502:
+            raise ApiError(_detail(response) or "The assistant couldn't answer. Please try again.")
         if response.status_code >= 500:
             raise ApiError("The server had a problem. Please try again shortly.")
         if not response.is_success:
-            raise ApiError(f"Unexpected response from the server ({response.status_code}).")
+            fallback = f"Unexpected response from the server ({response.status_code})."
+            raise ApiError(_detail(response) or fallback)
         try:
             return response.json()
         except ValueError as exc:
             raise ApiError("Unexpected response from the server.") from exc
+
+
+def _detail(response: httpx2.Response) -> str | None:
+    """The API's student-facing message: a string `detail`, or the first validation
+    message for a 422 (whose `detail` is a list)."""
+    try:
+        detail = response.json().get("detail")
+    except (ValueError, AttributeError):
+        return None
+    if isinstance(detail, str):
+        return detail
+    if isinstance(detail, list) and detail and isinstance(detail[0], dict):
+        message = detail[0].get("msg")
+        return f"Check your input: {message}" if message else None
+    return None

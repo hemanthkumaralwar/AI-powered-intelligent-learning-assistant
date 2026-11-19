@@ -32,9 +32,10 @@ class CodeInput(BaseModel):
 
 
 class RunOutput(BaseModel):
-    """The /code/run result for the same code (optional evidence for debugging)."""
+    """The /code/run result for the same code (optional evidence for debugging). Output
+    the student ran elsewhere and pasted in has no outcome."""
 
-    outcome: Outcome
+    outcome: Outcome | None = None
     stdout: str = Field(default="", max_length=MAX_RUN_STREAM_CHARS)
     stderr: str = Field(default="", max_length=MAX_RUN_STREAM_CHARS)
     compile_output: str = Field(default="", max_length=MAX_RUN_STREAM_CHARS)

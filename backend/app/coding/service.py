@@ -21,7 +21,7 @@ from app.coding.schemas import (
 from app.core.quota import Quota
 from app.llm.base import ChatMessage, GenerationOptions
 from app.llm.client import LLMClient
-from app.providers.errors import InvalidResponseError
+from app.providers.errors import InvalidResponseError, ProviderCallError
 from app.rag.retriever import Retriever, Source
 
 logger = logging.getLogger(__name__)
@@ -153,11 +153,18 @@ class CodingService:
         return CodingResult(output, related, exercise=exercise)
 
     async def _related(self, language: str, concepts: list[str]) -> list[RelatedLesson]:
-        """Course lessons about the concepts (one embedding), best match first, no repeats."""
+        """Course lessons about the concepts (one embedding), best match first, no repeats.
+
+        An extra, not the answer: if the embedding provider fails (e.g. its daily quota
+        is used up), the student still gets the explanation, just without lessons."""
         if not concepts:
             return []
         query = f"{prompts.LANGUAGE_NAMES[language]}: {', '.join(concepts)}"
-        sources = await self._retriever.retrieve(query)
+        try:
+            sources = await self._retriever.retrieve(query)
+        except ProviderCallError as exc:
+            logger.warning("related lessons skipped: %s", type(exc).__name__)
+            return []
         lessons: dict[str, RelatedLesson] = {}
         for source in sources:
             if source.lesson_id and source.lesson_id not in lessons:
