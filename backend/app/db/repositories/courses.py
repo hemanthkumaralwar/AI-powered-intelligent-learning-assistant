@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from sqlalchemy import delete, exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -35,6 +37,12 @@ class CourseRepository:
 
     async def exists(self, course_id: str) -> bool:
         return bool(await self._session.scalar(select(exists().where(Course.id == course_id))))
+
+    async def lessons_by_ids(self, lesson_ids: Sequence[str]) -> list[Lesson]:
+        """The lessons with these ids (any order); unknown ids are skipped."""
+        if not lesson_ids:
+            return []
+        return list(await self._session.scalars(select(Lesson).where(Lesson.id.in_(lesson_ids))))
 
     async def exercise_code(self, language: str) -> list[str]:
         """Starter code of every bug hunt and mini challenge in courses of `language`, so

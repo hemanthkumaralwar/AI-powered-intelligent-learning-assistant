@@ -32,8 +32,15 @@ SANDBOX_HEIGHT = 440
 
 
 def compiler_panel(
-    client: ApiClient, token: str, *, key: str, language: str, starter_code: str = ""
+    client: ApiClient,
+    token: str,
+    *,
+    key: str,
+    language: str,
+    starter_code: str = "",
+    exercise_id: str | None = None,
 ) -> None:
+    """`exercise_id`: the course exercise being solved, which adds "Submit for grading"."""
     languages = list(LANGUAGES)
     language = st.selectbox(
         "Language",
@@ -60,6 +67,8 @@ def compiler_panel(
     if language == "javascript" and needs_dom(code):
         _sandbox(key, code)
     _ask_ai(client, token, key, language, code, last_run)
+    if exercise_id:
+        _submit(client, token, key, exercise_id, code)
 
 
 def show_run(result: dict[str, Any]) -> None:
@@ -102,6 +111,22 @@ def debug_evidence(last_run: dict[str, Any] | None, pasted: str) -> dict[str, An
     if pasted.strip():
         return {"stdout": pasted}
     return None
+
+
+def _submit(client: ApiClient, token: str, key: str, exercise_id: str, code: str) -> None:
+    if st.button("Submit for grading", key=f"{key}:submit"):
+        with st.spinner("Checking your solution…"):
+            try:
+                attempt = client.submit_attempt(token, exercise_id, code)
+            except ApiError as exc:
+                st.error(str(exc))
+                return
+        st.session_state[f"{key}:attempt"] = {"code": code, "attempt": attempt}
+    saved = st.session_state.get(f"{key}:attempt")
+    if saved and saved["code"] == code:
+        attempt = saved["attempt"]
+        show = st.success if attempt["passed"] else st.warning
+        show(("Passed! " if attempt["passed"] else "Not yet. ") + attempt["feedback"])
 
 
 def _run(client: ApiClient, token: str, key: str, language: str, code: str, stdin: str) -> None:

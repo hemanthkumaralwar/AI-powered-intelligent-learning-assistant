@@ -1,4 +1,3 @@
-import json
 from collections import Counter
 
 import pytest
@@ -48,8 +47,34 @@ def test_student_content_never_contains_answers(real_course_bytes: bytes) -> Non
 
     for module in course.modules:
         for lesson in module.lessons:
-            dumped = json.dumps(lesson.content)
-            assert not [key for key in ANSWER_KEYS if f'"{key}"' in dumped], lesson.id
+            keys = set(_all_keys(lesson.content))
+            assert not keys & set(ANSWER_KEYS), lesson.id
+
+
+def _all_keys(value: object):
+    """Every dict key at any depth (values like `"kind": "quiz"` are not keys)."""
+    if isinstance(value, dict):
+        for key, inner in value.items():
+            yield key
+            yield from _all_keys(inner)
+    elif isinstance(value, list):
+        for inner in value:
+            yield from _all_keys(inner)
+
+
+def test_practice_lists_activities_by_name_and_size_only(real_course_bytes: bytes) -> None:
+    lesson = parse_course(real_course_bytes, "javascript").modules[0].lessons[0]
+
+    practice = lesson.content["practice"]
+
+    assert [a["kind"] for a in practice] == [
+        "quiz",
+        "drag_and_drop",
+        "card_matching",
+        "code_reordering",
+    ]
+    assert practice[0] == {"kind": "quiz", "title": "Quiz", "count": 10}
+    assert all(set(a) == {"kind", "title", "count"} for a in practice)
 
 
 def test_quiz_and_exercises_are_mapped(small_course: dict, to_bytes) -> None:

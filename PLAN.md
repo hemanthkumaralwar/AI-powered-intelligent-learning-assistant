@@ -400,6 +400,12 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - **Follow-ups:** `app/rag/condense.py` rewrites the question from the last 3 exchanges (each cut to 500 characters, temperature 0) before retrieval, and only when the chat has history. The answer prompt sees only the rewritten question, not the history, so answers stay grounded. A failed or unusable rewrite falls back to the question as asked.
   - **Storage:** the question, its rewrite, the answer, `grounded` and citations. `ask` loads in one short transaction and saves in another, so no connection is held during the provider calls; a failed answer saves nothing. 100 messages per chat (409). A concurrent write to the same chat is a 409 via the (session, position) unique constraint.
   - **Evaluation:** `--answers` also scores follow-ups rewritten by the app ("Follow-ups, rewritten by the app" row) and lists every rewrite for review.
+- **Step 17 revised (2026-11-19, your decision).** Quizzes, drag and drop, card matching and code reordering run on the learning platform; the assistant points to them instead of rebuilding them. The external quiz platform API and AI-generated quizzes are dropped (the "quiz platform JSON" pending input is closed).
+  - **Practice pointers:** ingestion stores each lesson's activities as names and sizes only (`lessons.content["practice"]`); chat answers and coding responses list the cited lessons' activities (`practice`), linked when `PLATFORM_LESSON_URL` (https, with `{lesson_id}`) is set. `scripts/backfill_practice.py` adds them to courses uploaded earlier (run on Neon dev: 64 lessons).
+  - **"Quiz me" requests** get a pointer to the lessons' activities (outcome `practice`, no LLM call) instead of questions written into the chat.
+  - **Exercise attempts:** `POST /exercises/{id}/attempts` grades a bug hunt, challenge or interactive exercise with the AI (reference shown to the model only; feedback quoting a reference line or containing code is replaced by a generic hint) and stores pass/fail + feedback (migration `0006`, not the code). `GET` lists your own attempts. The compiler panel has "Submit for grading".
+  - **Live check (2026-11-19, Neon dev + `gemini-3.5-flash-lite`):** "Quiz me on let and const" pointed to Declaring Variables (quiz 10, drag and drop 6, card matching 6, code reordering 6) with no LLM call; a normal answer listed the same lesson's activities; the bug hunt's buggy code failed with a hint and the fixed code passed; both attempts were stored.
+  - **For Step 18:** quiz and activity scores live on the platform; recommendations here use chat topics, coding help and exercise attempts unless the platform shares scores later.
 - **Step 16 decisions (2026-11-19).**
   - **Profile level:** `users.level` (migration `0005`, default `beginner`, checked to the three values). `PATCH /auth/me {"level"}` changes only the caller's own level; any other field (e.g. `role`) is a 422. The Streamlit account area has an "Explanation level" selector.
   - **Per-request override:** optional `level` on `/chat/ask` and `/coding/*`; otherwise the profile's level. Follow-up rewriting is unaffected.
@@ -427,7 +433,7 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 
 ## Pending inputs
 
-- [ ] Quiz platform JSON and API details (needed by Day 8, Step 17)
+- [x] ~~Quiz platform JSON and API details~~: not needed; Step 17 points to the platform's activities instead (2026-11-19).
 - [ ] Steps 12 and 13 Done-when checks (postponed until the daily embedding quota resets, 08:00 UTC), one run: `python eval/run_eval.py --answers` (defaults: `gemini-3.5-flash-lite`, no thinking setting). Step 12 targets: hit@5 ≥ 0.8, correct refusals ≥ 0.9, every grounded answer cited (answers report). Step 13 target: "Follow-ups, rewritten by the app" hit@5 ≥ 7 of 8 (retrieval report). Then record the results here and commit `eval/reports/*`. The 403 part of Step 13 is covered by `tests/api/test_chat.py`.
 - [ ] Step 6 cold-start check (postponed): leave the API idle 15+ minutes, then time `GET https://archintx-api-kday.onrender.com/health`; record the result in `docs/deployment.md`.
 - [ ] Step 6 memory reading: Render → archintx-api → Metrics had no data right after the first deploy; record the peak once available (expected well under 512 MB; local ~70 MB).

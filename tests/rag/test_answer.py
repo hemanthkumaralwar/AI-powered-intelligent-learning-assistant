@@ -8,7 +8,7 @@ from app.llm.client import LLMClient
 from app.llm.fake import FakeChatModel
 from app.providers.errors import ProviderUnavailableError
 from app.providers.retry import RetryPolicy
-from app.rag.answer import REFUSAL, AnswerService, Citation, ground
+from app.rag.answer import PRACTICE_REPLY, REFUSAL, AnswerService, Citation, ground
 from app.rag.condense import Condenser
 from app.rag.prompts import NOT_IN_COURSE
 from app.rag.retriever import Retriever, Source
@@ -142,3 +142,29 @@ async def test_answer_prompt_uses_the_requested_level(service, hit) -> None:
     await answers.ask("asha", "What is let?", level="advanced")
 
     assert "Explanation level: advanced." in model.requests[0].messages[0].content
+
+
+async def test_quiz_requests_point_to_the_lessons_without_an_llm_call(service, hit) -> None:
+    answers, model, _ = service(
+        [
+            hit(0.8),
+            hit(0.75, section="Summary"),
+            hit(0.7, lesson_id="l2"),
+            hit(0.65, lesson_id=None),
+        ]
+    )
+
+    answer = await answers.ask("asha", "Quiz me on let and const")
+
+    assert answer.outcome == "practice" and answer.grounded
+    assert answer.text == PRACTICE_REPLY
+    assert [c.lesson_id for c in answer.citations] == ["javascript-beginner-mod-1-lesson-1", "l2"]
+    assert model.requests == []
+
+
+async def test_quiz_request_with_only_module_overviews_is_refused(service, hit) -> None:
+    answers, _, _ = service([hit(0.8, lesson_id=None)])
+
+    answer = await answers.ask("asha", "Quiz me on modules")
+
+    assert (answer.outcome, answer.grounded) == ("no_relevant_material", False)

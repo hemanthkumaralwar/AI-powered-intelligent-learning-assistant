@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.api.schemas.practice import PracticePointerResponse
 from app.coding.schemas import Issue, LineNote, PracticeQuestion
 from app.coding.service import CodingResult, RelatedLesson
 from app.llm.prompt_levels import Level
@@ -25,13 +26,18 @@ class CodeInput(BaseModel):
     @field_validator("code")
     @classmethod
     def _code_size(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("Code must not be empty")
-        if len(value.encode()) > MAX_CODE_BYTES:
-            raise ValueError("Code must be at most 8 KB")
-        if len(value.splitlines()) > MAX_CODE_LINES:
-            raise ValueError(f"Code must be at most {MAX_CODE_LINES} lines")
-        return value
+        return check_code_size(value)
+
+
+def check_code_size(value: str) -> str:
+    """Shared by every endpoint that sends student code to the model."""
+    if not value.strip():
+        raise ValueError("Code must not be empty")
+    if len(value.encode()) > MAX_CODE_BYTES:
+        raise ValueError("Code must be at most 8 KB")
+    if len(value.splitlines()) > MAX_CODE_LINES:
+        raise ValueError(f"Code must be at most {MAX_CODE_LINES} lines")
+    return value
 
 
 class RunOutput(BaseModel):
@@ -83,6 +89,8 @@ class RelatedLessonResponse(BaseModel):
 
 class CodingResponse(BaseModel):
     related_lessons: list[RelatedLessonResponse]
+    # The related lessons' quizzes and activities on the learning platform.
+    practice: list[PracticePointerResponse] = []
 
 
 def _related(result: CodingResult) -> list[RelatedLessonResponse]:

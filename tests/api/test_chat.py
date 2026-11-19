@@ -12,14 +12,14 @@ from app.auth.service import AuthService
 from app.auth.tokens import TokenService
 from app.core.config import Settings
 from app.core.quota import MINUTE, Quota, QuotaRule
-from app.db.models import Course
+from app.db.models import Course, Lesson, Module
 from app.db.session import Database
 from app.llm.client import LLMClient
 from app.llm.fake import FakeChatModel
 from app.main import create_app
 from app.providers.errors import ProviderCallError, RateLimitedError
 from app.providers.retry import RetryPolicy
-from app.rag.answer import REFUSAL, AnswerService
+from app.rag.answer import PRACTICE_REPLY, REFUSAL, AnswerService
 from app.rag.condense import Condenser
 from app.rag.retriever import Retriever
 from app.runner.fake import FakeRunner
@@ -303,3 +303,57 @@ async def test_answers_use_the_profile_level_unless_the_request_overrides_it(cha
 
 async def test_unknown_level_is_422(chat: Chat) -> None:
     assert (await chat.ask(question="What is let?", level="expert")).status_code == 422
+
+
+# ---- practice pointers (Step 17) --------------------------------------------------------
+
+PRACTICE = [
+    {"kind": "quiz", "title": "Quiz", "count": 10},
+    {"kind": "card_matching", "title": "Match the terms", "count": 6},
+]
+
+
+async def add_lesson_with_practice(database: Database) -> None:
+    async with database.session() as session:
+        session.add(Module(id="m1", course_id=COURSE, position=1, title="Basics"))
+        session.add(
+            Lesson(
+                id=LESSON,
+                module_id="m1",
+                position=1,
+                title="Variables",
+                content={"practice": PRACTICE},
+            )
+        )
+
+
+async def test_answers_point_to_the_cited_lessons_activities(
+    chat: Chat, database: Database
+) -> None:
+    await add_lesson_with_practice(database)
+
+    body = (await chat.ask(question="What is let?")).json()
+
+    assert body["practice"] == [
+        {"lesson_id": LESSON, "lesson_title": "Variables", "activities": PRACTICE, "url": None}
+    ]
+
+
+async def test_quiz_me_points_to_the_platform_instead_of_quizzing(
+    chat: Chat, database: Database
+) -> None:
+    await add_lesson_with_practice(database)
+
+    body = (await chat.ask(question="Quiz me on let and const")).json()
+
+    assert body["grounded"] is True
+    assert body["answer"] == PRACTICE_REPLY
+    assert body["practice"][0]["activities"][0]["kind"] == "quiz"
+    assert chat.model.requests == []  # no questions (or answers) written by the model
+
+
+async def test_refusals_have_no_practice(chat: Chat, database: Database) -> None:
+    await add_lesson_with_practice(database)
+    chat.score = 0.3
+
+    assert (await chat.ask(question="Explain Docker")).json()["practice"] == []

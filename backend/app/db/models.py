@@ -295,3 +295,21 @@ class ChatMessage(Base):
     grounded: Mapped[bool | None] = mapped_column(Boolean)
     citations: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ExerciseAttempt(Base):
+    """A graded try at a course exercise. Only the result is kept, not the student's code:
+    progress analysis (Step 18) needs pass/fail, and less personal data is stored."""
+
+    __tablename__ = "exercise_attempts"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    exercise_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("exercises.id", ondelete="CASCADE"), index=True
+    )
+    passed: Mapped[bool] = mapped_column(Boolean)
+    feedback: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

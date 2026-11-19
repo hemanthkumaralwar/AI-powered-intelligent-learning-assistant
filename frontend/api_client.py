@@ -100,6 +100,11 @@ class ApiClient:
             body["run"] = run
         return self._authed("POST", "/coding/debug", token, json=body)
 
+    def submit_attempt(self, token: str, exercise_id: str, code: str) -> dict[str, Any]:
+        """Grade an exercise attempt: `passed` and hint-style `feedback` (never the answer)."""
+        path = f"/exercises/{quote(exercise_id, safe='')}/attempts"
+        return self._authed("POST", path, token, json={"code": code})
+
     def close(self) -> None:
         self._http.close()
 

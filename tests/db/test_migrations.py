@@ -12,6 +12,7 @@ from app.db.session import to_sqlalchemy_url
 
 EXPECTED_TABLES = {
     "chat_sessions",
+    "exercise_attempts",
     "chat_messages",
     "quiz_questions",
     "exercises",

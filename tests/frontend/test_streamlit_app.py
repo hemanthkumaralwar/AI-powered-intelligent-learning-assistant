@@ -101,7 +101,12 @@ GET_ROUTES = {
         "position": 1,
         "title": "Variables",
         "objective": None,
-        "content": {},
+        "content": {
+            "practice": [
+                {"kind": "quiz", "title": "Quiz", "count": 10},
+                {"kind": "card_matching", "title": "Match the terms", "count": 6},
+            ]
+        },
         "exercises": [
             {
                 "id": "e1",
@@ -167,6 +172,12 @@ POST_ROUTES = {
     "/code/run": RUN_RESULT,
     "/coding/debug": DEBUG_ANSWER,
     "/code/share": {"url": "https://godbolt.org/z/abc"},
+    "/exercises/e1/attempts": {
+        "id": "a1",
+        "passed": False,
+        "feedback": "Can a const be reassigned?",
+        "created_at": "2026-11-19T10:00:00Z",
+    },
 }
 
 
@@ -313,7 +324,7 @@ def test_run_shows_output_then_ai_explains_it(fake_api_url: str) -> None:
     sent = FakeApi.received["/coding/debug"]
     assert sent["run"]["outcome"] == "runtime_error"
     assert "TypeError" in sent["run"]["stderr"]
-    assert "course exercise" in app.info[0].value
+    assert any("course exercise" in box.value for box in app.info)
     markdown = [m.value for m in app.markdown]
     assert "total is a const." in markdown
     assert "**Line 2:** Reassigns a const." in markdown
@@ -358,4 +369,20 @@ def test_level_selector_saves_to_the_profile(fake_api_url: str) -> None:
     app = level.set_value("advanced").run()
 
     assert FakeApi.received["/auth/me"] == {"level": "advanced"}
+    assert not app.exception
+
+
+def test_lesson_lists_its_platform_activities(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url)
+
+    (box,) = [i.value for i in app.info if "learning platform" in i.value]
+    assert "- Quiz: Quiz (10 questions)" in box
+    assert "- Card matching: Match the terms (6 pairs)" in box
+
+
+def test_submit_for_grading_shows_hint_feedback(fake_api_url: str) -> None:
+    app = button(signed_in(fake_api_url), "Submit for grading").click().run()
+
+    assert FakeApi.received["/exercises/e1/attempts"] == {"code": BUG_HUNT}
+    assert app.warning[0].value == "Not yet. Can a const be reassigned?"
     assert not app.exception

@@ -17,6 +17,7 @@ from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
 from app.api.code_run import router as code_router
 from app.api.coding import router as coding_router
+from app.api.exercises import router as exercises_router
 from app.api.health import router as health_router
 from app.api.materials import router as materials_router
 from app.auth.seed import seed_admin
@@ -32,6 +33,8 @@ from app.db.session import Database, build_database
 from app.indexing.factory import build_indexing_service
 from app.indexing.service import IndexingService
 from app.ingestion.files import MAX_UPLOAD_BYTES
+from app.learning.grading import ExerciseGrader
+from app.learning.practice import PracticeFinder
 from app.llm.factory import build_llm_client
 from app.rag.answer import AnswerService
 from app.rag.factory import build_answer_service, question_quota
@@ -51,6 +54,7 @@ def create_app(
     indexing: IndexingService | None = None,
     answers: AnswerService | None = None,
     coding: CodingService | None = None,
+    grader: ExerciseGrader | None = None,
 ) -> FastAPI:
     """Build the app from explicit settings.
 
@@ -67,15 +71,18 @@ def create_app(
         app.state.database = database or build_database(settings)
         app.state.code_runner = code_runner or build_code_runner_service(settings)
         app.state.indexing = indexing or build_indexing_service(settings, app.state.database)
-        # Chat and the coding assistant share one LLM client and one request quota: both
-        # spend the same free tier. The app owns the client and closes it at shutdown.
-        llm = build_llm_client(settings) if answers is None or coding is None else None
+        # Chat, the coding assistant and exercise grading share one LLM client and one
+        # request quota: all spend the same free tier. The app owns and closes the client.
+        needs_llm = answers is None or coding is None or grader is None
+        llm = build_llm_client(settings) if needs_llm else None
         quota = question_quota(settings)
         app.state.answers = answers or build_answer_service(
             settings, app.state.indexing, llm, quota
         )
         app.state.coding = coding or build_coding_service(settings, app.state.indexing, llm, quota)
-        app.state.chats = ChatService(app.state.database, app.state.answers)
+        app.state.grader = grader or ExerciseGrader(llm, quota)
+        app.state.practice = PracticeFinder(settings.platform_lesson_url)
+        app.state.chats = ChatService(app.state.database, app.state.answers, app.state.practice)
         try:
             if settings.admin_username and settings.admin_password:
                 await seed_admin(
@@ -117,6 +124,7 @@ def create_app(
     app.include_router(admin_documents_router)
     app.include_router(chat_router)
     app.include_router(coding_router)
+    app.include_router(exercises_router)
     return app
 
 

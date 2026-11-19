@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     # Each question costs one embedding and one LLM call from the shared free tier.
     chat_questions_per_user_per_minute: int = Field(default=5, ge=1, le=1000)
     chat_questions_global_per_minute: int = Field(default=20, ge=1, le=10_000)
+    # Link to a lesson on the learning platform, where its quizzes and activities run, e.g.
+    # https://platform.example/lessons/{lesson_id}. Unset: practice pointers have no link.
+    platform_lesson_url: str | None = None
 
     embedding_provider: EmbeddingProvider = "gemini"
     # gemini-embedding-2 merges a batch into one vector, so it cannot be used for chunks.
@@ -102,6 +105,15 @@ class Settings(BaseSettings):
     code_runs_per_user_per_minute: int = Field(default=10, ge=1, le=1000)
     code_runs_per_user_per_day: int = Field(default=200, ge=1, le=100_000)
     code_runs_global_per_minute: int = Field(default=30, ge=1, le=10_000)
+
+    @field_validator("platform_lesson_url")
+    @classmethod
+    def _platform_url_is_a_lesson_template(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not value.startswith("https://") or "{lesson_id}" not in value:
+            raise ValueError("PLATFORM_LESSON_URL must be https:// and contain {lesson_id}")
+        return value
 
     @field_validator("gemini_thinking_budget", mode="before")
     @classmethod

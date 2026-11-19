@@ -7,6 +7,7 @@ from dataclasses import dataclass, replace
 from typing import Literal
 
 from app.core.quota import Quota
+from app.learning.practice import is_practice_request
 from app.llm.base import ChatMessage, GenerationOptions
 from app.llm.client import LLMClient
 from app.llm.prompt_levels import DEFAULT_LEVEL, Level
@@ -22,11 +23,19 @@ REFUSAL = (
     "Try rephrasing your question, or ask about a topic covered in the course."
 )
 
-# answered: grounded and cited. The rest are refusals:
+PRACTICE_REPLY = (
+    "Practice activities for this topic are on the learning platform: try the ones listed "
+    "below, then come back here if anything is unclear."
+)
+
+# answered: grounded and cited.
+# practice: a request to be quizzed; the reply points to the lessons' activities on the
+#   platform instead of writing questions (and their answers) into the chat.
+# The rest are refusals:
 # - no_relevant_material: nothing cleared the similarity threshold (no LLM call made)
 # - not_in_sources: the model said the sources do not answer it
 # - uncited: the model answered but cited no real source, so the answer is not shown
-Outcome = Literal["answered", "no_relevant_material", "not_in_sources", "uncited"]
+Outcome = Literal["answered", "practice", "no_relevant_material", "not_in_sources", "uncited"]
 
 ANSWER_OPTIONS = GenerationOptions(temperature=0.2, max_output_tokens=1024)
 
@@ -57,7 +66,8 @@ class Answer:
 
     @property
     def grounded(self) -> bool:
-        return self.outcome == "answered"
+        """Course-based (an answer, or a pointer to the course's activities)."""
+        return self.outcome in ("answered", "practice")
 
 
 class AnswerService:
@@ -91,6 +101,9 @@ class AnswerService:
         sources = await self._retriever.retrieve(standalone, course_id)
         if not sources:
             answer = Answer(REFUSAL, "no_relevant_material")
+        elif is_practice_request(standalone):
+            # The search still runs, to find which lessons the topic belongs to.
+            answer = practice_pointer(sources)
         else:
             response = await self._llm.chat(
                 build_messages(standalone, sources, level), self._options
@@ -107,6 +120,18 @@ class AnswerService:
             answer.standalone is not None,
         )
         return answer
+
+
+def practice_pointer(sources: Sequence[Source]) -> Answer:
+    """The practice reply, citing the best-matching lessons (one citation per lesson)."""
+    by_lesson: dict[str, Source] = {}
+    for source in sources:
+        if source.lesson_id and source.lesson_id not in by_lesson:
+            by_lesson[source.lesson_id] = source
+    if not by_lesson:
+        return Answer(REFUSAL, "no_relevant_material")
+    citations = tuple(_citation(source) for source in by_lesson.values())
+    return Answer(PRACTICE_REPLY, "practice", citations)
 
 
 def ground(reply: str, sources: Sequence[Source]) -> Answer:

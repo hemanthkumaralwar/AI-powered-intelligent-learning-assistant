@@ -178,7 +178,8 @@ def _build_lesson(lesson: dict[str, Any], position: int) -> Lesson:
         position=position,
         title=lesson["title"],
         objective=lesson.get("objective"),
-        content={key: lesson[key] for key in TEACHING_KEYS if key in lesson},
+        content={key: lesson[key] for key in TEACHING_KEYS if key in lesson}
+        | {"practice": practice_activities(lesson)},
         quiz_questions=[
             QuizQuestion(
                 position=index,
@@ -191,6 +192,35 @@ def _build_lesson(lesson: dict[str, Any], position: int) -> Lesson:
         ],
         exercises=list(_build_exercises(lesson)),
     )
+
+
+# (course JSON key, kind, default title, what the count measures). The activities themselves
+# run on the learning platform; the assistant only points students to them.
+_PRACTICE = (
+    ("quiz", "quiz", "Quiz", None),
+    ("dragandropp", "drag_and_drop", "Drag and drop", "items"),
+    ("cardmatching", "card_matching", "Card matching", "cards"),
+    ("codereordering", "code_reordering", "Code reordering", "codelines"),
+)
+
+
+def practice_activities(lesson: dict[str, Any]) -> list[dict[str, Any]]:
+    """The lesson's practice activities as names and sizes only: never their content or
+    answers (correctAnswer, correctOrder, correctpairs, matches)."""
+    found = []
+    for key, kind, default_title, counted in _PRACTICE:
+        activity = lesson.get(key)
+        if not activity:
+            continue
+        if counted is None:  # the quiz is a plain list of questions
+            title, count = default_title, len(activity)
+        else:
+            title = str(activity.get("title") or default_title)[:255]
+            count = len(activity.get(counted) or [])
+            if kind == "card_matching":
+                count //= 2  # cards come in pairs
+        found.append({"kind": kind, "title": title, "count": count})
+    return found
 
 
 def _build_exercises(lesson: dict[str, Any]) -> Iterable[Exercise]:

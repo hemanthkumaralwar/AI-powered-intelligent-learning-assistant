@@ -182,3 +182,22 @@ def test_thinking_budget_accepts_default(
     monkeypatch.setenv("GEMINI_THINKING_BUDGET", raw)
 
     assert Settings(_env_file=None).gemini_thinking_budget == expected
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["http://learn.example/{lesson_id}", "https://learn.example/lessons", "ftp://x/{lesson_id}"],
+)
+def test_platform_url_must_be_an_https_lesson_template(
+    monkeypatch: pytest.MonkeyPatch, url: str
+) -> None:
+    monkeypatch.setenv("PLATFORM_LESSON_URL", url)
+
+    with pytest.raises(ValidationError, match="PLATFORM_LESSON_URL"):
+        Settings(_env_file=None)
+
+
+def test_platform_url_accepts_a_template(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PLATFORM_LESSON_URL", "https://learn.example/l/{lesson_id}")
+
+    assert Settings(_env_file=None).platform_lesson_url == "https://learn.example/l/{lesson_id}"

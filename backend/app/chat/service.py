@@ -7,7 +7,7 @@ paths use the request's own database session instead of taking a second connecti
 """
 
 import uuid
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +16,7 @@ from app.db.models import ChatSession
 from app.db.repositories.chats import ChatRepository, NewMessage
 from app.db.repositories.courses import CourseRepository
 from app.db.session import Database
+from app.learning.practice import PracticeFinder, PracticePointer
 from app.llm.base import ChatMessage
 from app.llm.prompt_levels import DEFAULT_LEVEL, Level
 from app.rag.answer import Answer, AnswerService
@@ -51,12 +52,17 @@ class SessionFullError(ChatError):
 class ChatReply:
     session_id: uuid.UUID
     answer: Answer
+    # The cited lessons' activities on the learning platform (empty when none apply).
+    practice: list[PracticePointer] = field(default_factory=list)
 
 
 class ChatService:
-    def __init__(self, database: Database, answers: AnswerService) -> None:
+    def __init__(
+        self, database: Database, answers: AnswerService, practice: PracticeFinder
+    ) -> None:
         self._database = database
         self._answers = answers
+        self._practice = practice
 
     async def ask(
         self,
@@ -92,7 +98,9 @@ class ChatService:
             if session_id is None:
                 session_id = (await repo.create_session(user_id, _title(question))).id
             await repo.add_messages(session_id, position, _exchange(question, answer))
-        return ChatReply(session_id, answer)
+            lessons = [citation.lesson_id for citation in answer.citations]
+            pointers = await self._practice.for_lessons(db, lessons) if answer.grounded else []
+        return ChatReply(session_id, answer, pointers)
 
     @staticmethod
     async def list_sessions(

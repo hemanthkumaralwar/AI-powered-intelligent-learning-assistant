@@ -6,6 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.api.schemas.practice import PracticePointerResponse
 from app.chat.service import ChatReply
 from app.llm.prompt_levels import Level
 from app.rag.answer import Citation
@@ -59,6 +60,8 @@ class AskResponse(BaseModel):
     # False means the course materials do not cover the question and `answer` says so.
     grounded: bool
     citations: list[CitationResponse]
+    # The cited lessons' quizzes and activities on the learning platform.
+    practice: list[PracticePointerResponse]
 
     @classmethod
     def from_reply(cls, reply: ChatReply) -> "AskResponse":
@@ -68,6 +71,7 @@ class AskResponse(BaseModel):
             answer=answer.text,
             grounded=answer.grounded,
             citations=[CitationResponse.from_citation(c) for c in answer.citations],
+            practice=[PracticePointerResponse.from_pointer(p) for p in reply.practice],
         )
 
 

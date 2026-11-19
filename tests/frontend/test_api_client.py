@@ -215,3 +215,13 @@ def test_set_level_patches_the_profile() -> None:
     assert client_returning(handler).set_level("tok", "advanced") == {"level": "advanced"}
     assert (seen[0].method, seen[0].url.path) == ("PATCH", "/auth/me")
     assert json.loads(seen[0].content) == {"level": "advanced"}
+
+
+def test_submit_attempt_posts_the_code() -> None:
+    handler, seen = recording(body={"passed": True, "feedback": "ok"})
+
+    result = client_returning(handler).submit_attempt("tok", "e/1", "x = 1")
+
+    assert result["passed"] is True
+    assert seen[0].url.raw_path == b"/exercises/e%2F1/attempts"
+    assert json.loads(seen[0].content) == {"code": "x = 1"}
