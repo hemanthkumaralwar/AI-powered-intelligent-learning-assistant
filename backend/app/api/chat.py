@@ -1,42 +1,64 @@
-"""Course questions answered from the course materials, with citations."""
+"""Course questions answered from the course materials, with citations and history."""
 
 import logging
+import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from app.api.deps import CurrentUser, Session
-from app.api.schemas.chat import AskRequest, AskResponse
+from app.api.schemas.chat import AskRequest, AskResponse, SessionDetail, SessionSummary
+from app.chat.service import (
+    ChatError,
+    ChatService,
+    CourseNotFoundError,
+    SessionForbiddenError,
+    SessionFullError,
+    SessionNotFoundError,
+)
 from app.core.quota import QuotaExceededError
-from app.db.repositories.courses import CourseRepository
+from app.db.errors import DuplicateError
 from app.providers.errors import ProviderCallError
-from app.rag.answer import AnswerService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
+_CHAT_ERRORS: dict[type[ChatError], tuple[int, str]] = {
+    CourseNotFoundError: (status.HTTP_404_NOT_FOUND, "Course not found"),
+    SessionNotFoundError: (status.HTTP_404_NOT_FOUND, "Chat not found"),
+    SessionForbiddenError: (status.HTTP_403_FORBIDDEN, "This chat belongs to another user"),
+    SessionFullError: (
+        status.HTTP_409_CONFLICT,
+        "This chat is full; start a new chat to keep asking questions.",
+    ),
+}
 
-def get_answer_service(request: Request) -> AnswerService:
-    return request.app.state.answers
+
+def get_chat_service(request: Request) -> ChatService:
+    return request.app.state.chats
 
 
-Answers = Annotated[AnswerService, Depends(get_answer_service)]
+Chats = Annotated[ChatService, Depends(get_chat_service)]
+
+
+def _http_error(exc: ChatError) -> HTTPException:
+    code, detail = _CHAT_ERRORS[type(exc)]
+    return HTTPException(code, detail)
 
 
 @router.post("/ask")
-async def ask(
-    body: AskRequest, user: CurrentUser, session: Session, answers: Answers
-) -> AskResponse:
-    """Answer from the course, or say it is not covered (`grounded: false`)."""
-    if body.course_id is not None and not await CourseRepository(session).exists(body.course_id):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found")
+async def ask(body: AskRequest, user: CurrentUser, session: Session, chats: Chats) -> AskResponse:
+    """Answer from the course, or say it is not covered (`grounded: false`). Pass the
+    returned `session_id` back to ask a follow-up in the same conversation."""
     user_id = user.id
-    # Hand the database connection back before the slow provider calls: the pool is
-    # small, and nothing below needs the database.
+    # Hand back the connection that loaded the user: the provider calls below are slow
+    # and the pool is small. ChatService opens its own short transactions.
     await session.commit()
     try:
-        answer = await answers.ask(user_id, body.question, body.course_id)
+        reply = await chats.ask(user_id, body.question, body.course_id, body.session_id)
+    except ChatError as exc:
+        raise _http_error(exc) from exc
     except QuotaExceededError as exc:
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
@@ -49,4 +71,48 @@ async def ask(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "The assistant is unavailable right now. Please try again shortly.",
         ) from exc
-    return AskResponse.from_answer(answer)
+    except DuplicateError as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This chat changed while answering; please ask again.",
+        ) from exc
+    return AskResponse.from_reply(reply)
+
+
+@router.get("/sessions")
+async def list_sessions(
+    user: CurrentUser,
+    session: Session,
+    chats: Chats,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[SessionSummary]:
+    """Your chats, most recently active first."""
+    sessions = await chats.list_sessions(session, user.id, limit, offset)
+    return [SessionSummary.model_validate(s) for s in sessions]
+
+
+@router.get("/sessions/{session_id}")
+async def session_history(
+    session_id: uuid.UUID, user: CurrentUser, session: Session, chats: Chats
+) -> SessionDetail:
+    """One of your chats with all its messages. Other users' chats are 403."""
+    try:
+        chat, messages = await chats.history(session, user.id, session_id)
+    except ChatError as exc:
+        raise _http_error(exc) from exc
+    return SessionDetail.model_validate(
+        {**SessionSummary.model_validate(chat).model_dump(), "messages": messages}
+    )
+
+
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_session(
+    session_id: uuid.UUID, user: CurrentUser, session: Session, chats: Chats
+) -> Response:
+    """Delete one of your chats and all its messages. Other users' chats are 403."""
+    try:
+        await chats.delete(session, user.id, session_id)
+    except ChatError as exc:
+        raise _http_error(exc) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

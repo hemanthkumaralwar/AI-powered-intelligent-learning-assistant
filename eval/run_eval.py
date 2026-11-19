@@ -6,9 +6,10 @@ Costs one embedding per question (~90; Gemini free tier: ~1,000/day), none for d
 
     python eval/run_eval.py
 
-Answers (Step 12) add grounded answering and an LLM judge on top of a live run, reusing
-the question embeddings: up to ~76 answer calls plus one judge call per grounded answer,
-paced to --llm-per-minute.
+--answers adds the LLM-based checks on top of a live run, reusing the question
+embeddings: follow-ups rewritten by the app (Step 13, 8 calls), grounded answers with
+an LLM judge (Step 12: up to ~76 answer calls plus one judge call per grounded answer),
+all paced to --llm-per-minute.
 Judge verdicts are cached in eval/cache/ (gitignored), so a re-run only judges answers
 that changed.
 
@@ -45,19 +46,20 @@ from app.evaluation.answer_report import (  # noqa: E402
     render_answers_markdown,
 )
 from app.evaluation.answers import AnswerReport, evaluate_answers  # noqa: E402
-from app.evaluation.dataset import load_dataset, unknown_lessons  # noqa: E402
+from app.evaluation.dataset import EvalCase, load_dataset, unknown_lessons  # noqa: E402
 from app.evaluation.judge import JudgeCache, LLMJudge  # noqa: E402
 from app.evaluation.report import render_markdown, to_json  # noqa: E402
 from app.evaluation.retrieval import RetrievalReport, evaluate_retrieval  # noqa: E402
 from app.indexing.service import IndexingService  # noqa: E402
 from app.ingestion.chunking import ChunkingConfig, chunk_course  # noqa: E402
 from app.ingestion.course_json import parse_course  # noqa: E402
-from app.llm.base import ChatModel, CompletionRequest, LLMResponse  # noqa: E402
+from app.llm.base import ChatMessage, ChatModel, CompletionRequest, LLMResponse  # noqa: E402
 from app.llm.client import LLMClient  # noqa: E402
 from app.llm.factory import build_chat_model  # noqa: E402
 from app.providers.rate_limit import RateLimiter  # noqa: E402
 from app.providers.retry import RetryPolicy  # noqa: E402
 from app.rag.answer import AnswerService  # noqa: E402
+from app.rag.condense import Condenser  # noqa: E402
 from app.rag.retriever import Retriever  # noqa: E402
 from app.vectorstore.index import IndexEntry, VectorIndex  # noqa: E402
 
@@ -106,40 +108,54 @@ async def live(
     embedder = build_embedding_client(settings)
     service = IndexingService(database, embedder)
     search = CachedSearch(embedder, service.index)
+    llm = paced_llm(settings, llm_per_minute) if llm_per_minute is not None else None
     try:
         chunks = await service.rebuild_index()
-        report = await evaluate_retrieval(dataset, lambda q: search(q, TOP_K, COURSE_ID))
+        rewrite = follow_up_rewriter(Condenser(llm)) if llm is not None else None
+        report = await evaluate_retrieval(dataset, lambda q: search(q, TOP_K, COURSE_ID), rewrite)
         run = {
             "index": "live (rebuilt from the database)",
             "chunks": chunks,
             "embedding_id": service.embedding_id,
         }
         answers = None
-        if llm_per_minute is not None:
-            answers = await evaluate_live_answers(settings, dataset, search, llm_per_minute, run)
+        if llm is not None:
+            answers = await evaluate_live_answers(settings, dataset, search, llm, run)
         return report, run, answers
     finally:
+        if llm is not None:
+            await llm.aclose()
         await service.aclose()
         await database.dispose()
 
 
-async def evaluate_live_answers(
-    settings: Settings, dataset: list, search: CachedSearch, per_minute: int, run: dict
-) -> AnswerReport:
-    model = PacedChatModel(build_chat_model(settings), RateLimiter(per_minute))
-    llm = LLMClient(
-        model,
+def paced_llm(settings: Settings, per_minute: int) -> LLMClient:
+    """One LLM client for every model call of the run (rewrites, answers, judge)."""
+    return LLMClient(
+        PacedChatModel(build_chat_model(settings), RateLimiter(per_minute)),
         timeout_seconds=settings.llm_timeout_seconds,
         retry_policy=RetryPolicy(max_attempts=settings.llm_max_attempts),
     )
+
+
+def follow_up_rewriter(condenser: Condenser):
+    """What the app searches for a multi-turn case: its question rewritten from history."""
+
+    async def rewrite(case: EvalCase) -> str:
+        history = [ChatMessage(role=turn.role, content=turn.content) for turn in case.history]
+        return await condenser.condense(case.question, history)
+
+    return rewrite
+
+
+async def evaluate_live_answers(
+    settings: Settings, dataset: list, search: CachedSearch, llm: LLMClient, run: dict
+) -> AnswerReport:
     retriever = Retriever(search, settings.rag_top_k, settings.rag_min_score)
     # No per-user quota: this script paces its own calls.
-    answers = AnswerService(retriever, llm, Quota([]))
+    answers = AnswerService(retriever, llm, Quota([]), Condenser(llm))
     judge = LLMJudge(llm, JudgeCache(JUDGE_CACHE))
-    try:
-        report = await evaluate_answers(dataset, lambda q: answers.ask("eval", q, COURSE_ID), judge)
-    finally:
-        await llm.aclose()
+    report = await evaluate_answers(dataset, lambda q: answers.ask("eval", q, COURSE_ID), judge)
     run |= {
         "llm_model": llm.model,
         "top_k": settings.rag_top_k,

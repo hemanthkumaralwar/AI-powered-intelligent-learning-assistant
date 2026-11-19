@@ -25,10 +25,12 @@ def render_markdown(report: RetrievalReport, run: dict[str, Any]) -> str:
         _row("Answerable", report.answerable),
         _row("Follow-ups, as asked", report.multi_turn_raw),
         _row("Follow-ups, rewritten (gold)", report.multi_turn_rewritten),
+        *_condensed_row(report),
         "",
         "**hit@k**: an acceptable lesson is among the top-k chunks. "
         "**MRR**: average of 1/rank of the first acceptable chunk.",
         "",
+        *_rewrite_lines(report),
         "## Answer-or-refuse threshold (for Step 12)",
         "",
         *_threshold_lines(report),
@@ -55,6 +57,21 @@ def render_markdown(report: RetrievalReport, run: dict[str, Any]) -> str:
 def _row(label: str, summary: GroupSummary) -> str:
     hits = " | ".join(f"{summary.hit_at[k]:.0%}" for k in K_VALUES)
     return f"| {label} | {summary.count} | {hits} | {summary.mrr:.3f} |"
+
+
+def _condensed_row(report: RetrievalReport) -> list[str]:
+    if report.multi_turn_condensed is None:
+        return []
+    return [_row("Follow-ups, rewritten by the app", report.multi_turn_condensed)]
+
+
+def _rewrite_lines(report: RetrievalReport) -> list[str]:
+    """The app's rewrites, for checking by eye that they kept the student's meaning."""
+    if not report.rewrites:
+        return []
+    lines = ["## Follow-up rewrites (Step 13)", "", "| Case | Rewritten question |", "|---|---|"]
+    lines += [f"| {case} | {text.replace('|', '/')} |" for case, text in report.rewrites.items()]
+    return [*lines, ""]
 
 
 def _threshold_lines(report: RetrievalReport) -> list[str]:

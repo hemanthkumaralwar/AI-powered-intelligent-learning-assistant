@@ -120,3 +120,27 @@ async def test_threshold_section_without_unanswerable_cases() -> None:
     run = {"date": "d", "embedding_id": "e", "index": "i", "chunks": 0, "dataset": "x", "cases": 3}
 
     assert "Not enough answerable and unanswerable" in render_markdown(report, run)
+
+
+async def test_app_rewrites_are_scored_and_reported() -> None:
+    async def rewrite(case: EvalCase) -> str:
+        return "What is const?"
+
+    report = await evaluate_retrieval(CASES, fake_search, rewrite)
+    run = {"date": "d", "embedding_id": "e", "index": "i", "chunks": 0, "dataset": "x", "cases": 5}
+    markdown = render_markdown(report, run)
+
+    assert report.rewrites == {"mt": "What is const?"}
+    assert report.multi_turn_condensed is not None
+    assert report.multi_turn_condensed.hit_at[1] == 1.0
+    assert "| Follow-ups, rewritten by the app | 1 | 100%" in markdown
+    assert "| mt | What is const? |" in markdown
+    assert "multi_turn_condensed" in report.results
+
+
+async def test_without_a_rewriter_there_is_no_app_row() -> None:
+    report = await evaluate_retrieval(CASES, fake_search)
+    run = {"date": "d", "embedding_id": "e", "index": "i", "chunks": 0, "dataset": "x", "cases": 5}
+
+    assert report.multi_turn_condensed is None
+    assert "rewritten by the app" not in render_markdown(report, run)

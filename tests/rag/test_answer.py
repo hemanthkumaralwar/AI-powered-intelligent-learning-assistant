@@ -3,11 +3,13 @@ import logging
 import pytest
 
 from app.core.quota import MINUTE, Quota, QuotaExceededError, QuotaRule
+from app.llm.base import ChatMessage
 from app.llm.client import LLMClient
 from app.llm.fake import FakeChatModel
 from app.providers.errors import ProviderUnavailableError
 from app.providers.retry import RetryPolicy
 from app.rag.answer import REFUSAL, AnswerService, Citation, ground
+from app.rag.condense import Condenser
 from app.rag.prompts import NOT_IN_COURSE
 from app.rag.retriever import Retriever, Source
 
@@ -23,7 +25,8 @@ def service(fake_search):
         search = fake_search(hits)
         llm = LLMClient(model, timeout_seconds=5, retry_policy=RetryPolicy(max_attempts=1))
         quota = Quota([QuotaRule("slow down", per_minute, MINUTE)])
-        return AnswerService(Retriever(search, 5, 0.63), llm, quota), model, search
+        service = AnswerService(Retriever(search, 5, 0.63), llm, quota, Condenser(llm))
+        return service, model, search
 
     return build
 
@@ -105,6 +108,31 @@ async def test_aclose_closes_the_llm(service) -> None:
     await answers.aclose()
 
     assert model.closed
+
+
+async def test_follow_up_is_rewritten_before_retrieval_and_answering(service, hit) -> None:
+    answers, model, search = service([hit(0.8)], "How do I loop over an array?", "Use for-of [1].")
+    history = [
+        ChatMessage(role="user", content="What is an array?"),
+        ChatMessage(role="assistant", content="An ordered list."),
+    ]
+
+    answer = await answers.ask("asha", "How do I loop over it?", None, history)
+
+    assert answer.standalone == "How do I loop over an array?"
+    assert search.calls == [("How do I loop over an array?", 5, None)]
+    rewrite, reply = model.requests
+    assert "Student: What is an array?" in rewrite.messages[1].content
+    assert "<question>\nHow do I loop over an array?\n</question>" in reply.messages[1].content
+
+
+async def test_first_question_is_not_rewritten(service, hit) -> None:
+    answers, model, _ = service([hit(0.8)], "let is block-scoped [1].")
+
+    answer = await answers.ask("asha", "What is let?")
+
+    assert answer.standalone is None
+    assert len(model.requests) == 1
 
 
 def test_ground_keeps_first_cited_order(hit) -> None:

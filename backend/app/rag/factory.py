@@ -7,6 +7,7 @@ from app.core.quota import MINUTE, Quota, QuotaRule
 from app.indexing.service import IndexingService
 from app.llm.factory import build_llm_client
 from app.rag.answer import AnswerService
+from app.rag.condense import Condenser
 from app.rag.retriever import Retriever
 
 logger = logging.getLogger(__name__)
@@ -24,10 +25,12 @@ def build_answer_service(settings: Settings, indexing: IndexingService) -> Answe
             THRESHOLD_EMBEDDING_ID,
             indexing.embedding_id,
         )
+    llm = build_llm_client(settings)
     return AnswerService(
         Retriever(indexing.search, settings.rag_top_k, settings.rag_min_score),
-        build_llm_client(settings),
+        llm,
         question_quota(settings),
+        Condenser(llm),
     )
 
 

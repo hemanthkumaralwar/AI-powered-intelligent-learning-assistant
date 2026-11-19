@@ -20,6 +20,7 @@ from app.api.health import router as health_router
 from app.api.materials import router as materials_router
 from app.auth.seed import seed_admin
 from app.auth.service import AuthService, build_auth_service
+from app.chat.service import ChatService
 from app.core.body_limit import BodySizeLimitMiddleware
 from app.core.config import Settings
 from app.core.errors import register_exception_handlers
@@ -62,6 +63,7 @@ def create_app(
         app.state.code_runner = code_runner or build_code_runner_service(settings)
         app.state.indexing = indexing or build_indexing_service(settings, app.state.database)
         app.state.answers = answers or build_answer_service(settings, app.state.indexing)
+        app.state.chats = ChatService(app.state.database, app.state.answers)
         try:
             if settings.admin_username and settings.admin_password:
                 await seed_admin(

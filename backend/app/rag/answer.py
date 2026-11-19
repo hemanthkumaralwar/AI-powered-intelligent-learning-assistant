@@ -1,14 +1,16 @@
-"""`AnswerService`: quota → retrieve → grounded prompt → citations checked by the server."""
+"""`AnswerService`: quota → rewrite follow-up → retrieve → grounded prompt → citations
+checked by the server."""
 
 import logging
 from collections.abc import Hashable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from app.core.quota import Quota
-from app.llm.base import GenerationOptions
+from app.llm.base import ChatMessage, GenerationOptions
 from app.llm.client import LLMClient
 from app.rag.citations import resolve_markers
+from app.rag.condense import Condenser
 from app.rag.prompts import NOT_IN_COURSE, build_messages
 from app.rag.retriever import Retriever, Source
 
@@ -49,6 +51,8 @@ class Answer:
     text: str
     outcome: Outcome
     citations: tuple[Citation, ...] = ()
+    # The question actually searched and answered, when a follow-up was rewritten.
+    standalone: str | None = None
 
     @property
     def grounded(self) -> bool:
@@ -61,32 +65,45 @@ class AnswerService:
         retriever: Retriever,
         llm: LLMClient,
         quota: Quota,
+        condenser: Condenser,
         options: GenerationOptions = ANSWER_OPTIONS,
     ) -> None:
         self._retriever = retriever
         self._llm = llm
         self._quota = quota
+        self._condenser = condenser
         self._options = options
 
     async def aclose(self) -> None:
         await self._llm.aclose()
 
-    async def ask(self, user_key: Hashable, question: str, course_id: str | None = None) -> Answer:
-        """Answer from the course or refuse. Raises `QuotaExceededError` (counted before
-        any provider call) and `ProviderCallError` from the embedding or LLM provider."""
+    async def ask(
+        self,
+        user_key: Hashable,
+        question: str,
+        course_id: str | None = None,
+        history: Sequence[ChatMessage] = (),
+    ) -> Answer:
+        """Answer from the course or refuse; a follow-up is first rewritten from `history`
+        (oldest first). Raises `QuotaExceededError` (counted before any provider call)
+        and `ProviderCallError` from the embedding or answering LLM call."""
         self._quota.consume(user_key)
-        sources = await self._retriever.retrieve(question, course_id)
+        standalone = await self._condenser.condense(question, history)
+        sources = await self._retriever.retrieve(standalone, course_id)
         if not sources:
             answer = Answer(REFUSAL, "no_relevant_material")
         else:
-            response = await self._llm.chat(build_messages(question, sources), self._options)
+            response = await self._llm.chat(build_messages(standalone, sources), self._options)
             answer = ground(response.text, sources)
+        if standalone != question:
+            answer = replace(answer, standalone=standalone)
         # Metadata only: questions and answers can contain personal data.
         logger.info(
-            "chat answer outcome=%s sources=%d cited=%d",
+            "chat answer outcome=%s sources=%d cited=%d rewritten=%s",
             answer.outcome,
             len(sources),
             len(answer.citations),
+            answer.standalone is not None,
         )
         return answer
 

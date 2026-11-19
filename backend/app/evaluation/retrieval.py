@@ -21,6 +21,8 @@ from app.evaluation.metrics import (
 from app.vectorstore.index import SearchHit
 
 type Search = Callable[[str], Awaitable[list[SearchHit]]]
+# Turns a multi-turn case into the standalone question the app would search (Step 13).
+type Rewrite = Callable[[EvalCase], Awaitable[str]]
 
 K_VALUES = (1, 3, 5, 10)
 
@@ -41,12 +43,19 @@ class RetrievalReport:
     threshold: Threshold | None
     unanswerable_top_scores: dict[str, float]
     results: dict[str, list[RetrievalResult]] = field(default_factory=dict)
+    # Follow-ups searched with the app's own rewrite (only when a rewriter is given).
+    multi_turn_condensed: GroupSummary | None = None
+    rewrites: dict[str, str] = field(default_factory=dict)
 
 
-async def evaluate_retrieval(cases: Sequence[EvalCase], search: Search) -> RetrievalReport:
+async def evaluate_retrieval(
+    cases: Sequence[EvalCase], search: Search, rewrite: Rewrite | None = None
+) -> RetrievalReport:
     answerable: list[RetrievalResult] = []
     raw: list[RetrievalResult] = []
     rewritten: list[RetrievalResult] = []
+    condensed: list[RetrievalResult] = []
+    rewrites: dict[str, str] = {}
     refused_scores: dict[str, float] = {}
     for case in cases:
         if case.kind == "answerable":
@@ -54,6 +63,9 @@ async def evaluate_retrieval(cases: Sequence[EvalCase], search: Search) -> Retri
         elif case.kind == "multi_turn":
             raw.append(await _run(case, case.question, search))
             rewritten.append(await _run(case, case.standalone or case.question, search))
+            if rewrite is not None:
+                rewrites[case.id] = await rewrite(case)
+                condensed.append(await _run(case, rewrites[case.id], search))
         elif case.kind == "unanswerable":
             hits = await search(case.question)
             refused_scores[case.id] = hits[0].score if hits else 0.0
@@ -69,7 +81,10 @@ async def evaluate_retrieval(cases: Sequence[EvalCase], search: Search) -> Retri
             "answerable": answerable,
             "multi_turn_raw": raw,
             "multi_turn_rewritten": rewritten,
+            **({"multi_turn_condensed": condensed} if rewrite is not None else {}),
         },
+        multi_turn_condensed=_summary(condensed) if rewrite is not None else None,
+        rewrites=rewrites,
     )
 
 

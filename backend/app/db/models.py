@@ -1,8 +1,9 @@
-"""ORM models: users, the course tree, uploaded documents and their chunks.
+"""ORM models: users, the course tree, uploaded documents, their chunks, and chats.
 
 Fixed-value columns are TEXT plus a CHECK constraint rather than Postgres ENUM types,
-which are awkward to change in migrations. Vectors are plain REAL[]: Chroma does the
-similarity search; Postgres only keeps vectors so the index can be rebuilt after a restart.
+which are awkward to change in migrations. Vectors are plain REAL[]: FAISS does the
+similarity search in memory; Postgres only keeps vectors so the index can be rebuilt
+after a restart.
 """
 
 import uuid
@@ -11,6 +12,7 @@ from typing import Any, Literal
 
 from sqlalchemy import (
     REAL,
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -31,6 +33,7 @@ DocumentStatus = Literal["pending", "processing", "ready", "failed"]
 # Only course JSON is stored; kind is kept as an explicit, checked marker for future types.
 DocumentKind = Literal["course"]
 ExerciseKind = Literal["interactive", "mini_challenge", "bug_hunt"]
+ChatRole = Literal["user", "assistant"]
 
 # Stable constraint names keep Alembic migrations deterministic across databases.
 NAMING_CONVENTION = {
@@ -243,3 +246,44 @@ class Exercise(Base):
     difficulty: Mapped[str | None] = mapped_column(String(20))
     solution: Mapped[str | None] = mapped_column(Text)
     bug_explanation: Mapped[str | None] = mapped_column(Text)
+
+
+class ChatSession(TimestampMixin, Base):
+    """One conversation. Only its owner may read or delete it (checked in ChatService).
+
+    `updated_at` is bumped whenever messages are added, so lists sort by last activity.
+    """
+
+    __tablename__ = "chat_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(80))
+
+
+class ChatMessage(Base):
+    """A question or an answer. `position` orders a session's messages exactly (timestamps
+    can tie), and its uniqueness turns two simultaneous writes into a clean conflict."""
+
+    __tablename__ = "chat_messages"
+    __table_args__ = (
+        UniqueConstraint("session_id", "position", name="uq_chat_messages_session_position"),
+        CheckConstraint("role IN ('user', 'assistant')", name="role_valid"),
+        CheckConstraint("position >= 0", name="position_non_negative"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("chat_sessions.id", ondelete="CASCADE")
+    )
+    position: Mapped[int] = mapped_column(Integer)
+    role: Mapped[str] = mapped_column(String(20))
+    content: Mapped[str] = mapped_column(Text)
+    # User messages: the standalone question actually searched, when it was rewritten.
+    standalone: Mapped[str | None] = mapped_column(Text)
+    # Assistant messages: whether the answer came from the course, and its citations.
+    grounded: Mapped[bool | None] = mapped_column(Boolean)
+    citations: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

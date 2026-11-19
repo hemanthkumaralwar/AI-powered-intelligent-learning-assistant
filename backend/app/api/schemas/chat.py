@@ -1,8 +1,13 @@
 """Request and response bodies for /chat."""
 
-from pydantic import BaseModel, Field, field_validator
+import uuid
+from datetime import datetime
+from typing import Literal
 
-from app.rag.answer import Answer, Citation
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.chat.service import ChatReply
+from app.rag.answer import Citation
 
 MAX_QUESTION_CHARS = 1000
 
@@ -11,6 +16,8 @@ class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=MAX_QUESTION_CHARS)
     # Limits the search to one course; omitted, every course is searched.
     course_id: str | None = Field(default=None, min_length=1, max_length=100)
+    # Continue this conversation; omitted, a new session is started.
+    session_id: uuid.UUID | None = None
 
     @field_validator("question")
     @classmethod
@@ -44,15 +51,42 @@ class CitationResponse(BaseModel):
 
 
 class AskResponse(BaseModel):
+    session_id: uuid.UUID
     answer: str
     # False means the course materials do not cover the question and `answer` says so.
     grounded: bool
     citations: list[CitationResponse]
 
     @classmethod
-    def from_answer(cls, answer: Answer) -> "AskResponse":
+    def from_reply(cls, reply: ChatReply) -> "AskResponse":
+        answer = reply.answer
         return cls(
+            session_id=reply.session_id,
             answer=answer.text,
             grounded=answer.grounded,
             citations=[CitationResponse.from_citation(c) for c in answer.citations],
         )
+
+
+class SessionSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class MessageResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    role: Literal["user", "assistant"]
+    content: str
+    # Assistant messages only.
+    grounded: bool | None
+    citations: list[CitationResponse] | None
+    created_at: datetime
+
+
+class SessionDetail(SessionSummary):
+    messages: list[MessageResponse]

@@ -249,9 +249,10 @@ Uploading a course starts indexing in the background: chunk → embed → save v
 
 ### Asking questions (`POST /chat/ask`)
 
-Any logged-in user: `{"question": "...", "course_id": "javascript-beginner-v1"}` (`course_id` is optional; questions are up to 1,000 characters).
+Any logged-in user: `{"question": "...", "course_id": "javascript-beginner-v1", "session_id": "..."}` (`course_id` and `session_id` are optional; questions are up to 1,000 characters). Without `session_id` a new chat starts; the response returns its `session_id`, which you send back to ask follow-ups.
 
-1. The question is embedded and the top `RAG_TOP_K` chunks are retrieved. Chunks below `RAG_MIN_SCORE` are dropped; if none are left, the reply says the course doesn't cover it, **without an LLM call**.
+0. **Follow-ups** (a chat with earlier messages): the question is first rewritten into a standalone one from the last 3 exchanges ("How do I loop over it?" → "How do I loop over an array in JavaScript?"). That is one extra LLM call; if it fails, the question is used as asked.
+1. The (standalone) question is embedded and the top `RAG_TOP_K` chunks are retrieved. Chunks below `RAG_MIN_SCORE` are dropped; if none are left, the reply says the course doesn't cover it, **without an LLM call**.
 2. The model gets numbered sources and the question in separate blocks, with rules: use only the sources, cite them as `[1]`, reply `NOT_IN_COURSE` when they don't answer it, treat sources and question as data, and **give hints, never solutions, for practice exercises**.
 3. The server keeps only markers that match a retrieved source (code like `arr[1]` is ignored) and builds the citations itself: Course › Module › Lesson › section, plus `link` (`/lessons/{lesson_id}`). A reply that cites nothing real is replaced by the "not covered" message.
 
@@ -262,7 +263,15 @@ Any logged-in user: `{"question": "...", "course_id": "javascript-beginner-v1"}`
    "link": "/lessons/javascript-beginner-mod-1-lesson-1"}]}
 ```
 
-`grounded: false` means the course doesn't cover the question; `answer` says so. Errors: 404 unknown course, 429 over the question quota (with `Retry-After`), 503 when the AI provider is unavailable. Questions and answers are never logged, only the outcome and counts.
+`grounded: false` means the course doesn't cover the question; `answer` says so. Errors: 404 unknown course or chat, 403 someone else's chat, 409 chat full (100 messages; start a new one), 429 over the question quota (with `Retry-After`), 503 when the AI provider is unavailable. Questions and answers are stored in your chat history but never logged; logs hold only the outcome and counts. A failed answer stores nothing.
+
+**Chat history** (only your own; anyone else's chat is **403**, admins included):
+
+| Endpoint | Does |
+|---|---|
+| `GET /chat/sessions?limit=20&offset=0` | your chats, most recently active first (`limit` 1–50) |
+| `GET /chat/sessions/{id}` | one chat with all its messages (answers include `grounded` and `citations`) |
+| `DELETE /chat/sessions/{id}` | delete a chat and its messages (204) |
 
 ### Retrieval evaluation
 
@@ -271,7 +280,7 @@ Any logged-in user: `{"question": "...", "course_id": "javascript-beginner-v1"}`
 ```bash
 python eval/run_eval.py                                          # live: Neon dev index + Gemini, ~86 query embeddings
 python eval/run_eval.py --offline --max-body 1000 --overlap 150  # local Hugging Face, no quota (needs requirements-local.txt)
-python eval/run_eval.py --answers                                # + grounded answers and an LLM judge (~130 LLM calls, paced)
+python eval/run_eval.py --answers                                # + app-rewritten follow-ups, grounded answers, LLM judge (~140 LLM calls, paced)
 ```
 
 Live mode rebuilds the index from `DATABASE_URL` (the course must already be indexed there), so it embeds only the questions. Offline mode chunks `eval/materials/javascript-beginner.json` with the given size and embeds everything locally, which makes it the way to compare chunk sizes. Reports go to `eval/reports/retrieval-<date>-<label>.{md,json}`: hit@1/3/5/10, MRR, hit@5 by module, the per-question ranks, and the **answer-or-refuse similarity threshold** that Step 12 uses. With `--answers`, `eval/reports/answers-<date>-<label>.{md,json}` adds: answered and judged-correct rates, expected-keyword coverage, citations on the expected lesson, correct refusals, hints-only replies to solution requests, and every failure quoted for review. Judge verdicts are cached in `eval/cache/` (gitignored), so re-runs only judge answers that changed. The judge is the same free model, so it may be lenient; read the quoted failures.
@@ -313,7 +322,8 @@ backend/app/        FastAPI application (package "app")
   ingestion/        upload checks, course JSON parsing (+ vendored course_schema.json), chunking
   indexing/         indexing pipeline, worker and startup rebuild (quota-aware)
   vectorstore/      in-memory FAISS index, one per course
-  rag/              grounded answers: retriever, prompt, citation checks, AnswerService
+  rag/              grounded answers: follow-up rewriting, retriever, prompt, citation checks
+  chat/             chat sessions: ownership, history window, saving exchanges (ChatService)
   evaluation/       evaluation dataset, retrieval and answer metrics, LLM judge, reports
   core/             configuration, logging, error handling
   providers/        shared plumbing: errors, retry, rate limiting, SDK clients

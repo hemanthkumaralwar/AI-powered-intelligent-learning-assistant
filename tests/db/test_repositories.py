@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.db.errors import DuplicateError
 from app.db.models import Chunk, Course, Document, DocumentFile, Lesson, Module, User
+from app.db.repositories.chats import ChatRepository, NewMessage
 from app.db.repositories.chunks import ChunkRepository, NewChunk
 from app.db.repositories.courses import CourseRepository
 from app.db.repositories.documents import DocumentRepository
@@ -331,3 +332,35 @@ async def test_lesson_and_module_lookup(database: Database) -> None:
     assert lesson is not None and lesson.module.course_id == "js-v1"
     assert lesson.exercises == []
     assert module is not None and module.title == "Functions"
+
+
+async def test_chat_messages_keep_order_and_a_concurrent_append_conflicts(
+    database: Database,
+) -> None:
+    async with database.session() as session:
+        user = await UserRepository(session).add("asha", "hash", "student")
+        chat = await ChatRepository(session).create_session(user.id, "What is let?")
+        await ChatRepository(session).add_messages(
+            chat.id,
+            0,
+            [
+                NewMessage("user", "What is let?"),
+                NewMessage("assistant", "Block-scoped.", None, True),
+            ],
+        )
+
+    async with database.session() as session:
+        repo = ChatRepository(session)
+        assert await repo.count_messages(chat.id) == 2
+        assert [m.content for m in await repo.recent_messages(chat.id, 1)] == ["Block-scoped."]
+        assert [m.position for m in await repo.messages(chat.id)] == [0, 1]
+
+    # A second writer that read the same message count tries the same positions.
+    with pytest.raises(DuplicateError):
+        async with database.session() as session:
+            await ChatRepository(session).add_messages(chat.id, 1, [NewMessage("user", "Again?")])
+
+    async with database.session() as session:
+        await ChatRepository(session).delete_session(chat.id)
+    async with database.session() as session:
+        assert await ChatRepository(session).count_messages(chat.id) == 0
