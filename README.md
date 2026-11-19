@@ -196,28 +196,34 @@ Send the token as `Authorization: Bearer <token>`. In Swagger (`/docs`), use **A
 
 ## Course materials
 
-**Admins** upload course files; **logged-in users** read them.
+Courses are uploaded as **course JSON only**, by admins. Other material (DOCX, PDF, TXT) is converted to course JSON outside this app, e.g. next to the course generator, so every course follows the same schema.
 
 | Endpoint | Who | What |
 |---|---|---|
-| `POST /admin/documents` | admin | multipart `file` plus form fields; see below |
-| `GET /admin/documents?course_id=` | admin | all documents, newest first |
-| `GET /admin/documents/{id}/download` | admin | the original file (course JSON includes all answers) |
-| `DELETE /admin/documents/{id}` | admin | delete one document |
-| `DELETE /admin/courses/{id}` | admin | delete a course **and everything attached to it**, including its notes |
+| `POST /admin/documents` | admin | multipart `file` (`.json`) + form field `language` (`c`, `cpp`, `java`, `python`, `javascript`, `sql`) |
+| `GET /admin/documents?course_id=` | admin | uploaded course files, newest first |
+| `GET /admin/documents/{id}/download` | admin | the original file (includes all answers) |
+| `DELETE /admin/documents/{id}` | admin | delete one uploaded file |
+| `DELETE /admin/courses/{id}` | admin | delete a course **and everything attached to it** |
 | `GET /courses`, `GET /courses/{id}` | logged in | course list; module/lesson outline |
-| `GET /lessons/{id}` | logged in | teaching content and exercises (starter code, hints) |
-| `GET /materials?course_id=`, `GET /materials/{id}/download` | logged in | TXT notes only |
+| `GET /lessons/{id}` | logged in | teaching content and exercises (starter code, hints), no solutions |
 
-**Uploading:**
+- **What an upload creates:** the course with its modules, lessons, 10 quiz questions per lesson and 3 exercises per lesson, all in one transaction.
+- **Checks:** the file is validated against `backend/app/ingestion/course_schema.json` (the course generator's schema) plus stricter rules: id format `a-z 0-9 -`, unique ids, and every quiz answer must point at one of its options.
+- **Re-uploading** an existing course returns **409**. Delete the course first.
+- **Limits:** **10 MB** per file (413), enforced before the body is parsed. Every other endpoint accepts at most 64 KB. Any other file type → 415 "Convert other material to course JSON first".
 
-- **Course JSON** (`.json`, with form field `language` = `c`, `cpp`, `java`, `python`, `javascript` or `sql`) creates the course with its modules, lessons, 10 quiz questions per lesson and 3 exercises per lesson, all in one transaction.
-  - **Checks:** the file is validated against `backend/app/ingestion/course_schema.json` (the course generator's schema) plus stricter rules: id format `a-z 0-9 -`, unique ids, and every quiz answer must point at one of its options.
-  - **Re-uploading** an existing course returns **409**. Delete the course first.
-- **Notes** (`.txt`, UTF-8) need `course_id`; `module_id` and `lesson_id` are optional and must belong to that course. A lesson implies its module.
-- **Limits:** **10 MB** per file (413), enforced before the body is parsed. Every other endpoint accepts at most 64 KB. PDF and DOCX return 415 ("not supported yet"); other types are refused.
+**Answers stay hidden:** students never receive quiz answers, bug-hunt fixes or exercise solutions. The original course JSON is admin-only, and the student response models have no fields for answers. **Rendering rule:** course text is stored as uploaded, so any UI must render it as plain text or Markdown (Streamlit's default) and **never** with `unsafe_allow_html=True`.
 
-**Answers stay hidden:** students never receive quiz answers, bug-hunt fixes or exercise solutions. Course JSON files can't be downloaded or listed by students, and the student response models have no fields for answers. **Rendering rule:** course text is stored as uploaded, so any UI must render it as plain text or Markdown (Streamlit's default) and **never** with `unsafe_allow_html=True`.
+### Chunks for RAG
+
+`chunk_course()` in [backend/app/ingestion/chunking.py](backend/app/ingestion/chunking.py) turns a stored course into searchable chunks: about **1,225** for `javascript-beginner.json`.
+
+- **Included:** module overviews; each lesson's explanation, key concepts, every example, analogy, **flowchart** (Mermaid), use cases, real-world story and takeaways; and the **prompt part** of each exercise (`interactiveExercise`, `miniChallenge`, `bugHunt`): instructions, starter or buggy code, expected result, hints.
+- **Never included:** quiz questions and answers, bug-hunt fixes and explanations, and drag-and-drop / card-matching / code-reordering. Those are served and graded through the API (Step 17). Tests plant sentinel values in every answer field and check none reaches a chunk.
+- **Format:** each chunk starts with a context header, e.g. `JavaScript Fundamentals › Variables and Data Types › Declaring Variables — Example 2`. The body is at most 1,000 characters (150 overlap when a section is split), at most 1,200 with the header.
+- **IDs** are a SHA-256 of document + section + piece, so re-chunking gives identical IDs.
+- **Exercise tagging:** exercise chunks are tagged `type: exercise`, so the tutor (Steps 12/14) gives hints, not solutions. That's a prompt rule, so best effort; the hard guarantee is that solutions are never retrievable.
 
 ## Running code
 
@@ -253,7 +259,7 @@ backend/app/        FastAPI application (package "app")
   api/              HTTP routers, request dependencies (deps.py), schemas/
   auth/             password hashing, tokens, auth service, admin seeding
   runner/           code runners (Judge0, Compiler Explorer, fake), quota, fallback service
-  ingestion/        upload checks, course JSON parsing (+ vendored course_schema.json)
+  ingestion/        upload checks, course JSON parsing (+ vendored course_schema.json), chunking
 eval/materials/     course files used by tests and evaluation (javascript-beginner.json)
   core/             configuration, logging, error handling
   providers/        shared plumbing: errors, retry, rate limiting, SDK clients

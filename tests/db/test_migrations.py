@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace
 
+import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from sqlalchemy import create_engine, pool, text
@@ -80,5 +81,32 @@ def test_downgrade_then_upgrade_round_trips(
         assert remaining == ["alembic_version"]
 
         schema_tools.migrate(test_database_url, schema, "head")
+    finally:
+        schema_tools.drop(test_database_url, schema)
+
+
+def test_0003_refuses_to_run_while_notes_exist(
+    test_database_url: str, schema_tools: SimpleNamespace
+) -> None:
+    schema = schema_tools.create(test_database_url)
+    try:
+        schema_tools.migrate(test_database_url, schema, "0002")
+        engine = connect(test_database_url, schema)
+        with engine.begin() as connection:
+            connection.execute(
+                text("INSERT INTO courses (id, title, language) VALUES ('c1', 'C1', 'python')")
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO documents (id, course_id, kind, filename, content_type,"
+                    " size_bytes, sha256, status)"
+                    " VALUES (gen_random_uuid(), 'c1', 'notes', 'n.txt',"
+                    " 'text/plain', 1, 'x', 'pending')"
+                )
+            )
+        engine.dispose()
+
+        with pytest.raises(RuntimeError, match="1 notes document"):
+            schema_tools.migrate(test_database_url, schema, "head")
     finally:
         schema_tools.drop(test_database_url, schema)

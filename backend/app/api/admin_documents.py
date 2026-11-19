@@ -1,4 +1,4 @@
-"""Admin-only course material management: upload, list, download, delete."""
+"""Admin-only course management: upload course JSON, list, download, delete."""
 
 import uuid
 from typing import Annotated
@@ -14,12 +14,11 @@ from app.db.repositories.documents import DocumentRepository
 from app.ingestion.errors import (
     CourseExistsError,
     FileTooLargeError,
-    UnknownTargetError,
     UnsupportedFileTypeError,
     UploadRejectedError,
 )
-from app.ingestion.files import MAX_UPLOAD_BYTES, file_kind, safe_filename
-from app.ingestion.service import ingest_course, ingest_notes
+from app.ingestion.files import MAX_UPLOAD_BYTES, require_course_json, safe_filename
+from app.ingestion.service import ingest_course
 from app.runner.base import Language
 
 # Every route here requires an admin.
@@ -30,7 +29,6 @@ _STATUS = {
     FileTooLargeError: status.HTTP_413_CONTENT_TOO_LARGE,
     UnsupportedFileTypeError: status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
     CourseExistsError: status.HTTP_409_CONFLICT,
-    UnknownTargetError: status.HTTP_422_UNPROCESSABLE_CONTENT,
 }
 
 
@@ -38,40 +36,19 @@ _STATUS = {
 async def upload_document(
     admin: Admin,
     session: Session,
-    file: Annotated[UploadFile, File(description="A course .json or a .txt notes file")],
-    language: Annotated[Language | None, Form(description="Required for course JSON")] = None,
-    course_id: Annotated[str | None, Form(description="Required for .txt notes")] = None,
-    module_id: Annotated[str | None, Form()] = None,
-    lesson_id: Annotated[str | None, Form()] = None,
+    file: Annotated[UploadFile, File(description="A course JSON file")],
+    language: Annotated[Language, Form(description="Programming language of the course")],
 ) -> DocumentResponse:
-    """Upload a course JSON (creates the course) or TXT notes (attached to a course)."""
+    """Upload a course JSON; creates the course with its lessons, quizzes and exercises."""
     filename = safe_filename(file.filename)
     # The body-size middleware already capped the request; read one byte over the
     # limit so an exact-limit file is accepted and anything larger is not.
     content = await file.read(MAX_UPLOAD_BYTES + 1)
     try:
-        if file_kind(filename) == "json":
-            if language is None:
-                raise _bad_request("Choose the course's programming language.")
-            document = await ingest_course(
-                session,
-                content=content,
-                filename=filename,
-                language=language,
-                uploaded_by=admin.id,
-            )
-        else:
-            if not course_id:
-                raise _bad_request("Choose the course these notes belong to.")
-            document = await ingest_notes(
-                session,
-                content=content,
-                filename=filename,
-                course_id=course_id,
-                module_id=module_id or None,
-                lesson_id=lesson_id or None,
-                uploaded_by=admin.id,
-            )
+        require_course_json(filename)
+        document = await ingest_course(
+            session, content=content, filename=filename, language=language, uploaded_by=admin.id
+        )
     except UploadRejectedError as exc:
         code = _STATUS.get(type(exc), status.HTTP_422_UNPROCESSABLE_CONTENT)
         raise HTTPException(code, str(exc)) from exc
@@ -104,10 +81,6 @@ async def delete_document(document_id: uuid.UUID, session: Session) -> None:
 @router.delete("/courses/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_course(course_id: str, session: Session) -> None:
     """Delete a course and EVERYTHING attached to it: lessons, quizzes, exercises, and all
-    of its documents including notes. Use this before re-uploading a changed course."""
+    of its stored documents. Use this before re-uploading a changed course."""
     if not await CourseRepository(session).delete(course_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found")
-
-
-def _bad_request(message: str) -> HTTPException:
-    return HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, message)

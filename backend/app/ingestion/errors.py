@@ -20,7 +20,3 @@ class InvalidUploadError(UploadRejectedError):
 
 class CourseExistsError(UploadRejectedError):
     """The course (or one of its module/lesson ids) is already stored."""
-
-
-class UnknownTargetError(UploadRejectedError):
-    """Notes were tagged with a course, module or lesson that does not exist or match."""

@@ -28,8 +28,8 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 Role = Literal["admin", "student"]
 DocumentStatus = Literal["pending", "processing", "ready", "failed"]
-# "course": a course JSON (admin-only download, contains answers); "notes": a TXT file.
-DocumentKind = Literal["course", "notes"]
+# Only course JSON is stored; kind is kept as an explicit, checked marker for future types.
+DocumentKind = Literal["course"]
 ExerciseKind = Literal["interactive", "mini_challenge", "bug_hunt"]
 
 # Stable constraint names keep Alembic migrations deterministic across databases.
@@ -146,19 +146,12 @@ class Document(TimestampMixin, Base):
             "status IN ('pending', 'processing', 'ready', 'failed')", name="status_valid"
         ),
         CheckConstraint("size_bytes > 0", name="size_positive"),
-        CheckConstraint("kind IN ('course', 'notes')", name="kind_valid"),
+        CheckConstraint("kind IN ('course')", name="kind_valid"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     course_id: Mapped[str] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
     kind: Mapped[str] = mapped_column(String(20))
-    # Optional tags for notes; a course JSON covers the whole course.
-    module_id: Mapped[str | None] = mapped_column(
-        ForeignKey("modules.id", ondelete="SET NULL"), index=True
-    )
-    lesson_id: Mapped[str | None] = mapped_column(
-        ForeignKey("lessons.id", ondelete="SET NULL"), index=True
-    )
     filename: Mapped[str] = mapped_column(String(255))
     content_type: Mapped[str] = mapped_column(String(100))
     size_bytes: Mapped[int] = mapped_column(Integer)

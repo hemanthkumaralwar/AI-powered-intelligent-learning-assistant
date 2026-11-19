@@ -13,9 +13,6 @@ class DocumentResponse(BaseModel):
 
     id: uuid.UUID
     course_id: str
-    kind: str
-    module_id: str | None
-    lesson_id: str | None
     filename: str
     content_type: str
     size_bytes: int

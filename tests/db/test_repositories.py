@@ -50,7 +50,6 @@ async def add_document(db: Database, content: bytes = b"lesson text", **kwargs) 
             await CourseRepository(session).add(make_course())
         document = await DocumentRepository(session).add(
             course_id=kwargs.get("course_id", "js-v1"),
-            kind=kwargs.get("kind", "notes"),
             filename="notes.txt",
             content_type="text/plain",
             content=content,
@@ -325,13 +324,3 @@ async def test_lesson_and_module_lookup(database: Database) -> None:
     assert lesson is not None and lesson.module.course_id == "js-v1"
     assert lesson.exercises == []
     assert module is not None and module.title == "Functions"
-
-
-async def test_document_listing_filters_by_kind(database: Database) -> None:
-    notes = await add_document(database, content=b"notes", kind="notes")
-    await add_document(database, content=b"{}", kind="course")
-
-    async with database.session() as session:
-        listed = await DocumentRepository(session).list("js-v1", kind="notes")
-
-    assert [d.id for d in listed] == [notes]

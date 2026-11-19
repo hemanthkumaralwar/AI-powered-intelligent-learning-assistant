@@ -364,6 +364,14 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 - **Step 8 — upload buffering (owner: maintainer, revisit in Step 20).** The size middleware buffers up to ~10 MB per upload request before authentication runs. Step 20's rate limiting should cover `POST /admin/documents`.
 - **Data quality, for Step 17.** In `javascript-beginner.json` the correct quiz option is index 1 in 64% of questions. Shuffle options when serving quizzes.
 
+- **Step 9 deviations from the plan (your decisions, 2026-11-19).**
+  - **Course JSON only:** the TXT notes path from Step 8 was removed (upload, `/materials` endpoints, `documents.module_id/lesson_id` via migration `0003`, which refuses to run while notes exist). DOCX/PDF/TXT → course JSON conversion is a **separate project** next to the course generator.
+  - **Chunks include exercise prompts and flowcharts,** never answers. The real course gives 1,225 chunks (planned ~600–900; exercises and flowcharts add 256, and long sections split with overlap).
+  - **Chunking is pure** (`chunk_course`); storing and embedding chunks is Step 10's pipeline.
+- **Steps 12 & 14 — hints, not solutions (owner: maintainer).** When a retrieved chunk has `type: exercise`, the prompt must tell the model to give hints and guiding questions, never full solution code. That's a prompt rule, so best effort; test it in the Step 11 evaluation.
+- **Step 17 — widened scope.** Serve **quizzes, drag-and-drop, card matching and code reordering** through the API, with answers kept and checked **server-side**. Extract the activities from the stored course JSON (`document_files`), and shuffle quiz options.
+- **Course-content note (for the course generator).** In 3 lessons (mod-2 lesson 7, mod-7 lesson 3, mod-8 lesson 6) the bug-hunt fix appears verbatim as a lesson example, so the bug hunt can be solved by reading the examples.
+
 ## Pending inputs
 
 - [ ] Quiz platform JSON and API details (needed by Day 8, Step 17)

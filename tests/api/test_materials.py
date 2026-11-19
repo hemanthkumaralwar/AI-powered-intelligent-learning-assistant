@@ -1,4 +1,4 @@
-"""Course upload (admin) and materials (students) end to end on the Neon test schema."""
+"""Course JSON upload (admin) and course content (students) end to end on the Neon test schema."""
 
 import copy
 import json
@@ -95,11 +95,7 @@ async def test_real_course_loads_as_8_modules_64_lessons_640_questions(
 
     assert response.status_code == 201, response.text
     body = response.json()
-    assert (body["kind"], body["course_id"], body["status"]) == (
-        "course",
-        "javascript-beginner-v1",
-        "pending",
-    )
+    assert (body["course_id"], body["status"]) == ("javascript-beginner-v1", "pending")
     assert await count(database, Course) == 1
     assert await count(database, Module) == 8
     assert await count(database, Lesson) == 64
@@ -143,27 +139,13 @@ async def test_module_ids_used_by_another_course_are_409(api: httpx2.AsyncClient
     ("name", "content", "form", "status", "message"),
     [
         ("c.json", b"{oops", {"language": "javascript"}, 422, "Invalid JSON"),
-        (
-            "c.json",
-            b'{"course": {"courseId": "x"}}',
-            {"language": "javascript"},
-            422,
-            "course schema",
-        ),
-        (
-            "c.json",
-            b"MZ\x90\x00binary-renamed-exe",
-            {"language": "javascript"},
-            422,
-            "UTF-8|Invalid JSON",
-        ),
-        ("c.json", b"{}", {}, 422, "programming language"),
+        ("c.json", b'{"course": {"courseId": "x"}}', {"language": "javascript"}, 422, "schema"),
+        ("c.json", b"MZ\x90\x00renamed-exe", {"language": "javascript"}, 422, "UTF-8|JSON"),
+        ("c.json", b"{}", {}, 422, ""),
         ("c.json", b"{}", {"language": "cobol"}, 422, ""),
-        ("deck.pdf", b"%PDF-1.7", {}, 415, "not supported yet"),
-        ("run.exe", b"MZ", {}, 415, "Only .json"),
-        ("n.txt", b"MZ\x90\x00binary", {"course_id": "small-js"}, 422, "not a text file"),
-        ("n.txt", b"hello", {}, 422, "course these notes belong to"),
-        ("n.txt", b"hello", {"course_id": "missing"}, 422, "does not exist"),
+        ("notes.txt", b"hello", {"language": "javascript"}, 415, "Convert other material"),
+        ("deck.pdf", b"%PDF-1.7", {"language": "javascript"}, 415, "Convert other material"),
+        ("run.exe", b"MZ", {"language": "javascript"}, 415, "Convert other material"),
     ],
     ids=[
         "broken-json",
@@ -171,11 +153,9 @@ async def test_module_ids_used_by_another_course_are_409(api: httpx2.AsyncClient
         "renamed-binary",
         "no-language",
         "bad-language",
+        "txt",
         "pdf",
         "exe",
-        "binary-txt",
-        "notes-without-course",
-        "notes-unknown-course",
     ],
 )
 async def test_bad_uploads_are_rejected(
@@ -193,7 +173,8 @@ async def test_bad_uploads_are_rejected(
 async def test_oversized_upload_is_413_before_parsing(api: httpx2.AsyncClient) -> None:
     admin = await token(api, "admin")
 
-    response = await upload(api, admin, "big.txt", b"x" * (10 * 1024 * 1024 + 1), course_id="x")
+    big = b"x" * (10 * 1024 * 1024 + 1)
+    response = await upload(api, admin, "big.json", big, language="javascript")
 
     assert response.status_code == 413
 
@@ -215,38 +196,6 @@ async def test_students_cannot_use_admin_endpoints(api: httpx2.AsyncClient) -> N
     assert (await api.get("/admin/documents", headers=student)).status_code == 403
     assert (await api.delete("/admin/courses/x", headers=student)).status_code == 403
     assert (await api.get("/admin/documents", headers={})).status_code == 401
-
-
-# ---- notes -------------------------------------------------------------------------------
-
-
-async def test_notes_are_tagged_and_checked_against_the_course(api: httpx2.AsyncClient) -> None:
-    admin = await token(api, "admin")
-    await upload(api, admin, "c.json", json.dumps(small_course()).encode(), language="python")
-
-    tagged = await upload(
-        api,
-        admin,
-        "../../Loops notes.txt",
-        "Loops: répéter".encode(),
-        course_id="small-js",
-        lesson_id="small-js-mod-2-lesson-1",
-    )
-    assert tagged.status_code == 201
-    assert tagged.json()["filename"] == "Loops notes.txt"
-    assert tagged.json()["module_id"] == "small-js-mod-2"  # a lesson implies its module
-
-    wrong_module = await upload(
-        api,
-        admin,
-        "n.txt",
-        b"x",
-        course_id="small-js",
-        module_id="small-js-mod-1",
-        lesson_id="small-js-mod-2-lesson-1",
-    )
-    wrong_course = await upload(api, admin, "n.txt", b"x", course_id="small-js", module_id="nope")
-    assert wrong_module.status_code == wrong_course.status_code == 422
 
 
 # ---- students see content, never answers ------------------------------------------------
@@ -280,46 +229,41 @@ async def test_missing_course_or_lesson_is_404(api: httpx2.AsyncClient) -> None:
     assert (await api.get("/courses", headers={})).status_code == 401
 
 
-async def test_students_download_notes_but_never_course_json(api: httpx2.AsyncClient) -> None:
+async def test_only_admins_download_the_original_course_json(api: httpx2.AsyncClient) -> None:
     admin, student = await token(api, "admin"), await token(api, "student")
-    course_doc = (
-        await upload(
-            api, admin, "c.json", json.dumps(small_course()).encode(), language="javascript"
-        )
-    ).json()
-    notes = (await upload(api, admin, 'evil"\r\nname.txt', b"read me", course_id="small-js")).json()
+    raw = json.dumps(small_course()).encode()
+    document = (await upload(api, admin, 'my "course"\r\n.json', raw, language="javascript")).json()
 
-    listed = await api.get("/materials", headers=student)
-    assert [d["id"] for d in listed.json()] == [notes["id"]]
-
-    download = await api.get(f"/materials/{notes['id']}/download", headers=student)
-    assert download.content == b"read me"
+    download = await api.get(f"/admin/documents/{document['id']}/download", headers=admin)
+    assert download.status_code == 200
+    assert b"correctAnswer" in download.content
     disposition = download.headers["content-disposition"]
-    # The HTTP client already percent-encodes odd characters when uploading; whatever
-    # arrives, the header must be the RFC 5987 form with no raw quotes or line breaks.
     assert disposition.startswith("attachment; filename*=UTF-8''")
     encoded_name = disposition.removeprefix("attachment; filename*=UTF-8''")
     assert not {'"', "\r", "\n", " "} & set(encoded_name)
     assert download.headers["x-content-type-options"] == "nosniff"
 
-    hidden = await api.get(f"/materials/{course_doc['id']}/download", headers=student)
-    assert hidden.status_code == 404
-
-    admin_copy = await api.get(f"/admin/documents/{course_doc['id']}/download", headers=admin)
-    assert admin_copy.status_code == 200
-    assert b"correctAnswer" in admin_copy.content
+    as_student = f"/admin/documents/{document['id']}/download"
+    assert (await api.get(as_student, headers=student)).status_code == 403
+    # The old notes endpoints are gone.
+    assert (await api.get("/materials", headers=student)).status_code == 404
 
 
 async def test_admin_lists_and_deletes_documents(api: httpx2.AsyncClient) -> None:
     admin = await token(api, "admin")
-    await upload(api, admin, "c.json", json.dumps(small_course()).encode(), language="javascript")
-    notes = (await upload(api, admin, "n.txt", b"hi", course_id="small-js")).json()
+    first = small_course()
+    second = small_course()
+    second["course"]["courseId"] = "second"
+    for module in second["course"]["modules"]:
+        module["moduleId"] = "second-" + module["moduleId"]
+        for lesson in module["lessons"]:
+            lesson["lessonId"] = "second-" + lesson["lessonId"]
+    a = (await upload(api, admin, "a.json", json.dumps(first).encode(), language="python")).json()
+    await upload(api, admin, "b.json", json.dumps(second).encode(), language="python")
 
-    assert len((await api.get("/admin/documents?course_id=small-js", headers=admin)).json()) == 2
-    assert (await api.delete(f"/admin/documents/{notes['id']}", headers=admin)).status_code == 204
-    assert (await api.delete(f"/admin/documents/{notes['id']}", headers=admin)).status_code == 404
+    assert len((await api.get("/admin/documents", headers=admin)).json()) == 2
+    assert len((await api.get("/admin/documents?course_id=second", headers=admin)).json()) == 1
+    assert (await api.delete(f"/admin/documents/{a['id']}", headers=admin)).status_code == 204
+    assert (await api.delete(f"/admin/documents/{a['id']}", headers=admin)).status_code == 404
     missing = "00000000-0000-0000-0000-000000000000"
     assert (await api.get(f"/admin/documents/{missing}/download", headers=admin)).status_code == 404
-    assert (
-        await api.get(f"/materials/{missing}/download", headers=await token(api, "student"))
-    ).status_code == 404
