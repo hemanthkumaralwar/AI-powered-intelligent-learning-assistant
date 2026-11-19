@@ -82,6 +82,7 @@ All settings come from environment variables or `.env`. `.env.example` lists eve
 | `RAG_MIN_SCORE` | `0`–`1`; below this similarity the assistant says the course does not cover it (measured for `gemini-embedding-001`; re-measure after changing the embedding model) | `0.63` |
 | `CHAT_QUESTIONS_PER_USER_PER_MINUTE` | per-student question quota | `5` |
 | `CHAT_QUESTIONS_GLOBAL_PER_MINUTE` | whole-app question quota (protects the shared free tier) | `20` |
+| `PLATFORM_LESSON_URL` | `https://` link template to a lesson on the learning platform, containing `{lesson_id}`; makes practice pointers clickable | — (no links) |
 | `DATABASE_URL` | PostgreSQL URL: Neon direct (dev) or Supabase session pooler (prod) | — (required by the API from Step 5) |
 | `TEST_DATABASE_URL` | Neon `test` branch URL, read only by the test suite | — (database tests skip without it) |
 | `DB_POOL_SIZE` | `1`–`20` | `5` |
@@ -342,6 +343,19 @@ Evaluate bug finding on 18 known-bug snippets (3 per language; the JavaScript on
 python eval/run_code_eval.py   # writes eval/reports/coding-<date>.{md,json}
 ```
 
+## Practice
+
+Quizzes, drag and drop, card matching and code reordering run on the **learning platform**, not here, so their answers never pass through the assistant.
+
+- **Pointers:** at upload, each lesson stores its activities as names and sizes only (`lessons.content["practice"]`). Chat answers and `/coding/*` responses include `practice`: the cited or related lessons' activities, with a `url` when `PLATFORM_LESSON_URL` is set (an `https://` template containing `{lesson_id}`).
+- **"Quiz me" requests** in the chat get a pointer to those activities, not questions written by the model.
+- **Exercise attempts:** `POST /exercises/{id}/attempts {"code"}` grades a bug hunt, mini challenge or interactive exercise with the AI: `passed` and hint-style `feedback`. The reference solution is shown only to the model, and feedback that quotes it or contains code is replaced by a generic hint. Only the result is stored, not the code. `GET /exercises/{id}/attempts` lists your own attempts. In the frontend: **Submit for grading** in the compiler panel. Uses the shared AI quota.
+- **Courses uploaded before this feature:** run once against that database:
+
+```bash
+python scripts/backfill_practice.py
+```
+
 ## Project layout
 
 ```
@@ -356,6 +370,7 @@ backend/app/        FastAPI application (package "app")
   rag/              grounded answers: follow-up rewriting, retriever, prompt, citation checks
   chat/             chat sessions: ownership, history window, saving exchanges (ChatService)
   coding/           coding assistant: prompts, output schemas, exercise matching, CodingService
+  learning/         practice pointers to the platform's activities, AI grading of exercise attempts
   evaluation/       evaluation dataset, retrieval and answer metrics, LLM judge, reports
   core/             configuration, logging, error handling
   providers/        shared plumbing: errors, retry, rate limiting, SDK clients
