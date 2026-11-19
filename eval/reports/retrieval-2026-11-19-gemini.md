@@ -11,8 +11,22 @@
 | Answerable | 58 | 98% | 100% | 100% | 100% | 0.989 |
 | Follow-ups, as asked | 8 | 38% | 50% | 62% | 88% | 0.483 |
 | Follow-ups, rewritten (gold) | 8 | 100% | 100% | 100% | 100% | 1.000 |
+| Follow-ups, rewritten by the app | 8 | 100% | 100% | 100% | 100% | 1.000 |
 
 **hit@k**: an acceptable lesson is among the top-k chunks. **MRR**: average of 1/rank of the first acceptable chunk.
+
+## Follow-up rewrites (Step 13)
+
+| Case | Rewritten question |
+|---|---|
+| mt-array-loop | How do I loop over an array in JavaScript? |
+| mt-promise-errors | How do I handle the errors of a Promise? |
+| mt-arrow-this | When do arrow functions return automatically? |
+| mt-reduce-sum | Can you show me how to sum numbers with reduce? |
+| mt-event-stop | How do I stop event bubbling? |
+| mt-object-copy | Does using the spread operator ({ ...a, ...b }) to merge two objects copy nested objects too? |
+| mt-timer-cancel | How do I stop setInterval? |
+| mt-string-case | How do I keep the uppercase version of a JavaScript string? |
 
 ## Answer-or-refuse threshold (for Step 12)
 
@@ -111,3 +125,11 @@
 | multi_turn_rewritten | mt-object-copy | 1 | 0.730 | mod-5-lesson-4, mod-5-lesson-4, mod-5-lesson-4 |
 | multi_turn_rewritten | mt-timer-cancel | 1 | 0.681 | mod-8-lesson-8, mod-8-lesson-8, mod-8-lesson-8 |
 | multi_turn_rewritten | mt-string-case | 1 | 0.617 | mod-1-lesson-5, mod-1-lesson-5, mod-3-lesson-2 |
+| multi_turn_condensed | mt-array-loop | 1 | 0.708 | mod-3-lesson-7, mod-3-lesson-7, mod-3-lesson-3 |
+| multi_turn_condensed | mt-promise-errors | 1 | 0.703 | mod-8-lesson-6, mod-3-lesson-8, mod-8-lesson-3 |
+| multi_turn_condensed | mt-arrow-this | 1 | 0.750 | mod-2-lesson-2, mod-2-lesson-2, mod-2-lesson-2 |
+| multi_turn_condensed | mt-reduce-sum | 1 | 0.723 | mod-4-lesson-6, mod-4-lesson-6, mod-4-lesson-6 |
+| multi_turn_condensed | mt-event-stop | 1 | 0.726 | mod-7-lesson-6, mod-7-lesson-6, mod-7-lesson-6 |
+| multi_turn_condensed | mt-object-copy | 1 | 0.734 | mod-5-lesson-4, mod-5-lesson-4, mod-5-lesson-4 |
+| multi_turn_condensed | mt-timer-cancel | 1 | 0.671 | mod-8-lesson-8, mod-8-lesson-8, mod-8-lesson-8 |
+| multi_turn_condensed | mt-string-case | 1 | 0.656 | mod-1-lesson-5, mod-1-lesson-5, mod-1-lesson-5 |

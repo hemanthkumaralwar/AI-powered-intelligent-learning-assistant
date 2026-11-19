@@ -6,7 +6,7 @@
     "llm_model": "gemini-3.5-flash-lite",
     "top_k": 5,
     "min_score": 0.63,
-    "judge_calls": 0,
+    "judge_calls": 61,
     "date": "2026-11-19",
     "dataset": "dataset.jsonl",
     "cases": 84
@@ -889,6 +889,116 @@
           "javascript-beginner-mod-3-lesson-2"
         ]
       }
+    ],
+    "multi_turn_condensed": [
+      {
+        "case_id": "mt-array-loop",
+        "module": "mod-3",
+        "rank": 1,
+        "top_score": 0.7077716588973999,
+        "top_lessons": [
+          "javascript-beginner-mod-3-lesson-7",
+          "javascript-beginner-mod-3-lesson-7",
+          "javascript-beginner-mod-3-lesson-3"
+        ]
+      },
+      {
+        "case_id": "mt-promise-errors",
+        "module": "mod-8",
+        "rank": 1,
+        "top_score": 0.7033743858337402,
+        "top_lessons": [
+          "javascript-beginner-mod-8-lesson-6",
+          "javascript-beginner-mod-3-lesson-8",
+          "javascript-beginner-mod-8-lesson-3"
+        ]
+      },
+      {
+        "case_id": "mt-arrow-this",
+        "module": "mod-2",
+        "rank": 1,
+        "top_score": 0.7502440214157104,
+        "top_lessons": [
+          "javascript-beginner-mod-2-lesson-2",
+          "javascript-beginner-mod-2-lesson-2",
+          "javascript-beginner-mod-2-lesson-2"
+        ]
+      },
+      {
+        "case_id": "mt-reduce-sum",
+        "module": "mod-4",
+        "rank": 1,
+        "top_score": 0.7232725620269775,
+        "top_lessons": [
+          "javascript-beginner-mod-4-lesson-6",
+          "javascript-beginner-mod-4-lesson-6",
+          "javascript-beginner-mod-4-lesson-6"
+        ]
+      },
+      {
+        "case_id": "mt-event-stop",
+        "module": "mod-7",
+        "rank": 1,
+        "top_score": 0.7255843281745911,
+        "top_lessons": [
+          "javascript-beginner-mod-7-lesson-6",
+          "javascript-beginner-mod-7-lesson-6",
+          "javascript-beginner-mod-7-lesson-6"
+        ]
+      },
+      {
+        "case_id": "mt-object-copy",
+        "module": "mod-5",
+        "rank": 1,
+        "top_score": 0.7344773411750793,
+        "top_lessons": [
+          "javascript-beginner-mod-5-lesson-4",
+          "javascript-beginner-mod-5-lesson-4",
+          "javascript-beginner-mod-5-lesson-4"
+        ]
+      },
+      {
+        "case_id": "mt-timer-cancel",
+        "module": "mod-8",
+        "rank": 1,
+        "top_score": 0.6710087656974792,
+        "top_lessons": [
+          "javascript-beginner-mod-8-lesson-8",
+          "javascript-beginner-mod-8-lesson-8",
+          "javascript-beginner-mod-8-lesson-8"
+        ]
+      },
+      {
+        "case_id": "mt-string-case",
+        "module": "mod-1",
+        "rank": 1,
+        "top_score": 0.6558796763420105,
+        "top_lessons": [
+          "javascript-beginner-mod-1-lesson-5",
+          "javascript-beginner-mod-1-lesson-5",
+          "javascript-beginner-mod-1-lesson-5"
+        ]
+      }
     ]
+  },
+  "multi_turn_condensed": {
+    "count": 8,
+    "hit_at": {
+      "1": 1.0,
+      "3": 1.0,
+      "5": 1.0,
+      "10": 1.0
+    },
+    "mrr": 1.0
+  },
+  "rewrites": {
+    "mt-array-loop": "How do I loop over an array in JavaScript?",
+    "mt-promise-errors": "How do I handle the errors of a Promise?",
+    "mt-arrow-this": "When do arrow functions return automatically?",
+    "mt-reduce-sum": "Can you show me how to sum numbers with reduce?",
+    "mt-event-stop": "How do I stop event bubbling?",
+    "mt-object-copy": "Does using the spread operator ({ ...a, ...b }) to merge two objects copy nested objects too?",
+    "mt-timer-cancel": "How do I stop setInterval?",
+    "mt-string-case": "How do I keep the uppercase version of a JavaScript string?"
   }
 }

@@ -1,0 +1,1138 @@
+{
+  "run": {
+    "index": "live (rebuilt from the database)",
+    "chunks": 424,
+    "embedding_id": "gemini:gemini-embedding-001:768",
+    "llm_model": "gemini-3.5-flash-lite",
+    "top_k": 5,
+    "min_score": 0.63,
+    "judge_calls": 61,
+    "date": "2026-11-19",
+    "dataset": "dataset.jsonl",
+    "cases": 84
+  },
+  "summary": {
+    "answerable": 58,
+    "answered": 0.9655172413793104,
+    "judged_correct": 0.9655172413793104,
+    "keyword_coverage": 0.9464285714285714,
+    "citation_on_target": 1.0,
+    "grounded_with_citation": 1.0,
+    "unanswerable": 12,
+    "correct_refusals": 1.0,
+    "solution_requests": 6,
+    "no_solution_given": 1.0,
+    "provider_errors": 2
+  },
+  "answerable": [
+    {
+      "case_id": "let-vs-const",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "Welcome to the course! Let's break down the difference between `let` and `const`. \n\nThink of a **variable** like a labelled box on a shelf where you store information [4]. \n\n* **`const`** is used to declare a binding (a variable name) that **cannot be reassigned** [1]. Imagine this as a box where the label is glued tightly in place\u2014you cannot stick that label onto a new box later [4]. \n* **`let`** is used when the value **will change over time** [3], like a counter or a score that updates [2][3]. Imagine this as a box with a movable label that you can peel off and stick onto a new box later [4].\n\nHere is what they look like in code:\n\n```javascript\nconst name = 'Ada'; // This value will not change\nlet score = 0;      // This value can change over time\nscore = score + 1;  // Reassigning the let variable\n```\n\n### Key Technical Terms Defined:\n* **Reassignment:** Changing the value stored inside a variable to a brand-new value using the assignment operator (`=`).\n* **Block scope:** Both `let` and `const` live only inside the nearest curly braces `{}` (called a block) where they were created [1][3]. Outside of those braces, they do not exist [3].\n\n### Pro-Tip:\nAlways reach for `const` first [1][3]. Only switch to `let` if you find out later that the value truly needs to change [1][3]. This simple habit helps prevent accidental bugs in your code [1].",
+      "cited_lessons": [
+        "javascript-beginner-mod-1-lesson-1",
+        "javascript-beginner-mod-1-lesson-1",
+        "javascript-beginner-mod-1-lesson-1",
+        "javascript-beginner-mod-1-lesson-1"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that const cannot be reassigned while let can, and mentions they are both block-scoped.",
+      "on_target": true
+    },
+    {
+      "case_id": "why-avoid-var",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "You should avoid using `var` in new code because it is a legacy keyword [1]. \n\nHere is why it behaves differently:\n* **Scope:** `var` is function-scoped instead of block-scoped [1]. This means it ignores code blocks like `if` statements and leaks out unexpectedly to the whole function [3][5]. To picture this using an analogy, think of variables as labelled boxes on a shelf: `let` and `const` respect the walls of the shelf (the block `{}` where they live), while `var` is like a box on a shelf with no walls that drifts across the whole room [5].\n* **Surprises:** It gets hoisted (moved to the top during processing) in a way that often surprises beginners [1]. \n\nFor new code, it is much safer to use `const` or `let` [1].",
+      "cited_lessons": [
+        "javascript-beginner-mod-1-lesson-1",
+        "javascript-beginner-mod-1-lesson-1",
+        "javascript-beginner-mod-1-lesson-1"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that var is function-scoped and legacy, while let and const are block-scoped.",
+      "on_target": true
+    },
+    {
+      "case_id": "primitive-types",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "JavaScript has **seven** primitive types (the basic building blocks, like atoms in a chemistry set) [2][4][5]. \n\nThey are:\n1. **string**: Sequences of characters [1].\n2. **number**: All numeric values (both whole numbers and decimals) [1][3].\n3. **boolean**: Values that are either `true` or `false` [1][3].\n4. **undefined**: The default value when a variable is declared but not assigned anything yet [1][3].\n5. **null**: An intentional \"no value here\" that you assign on purpose [1][2].\n6. **symbol**: A unique, unchanging identifier [1].\n7. **bigint**: Very large integers written with a trailing `n` [1][3].",
+      "cited_lessons": [
+        "javascript-beginner-mod-1-lesson-2",
+        "javascript-beginner-mod-1-lesson-2",
+        "javascript-beginner-mod-1-lesson-2",
+        "javascript-beginner-mod-1-lesson-2",
+        "javascript-beginner-mod-1-lesson-2"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly identified the seven primitive types matching the reference.",
+      "on_target": true
+    },
+    {
+      "case_id": "typeof-null",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "The `typeof` operator is like a customs officer at a checkpoint that asks a value what category it belongs to [2]. Most values declare honestly, but `null` lies and calls itself `'object'` [2]. \n\nThe reason `typeof null` returns `'object'` is because it is a 1995 implementation bug that was frozen in the programming language specification because fixing it would break existing websites [1].",
+      "cited_lessons": [
+        "javascript-beginner-mod-1-lesson-8",
+        "javascript-beginner-mod-1-lesson-8"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly identifies the issue as a historic 1995 bug kept for backward compatibility.",
+      "on_target": true
+    },
+    {
+      "case_id": "falsy-values",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "In JavaScript, there are exactly seven **falsy** (values that act like `false` when checked in a condition) values [1][3]. \n\nHere is the entire list:\n1. `false` [1]\n2. `0` (the number zero) [1]\n3. `-0` (negative zero) [1]\n4. `0n` (bigint zero) [1]\n5. `''` (an empty string) [1]\n6. `null` [1]\n7. `undefined` [1]\n8. `NaN` (Not-a-Number) [1]\n\nEverything else in JavaScript is considered truthy (acts like `true`) [1][2].",
+      "cited_lessons": [
+        "javascript-beginner-mod-3-lesson-5",
+        "javascript-beginner-mod-3-lesson-5",
+        "javascript-beginner-mod-3-lesson-5"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly listed all the falsy values in JavaScript in agreement with the reference.",
+      "on_target": true
+    },
+    {
+      "case_id": "float-precision",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "0.1 + 0.2 is not equal to 0.3 because JavaScript's number type works like a ruler whose markings live on a binary grid (a grid based on computers) rather than a decimal grid (our normal base-10 counting system) [1]. \n\nMost numbers fit nicely on this grid, but a few decimal lengths\u2014like 0.1\u2014fall between the markings and have to be approximated, which causes them to lose precision [1].",
+      "cited_lessons": [
+        "javascript-beginner-mod-1-lesson-4"
+      ],
+      "keyword_share": 0.3333333333333333,
+      "passed": true,
+      "reason": "The tutor correctly explains that decimals cannot be represented exactly due to binary floating-point representation.",
+      "on_target": true
+    },
+    {
+      "case_id": "slice-indexes",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "When you use `slice(start, end)` on a string, the **end** index is **exclusive** [1]. This means that the character at the `end` position is *not* included in the extracted piece; the extraction stops just before it [1].\n\nThink of it like a piece of tape measured by markings on a ruler: the `start` marking is included, but you cut right *before* you reach the `end` marking.",
+      "cited_lessons": [
+        "javascript-beginner-mod-1-lesson-5"
+      ],
+      "keyword_share": 0.5,
+      "passed": true,
+      "reason": "The tutor correctly states that the end index is exclusive.",
+      "on_target": true
+    },
+    {
+      "case_id": "template-literals",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "To put a variable inside a string without using the `+` sign for concatenation, you can use **template literals** [1][4]. \n\nA **template literal** is a special kind of string created using backticks (`) instead of regular single or double quotes [1][3]. \n\nHere is how you do it step by step:\n\n1. **Use backticks (`):** Start and end your string with backticks instead of quotes [3]. On most keyboards, the backtick key is the shift-tilde key [3].\n2. **Use the interpolation syntax (`${}`):** Inside the backticks, you can place your variable inside `${}` [1][3]. **String interpolation** is the process of putting a variable or expression directly inside a string placeholder so its value shows up in the final text [3].\n\nHere is a short example:\n\n```javascript\nconst name = 'Ada';\nconsole.log(`Hello, ${name}!`); // Output: Hello, Ada!\n```[2]\n\n### Important Things to Remember:\n* **Any expression works:** You are not limited to just simple variables. You can put math, method calls (like `.toUpperCase()`), or other expressions inside the `${}` [1][3].\n* **Watch out for quotes:** A very common mistake is using single or double quotes around your string while trying to use `${}`. If you use regular quotes, the placeholder will just show up as literal text instead of grabbing the variable's value [1].",
+      "cited_lessons": [
+        "javascript-beginner-mod-1-lesson-6",
+        "javascript-beginner-mod-1-lesson-6",
+        "javascript-beginner-mod-1-lesson-6",
+        "javascript-beginner-mod-1-lesson-6"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains template literals with backticks and interpolation as the way to embed variables without using +.",
+      "on_target": true
+    },
+    {
+      "case_id": "triple-equals",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "You should always default to `===` (strict equality) [1][4]. \n\n### What are they?\n* **`===` (Strict equality):** Checks both the **type** (such as whether something is a number or a string) and the **value** [3]. It is like a strict referee who refuses to compare apples and oranges [2]. \n* **`==` (Loose equality):** Only checks the value after doing **coercion** [3]. Coercion is an automatic conversion where JavaScript secretly changes the type of a value to make the comparison work (for example, pretending the string `'5'` is the number `5`) [2][3]. It is like a lenient referee [2].\n\n### Why choose `===`?\n* **Fewer surprises:** Using `==` can lead to unexpected bugs because of hidden type conversions [1][2]. For example, `5 == '5'` evaluates to `true`, which can cause subtle errors in your code [2][5].\n* **Industry standard:** Every major JavaScript style guide bans `==` by default, and using `===` helps prevent accidental bugs (such as a system mistaking a text string `'0'` for a numerical `$0` trade) [2].\n\nUnless you have a very deliberate, specific reason to use loose equality, stick to `===` [3][4].",
+      "cited_lessons": [
+        "javascript-beginner-mod-1-lesson-7",
+        "javascript-beginner-mod-1-lesson-7",
+        "javascript-beginner-mod-1-lesson-7",
+        "javascript-beginner-mod-1-lesson-7",
+        "javascript-beginner-mod-1-lesson-7"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly advises defaulting to strict equality (===) and explains type coercion.",
+      "on_target": true
+    },
+    {
+      "case_id": "nan-check",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "To check whether a value is `NaN` (which stands for Not-a-Number), you should use `Number.isNaN()` [1][3][4]. \n\n`NaN` is a special value in JavaScript because it is the only value that is not equal to itself (`NaN === NaN` is actually `false`) [1][3][4]. Because of this quirk, regular comparison operators will not work to find it [1][2][3].\n\nHere is how you can use `Number.isNaN()`:\n\n```javascript\nconst myValue = NaN;\n\nconsole.log(Number.isNaN(myValue)); // Prints true because myValue is NaN\n```\n\n* **`Number.isNaN()`**: A built-in JavaScript tool used to safely detect if a value is `NaN` [1][3][4].",
+      "cited_lessons": [
+        "javascript-beginner-mod-1-lesson-7",
+        "javascript-beginner-mod-1-lesson-7",
+        "javascript-beginner-mod-1-lesson-7",
+        "javascript-beginner-mod-4-lesson-7"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains using Number.isNaN and mentions that NaN is not equal to itself.",
+      "on_target": true
+    },
+    {
+      "case_id": "plus-string-coercion",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "To understand why `'5' + 3` gives `'53'` instead of `8`, we need to look at how JavaScript handles different data types using a feature called **type coercion** [3]. \n\n**Coercion** is an automatic process where JavaScript converts the data type of a value behind your back because an operator demands it [4]. \n\nHere is what is happening step-by-step:\n* **Implicit coercion**: JavaScript converts types automatically when an operator is used [4].\n* **The plus operator's rule**: The plus sign (`+`) prefers strings [4]. If either side of the `+` operator is a string, JavaScript will automatically convert the other side into a string as well and glue them together (this gluing is called **concatenation**) [1][4].\n\nThink of it like a translator who guesses what you meant: because `'5'` is a text string, JavaScript assumes you want to glue the number `3` onto the end of the text rather than do math, turning `3` into the text `'3'` and combining them into `'53'` [1][3][4].",
+      "cited_lessons": [
+        "javascript-beginner-mod-1-lesson-3",
+        "javascript-beginner-mod-1-lesson-3",
+        "javascript-beginner-mod-1-lesson-3"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that the plus operator prefers strings and concatenates them.",
+      "on_target": true
+    },
+    {
+      "case_id": "hoisting",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "Whether you can call a function before the line where it is defined depends on how you create it [3]. \n\nThink of a **function declaration** (a standard way to write a function) like a recipe pinned up on a kitchen wall where everyone can see it ahead of time [2]. JavaScript moves these to the top of their scope automatically before running your code\u2014a behavior called **hoisting** [3]. Because of hoisting, you *can* call a function declaration before its definition line [3].\n\nHere is an example of a function declaration being called before it is defined [1]:\n\n```javascript\n// Calling double before its definition works because of hoisting\nconsole.log(double(5));\n\nfunction double(n) {\n  return n * 2;\n}\n```\n\nOn the other hand, a **function expression** (where you store a function as a value inside a variable using `const`) is like a recipe tucked away in a drawer [2][3]. It is not hoisted, meaning JavaScript does not move it to the top [3]. If you try to call a function expression before the line where you assigned it, JavaScript will throw a `ReferenceError` [3].",
+      "cited_lessons": [
+        "javascript-beginner-mod-2-lesson-1",
+        "javascript-beginner-mod-2-lesson-1",
+        "javascript-beginner-mod-2-lesson-1"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains hoisting for function declarations and the behavior of function expressions.",
+      "on_target": true
+    },
+    {
+      "case_id": "arrow-object-return",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "To return an object literal (a data structure made of key-value pairs) from an arrow function, you must wrap the object in parentheses `()` [1][3]. \n\nHere is an example:\n\n```javascript\nconst makePoint = (x, y) => ({ x, y });\nconsole.log(makePoint(2, 5)); // Prints { x: 2, y: 5 }\n```\n\n### Why is this needed?\nIf you do not use parentheses around the object, JavaScript will mistake the curly braces `{}` for a **block body** (the code block used when you have multiple statements) instead of an object literal [1][3]. Without the parentheses, the function would return `undefined` [2].",
+      "cited_lessons": [
+        "javascript-beginner-mod-2-lesson-2",
+        "javascript-beginner-mod-2-lesson-2",
+        "javascript-beginner-mod-2-lesson-2"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that you must wrap the object in parentheses to return an object literal from an arrow function.",
+      "on_target": true
+    },
+    {
+      "case_id": "rest-parameters",
+      "kind": "answerable",
+      "outcome": "error",
+      "text": "",
+      "cited_lessons": [],
+      "keyword_share": null,
+      "passed": false,
+      "reason": "provider error: ProviderUnavailableError",
+      "on_target": null
+    },
+    {
+      "case_id": "higher-order",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "Welcome to the course! Let's break this down step by step.\n\n### What is a Higher-Order Function?\n\nIn JavaScript, **first-class functions** mean that functions are just values (like numbers or strings) that you can store in variables, put in arrays, pass around, and return [1][2]. \n\nA **higher-order function** is a special kind of function that does at least one of these two things:\n1. Accepts another function as an input parameter (often called a **callback**, which is a function passed into another function to be run later) [2][3].\n2. Returns a new function as its output [3].\n\nThink of it like a LEGO build instruction: instead of building everything from scratch, a higher-order function takes small functional \"bricks\" and snaps them together into a larger structure [5].\n\nHere is a quick example of a higher-order function that takes another function as an input:\n\n```javascript\nfunction repeat(times, action) {\n  for (let i = 0; i < times; i++) action(i); // Calling the passed function\n}\nrepeat(3, i => console.log('tick', i));\n```\n* `action` is a function passed as an argument, making `repeat` a higher-order function [4].",
+      "cited_lessons": [
+        "javascript-beginner-mod-2-lesson-4",
+        "javascript-beginner-mod-2-lesson-4",
+        "javascript-beginner-mod-2-lesson-4",
+        "javascript-beginner-mod-2-lesson-4",
+        "javascript-beginner-mod-2-lesson-4"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains higher-order functions in agreement with the reference.",
+      "on_target": true
+    },
+    {
+      "case_id": "pure-function",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "A function is pure when it meets two main rules [1]:\n\n1. **It is deterministic:** This means that the exact same inputs (arguments) will always produce the exact same output, every single time [2]. \n2. **It is free of side effects:** This means the function only reads its inputs and returns a value. It does not write to disks, the document object model (DOM), the network, the console, or modify its own arguments or outer variables [1][2]. \n\nThink of a pure function like a **vending machine**: if you put in the same coin (input), you will get the exact same snack (output) every time, without any hidden surprises [3, 4].",
+      "cited_lessons": [
+        "javascript-beginner-mod-2-lesson-6",
+        "javascript-beginner-mod-2-lesson-6"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor's answer correctly identifies that pure functions are deterministic and have no side effects.",
+      "on_target": true
+    },
+    {
+      "case_id": "recursion-base-case",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "If a recursive function has no base case, it keeps calling itself forever [1]. \n\nHere is what happens behind the scenes:\n* **The Call Stack (Stack Frames):** Think of the **call stack** like a stack of plates on a table. Every time the function calls itself, it places a new plate (called a **stack frame**) onto the pile [1][2][5]. \n* **Stack Overflow:** Because there is no base case to stop the function, the frames keep piling up [1][3]. Eventually, you run out of table space\u2014browsers and JavaScript runtimes cap this around 10,000 to 30,000 frames [1][3][5]. When it hits that limit, it crashes and throws a `RangeError` (known as a **stack overflow**) [1][3][4].",
+      "cited_lessons": [
+        "javascript-beginner-mod-2-lesson-7",
+        "javascript-beginner-mod-2-lesson-7",
+        "javascript-beginner-mod-2-lesson-7",
+        "javascript-beginner-mod-2-lesson-7",
+        "javascript-beginner-mod-2-lesson-7"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor's answer correctly identifies that the function runs infinitely, adds stack frames, and throws a RangeError.",
+      "on_target": true
+    },
+    {
+      "case_id": "closure",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "A **closure** is a function bundled together with the variables it captured from its enclosing scope [2][3]. \n\nThink of it like a backpack that a function carries: when the function is created, it packs every outer variable it references into a backpack, and that backpack travels with the function wherever it goes [4]. The captured variables stay alive as long as the inner function does, even after the outer function has finished running [3][5].\n\nHere is a short example of a closure:\n\n```javascript\nfunction makeCounter() {\n  let count = 0; // This outer variable will be packed into the closure\n  return () => ++count; // The inner function uses 'count', forming a closure\n}\n\nconst c = makeCounter();\nconsole.log(c()); // 1\nconsole.log(c()); // 2\n```\n\nIn this code, the inner function remembers the `count` variable from `makeCounter` and can continue to change and access it [2][5].",
+      "cited_lessons": [
+        "javascript-beginner-mod-2-lesson-8",
+        "javascript-beginner-mod-2-lesson-8",
+        "javascript-beginner-mod-2-lesson-8",
+        "javascript-beginner-mod-2-lesson-8"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor's answer accurately defines a closure and aligns with the reference answer.",
+      "on_target": true
+    },
+    {
+      "case_id": "error-first-callback",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "An **error-first callback** (also called a Node-style callback) is a special kind of function used in Node-style application programming interfaces (APIs) to handle asynchronous work (tasks that take time to finish, like reading a file or loading data) [1][2][4]. \n\nThink of it like ordering food at a counter: instead of waiting right there, you leave your name, and when the food is ready, you get called back. When you get called back, the first thing you want to know is, \"Did something go wrong (like we ran out of food)?\" \n\nHere is how it works step by step:\n1. **The Parameters:** The callback function receives two main parameters: `(err, data)` (sometimes called `(err, result)`) [1][2][3]. \n   - `err`: Holds an error object if something went wrong [2][3].\n   - `data` (or `result`): Holds the actual data you wanted if the operation succeeded [2][3].\n2. **Handling the Error First:** You must always check the `err` parameter first [2][3]. If `err` is truthy (meaning an error happened), you handle the failure right away [2][3].\n3. **Using the Data:** You only use the `data` when `err` is falsy (meaning it is empty, null, or there was no error) [1][4].\n\nHere is a quick code example showing how to check the error first:\n\n```javascript\nloadUser(7, (err, user) => {\n  // Step 2: Check if there is an error first\n  if (err) {\n    console.error(err.message);\n  } else {\n    // Step 3: Only use the user data if err is falsy\n    console.log(user);\n  }\n});\n```[3]",
+      "cited_lessons": [
+        "javascript-beginner-mod-8-lesson-2",
+        "javascript-beginner-mod-2-lesson-5",
+        "javascript-beginner-mod-8-lesson-2",
+        "javascript-beginner-mod-8-lesson-2"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that an error-first callback is a Node-style callback taking err as the first argument, which is consistent with the reference.",
+      "on_target": true
+    },
+    {
+      "case_id": "ternary",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "You should use the **ternary operator** (written as `condition ? a : b`) instead of an `if / else` statement when your branches share a single value and you are just picking between two different values [1][2][4]. \n\nThink of a ternary operator like a bicycle lane running next to the main road: it uses the same idea as a regular `if / else`, but it is narrower and quicker for simple tasks [3]. \n\nHere is what these technical terms mean:\n* **Expression:** A piece of code that produces a value (unlike a standard `if` statement, a ternary operator actually yields a value that you can save into a variable) [1][4].\n* **Truthy:** A value that translates to \"true\" when tested by code [2][3].\n\n### When to use which:\n* Use a **ternary operator** when you have only two branches and want to choose between two values quickly (like picking a label string based on whether a user is logged in) [1][4]:\n  ```javascript\n  const isLoggedIn = true;\n  const label = isLoggedIn ? 'Welcome' : 'Sign in'; // Picks one of two values\n  ```\n* Use an **`if / else`** statement when your branches do not share a single value, or when you have more than two branches (like checking multiple score ranges for grades) [1][4].",
+      "cited_lessons": [
+        "javascript-beginner-mod-3-lesson-1",
+        "javascript-beginner-mod-3-lesson-1",
+        "javascript-beginner-mod-3-lesson-1",
+        "javascript-beginner-mod-3-lesson-1"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that the ternary operator should be used to pick between two values.",
+      "on_target": true
+    },
+    {
+      "case_id": "switch-break",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "If you forget a **break** (a keyword used to end the switch) in a switch case, execution will **fall through** into the next case [1][2][3]. \n\nThink of it like a railway station where the track switcher fails to stop the train [3]; instead of stopping at the station you matched, the code keeps running down the track into the next case and executes its code too, even if that case doesn't match [3][4]. While this \"fall-through\" behavior can sometimes be used intentionally by stacking cases together, forgetting a break accidentally is a frequent source of bugs that causes unexpected extra output [1][2][3][4].\n\nHere is an example showing what happens when a break is missing:\n\n```javascript\nconst role = 'guest';\nswitch (role) {\n  case 'admin':\n    console.log('Full access');\n  case 'user':\n    console.log('Read/write'); // If admin was matched, execution falls through here\n  default:\n    console.log('Read-only');  // And falls through here too!\n}\n```[4]",
+      "cited_lessons": [
+        "javascript-beginner-mod-3-lesson-2",
+        "javascript-beginner-mod-3-lesson-2",
+        "javascript-beginner-mod-3-lesson-2",
+        "javascript-beginner-mod-3-lesson-2"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains fall-through behavior and matches the reference answer.",
+      "on_target": true
+    },
+    {
+      "case_id": "loop-choice",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "To go through every element of an array, you should use the **`for-of`** loop [4]. \n\n### What is a `for-of` loop?\nA `for-of` loop is a control flow tool in JavaScript that lets you look at every item in a collection (called an **iterable**, which is just a list or sequence of things like arrays or strings) one by one [4]. \n\nThink of it like a conveyor belt in a factory: items come down the belt one at a time, and your loop picks up each item to do something with it.\n\n### Why use `for-of` for arrays?\n* **Direct values:** It gives you the values of the array directly, so you don't have to worry about looking things up by their numerical position [1].\n* **Flexibility:** Unlike other methods, a `for-of` loop allows you to stop early (using a `break` statement) or pause for asynchronous tasks (using `await`) if you need to [4].\n\n### Example\nHere is how you can use a `for-of` loop to go through an array of items [1]:\n\n```javascript\nconst items = ['a', 'b', 'c'];\n\n// Go through every element in the items array\nfor (const item of items) {\n  console.log(item); // Prints each item one by one\n}\n```\n\n*(Note: You can also use an array method called `forEach` for arrays, but `forEach` has limitations\u2014such as not being able to stop or \"break\" out of the loop early [3]).*",
+      "cited_lessons": [
+        "javascript-beginner-mod-3-lesson-7",
+        "javascript-beginner-mod-3-lesson-7",
+        "javascript-beginner-mod-4-lesson-3"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly identifies the for-of loop as the cleanest way to iterate over an array.",
+      "on_target": true
+    },
+    {
+      "case_id": "nullish-vs-or",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "Welcome! Let's look at the difference between the **nullish coalescing** operator (`??`) and the **logical OR** operator (`||`) [1]. \n\nThink of these operators as safety guards that let you provide a backup value (a fallback) if your main value is missing [1][4]. But they treat special values like `0` (the number zero) or `''` (an empty text string) differently [1][3].\n\nHere is what you need to know step by step:\n\n### 1. What is a \"falsy\" value?\nIn JavaScript, some values are considered **falsy**, which means JavaScript treats them like `false` when checking conditions. Examples of falsy values include `0`, `''` (an empty string), `false`, `null`, and `undefined`.\n\n### 2. The Logical OR operator (`||`)\nThe `||` operator looks for the first **truthy** value [1]. \n* **The catch:** Because `||` thinks values like `0` and `''` are falsy, it will treat them as missing and trigger your fallback [1][3]. \n* For example, if you set a port number to `0` and use `port || 8080`, JavaScript will ignore your `0` and fallback to `8080` because it thinks `0` means \"nothing\" [3].\n\n### 3. The Nullish Coalescing operator (`??`)\nThe `??` operator is stricter and safer when dealing with numbers and text [2]. \n* It **only** falls back to the default value if the left side is **`null`** or **`undefined`** [1]. \n* It respects valid values like `0`, `''` (empty string), and `false`, and will keep them instead of replacing them [1][3]. \n* For example, `port ?? 8080` will happily keep `0` as a valid port number instead of jumping to `8080` [3].\n\n### Summary Code Example\n```javascript\nconst port = 0;\n\nconsole.log(port || 8080); // Outputs 8080, because || treats 0 as falsy and falls back [3]\nconsole.log(port ?? 8080); // Outputs 0, because ?? only falls back for null or undefined [3]\n```\n\n**Pro Tip:** Use `??` whenever `0`, `''`, or `false` are legal, working values in your code [1]!",
+      "cited_lessons": [
+        "javascript-beginner-mod-3-lesson-4",
+        "javascript-beginner-mod-3-lesson-4",
+        "javascript-beginner-mod-3-lesson-4",
+        "javascript-beginner-mod-3-lesson-4"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor's answer correctly explains that ?? falls back only for null or undefined while || falls back for any falsy value.",
+      "on_target": true
+    },
+    {
+      "case_id": "empty-array-truthy",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "An empty array (`[]`) is **truthy** [1][3]. \n\nThink of truthiness like a traffic gate: JavaScript automatically decides whether a value should let code pass through an `if` statement by treating it as either `true` (truthy) or `false` (falsy) [1][3]. Even though an empty array looks like it has nothing inside, JavaScript considers all arrays to be truthy [1][3]. \n\nIf you want to check whether an array actually has items inside it, you should check its `.length` property instead of checking the array itself [2][5].",
+      "cited_lessons": [
+        "javascript-beginner-mod-3-lesson-5",
+        "javascript-beginner-mod-3-lesson-5",
+        "javascript-beginner-mod-3-lesson-5",
+        "javascript-beginner-mod-3-lesson-5"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly states that an empty array is truthy and mentions checking .length.",
+      "on_target": true
+    },
+    {
+      "case_id": "break-continue",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "Here is the difference between `break` and `continue`:\n\n* **`break`**: This statement exits the nearest enclosing loop (or switch) immediately, meaning the race is over [1][2][5]. Execution continues *after* the loop body [1]. Think of it like a race marshal pulling you off the marathon course entirely [5].\n* **`continue`**: This statement skips the rest of the current iteration (one step) and moves straight to the next one [1][2][4]. The loop itself does not stop; only that single pass is short-circuited [1]. Think of it like a side gate that skips you past a watering station you do not need during the marathon [5].",
+      "cited_lessons": [
+        "javascript-beginner-mod-3-lesson-6",
+        "javascript-beginner-mod-3-lesson-6",
+        "javascript-beginner-mod-3-lesson-6",
+        "javascript-beginner-mod-3-lesson-6"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that break exits the loop and continue skips to the next iteration.",
+      "on_target": true
+    },
+    {
+      "case_id": "for-in-vs-for-of",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "To understand the difference between `for-in` and `for-of`, think of them as different vehicles meant for different terrains [5]. \n\nHere is what you need to know:\n\n* **`for-of`** is like a comfortable sedan [5]. It yields **values** from any **iterable** [1] (a data structure you can loop through item by item, such as arrays, strings, Maps, and Sets) [2]. \n* **`for-in`** is like a bicycle built for object-key roads [5]. It yields the **keys** (the names of the properties) of any object, including inherited keys (properties passed down from an object's parent) [2]. \n\n### Key Differences:\n1. **What they grab:** `for-of` gives you the *values* inside a collection, while `for-in` gives you the *keys* (or property names) of an object [1].\n2. **Usage with Arrays:** Using `for-in` on an array is rarely the right choice because it gives you the indices as strings and can accidentally include unexpected inherited properties [2]. For arrays, you should use `for-of` [1].\n\nHere is a quick look at `for-of` in action with an array:\n\n```javascript\nconst items = ['a', 'b', 'c'];\nfor (const item of items) {\n  console.log(item); // Prints the values: a, b, and c directly\n}\n```\n*(Source: [1], [4])*",
+      "cited_lessons": [
+        "javascript-beginner-mod-3-lesson-7",
+        "javascript-beginner-mod-3-lesson-7",
+        "javascript-beginner-mod-3-lesson-7",
+        "javascript-beginner-mod-3-lesson-7"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that for-of yields values from iterables and for-in yields keys, including inherited ones.",
+      "on_target": true
+    },
+    {
+      "case_id": "try-catch-finally",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "In a `try/catch` statement, `finally` is a block of code used for cleanup that always runs [1][3]. \n\nThink of it like the airbag deployment in a car ride analogy; it runs no matter how the ride ended [5]. Even if your code finishes normally, throws an error that is caught, or returns early from a function, the `finally` block will still execute [1][3][4]. \n\nIt is ideal for releasing resources like closing files, sockets, or locks, no matter how the function exits [3][4].",
+      "cited_lessons": [
+        "javascript-beginner-mod-3-lesson-8",
+        "javascript-beginner-mod-3-lesson-8",
+        "javascript-beginner-mod-3-lesson-8",
+        "javascript-beginner-mod-3-lesson-8"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that the finally block runs cleanup code and always executes regardless of errors.",
+      "on_target": true
+    },
+    {
+      "case_id": "last-element",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "To get the last element of an array, you can use a couple of different approaches:\n\n### 1. Using the `at()` method (Recommended)\nThe cleanest and most modern way to get the last element is by using the `.at()` method with a negative index of `-1` [2][3]. A negative index counts backward from the end of the array, so `-1` points directly to the last item [1].\n\n```javascript\nconst letters = ['a', 'b', 'c'];\nconsole.log(letters.at(-1)); // Prints 'c'\n```\n\n### 2. Using the `length` property\nYou can also find the last element by looking at the array's **length** (the total count of items in the array) [2]. Because counting starts at `0`, the position (or **index**) of the last item is always the total length minus one (`length - 1`) [1][2].\n\n```javascript\nconst nums = [10, 20, 30, 40];\n// nums.length is 4, so nums[4 - 1] is nums[3] (the last element)\nconsole.log(nums[nums.length - 1]); // Prints 40\n```",
+      "cited_lessons": [
+        "javascript-beginner-mod-4-lesson-1",
+        "javascript-beginner-mod-4-lesson-1",
+        "javascript-beginner-mod-4-lesson-1"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains both methods mentioned in the reference answer.",
+      "on_target": true
+    },
+    {
+      "case_id": "push-vs-unshift",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "To understand the difference between `push` and `unshift`, let's first look at what a **mutating method** is: a built-in tool that directly changes the original array (like writing in pen on a page) [1][4]. \n\nHere is the difference between the two:\n\n* **`push`**: This adds one or more items to the **end** (the tail) of an array [1][3][5]. Think of it like adding something to the right margin of a notebook page [4]. It is fast [3].\n* **`unshift`**: This adds items to the **beginning** (the head) of an array [1][3][5]. Think of it like adding a prefix at the front of a line, which forces everything else to move or shift over [4]. Because every existing element has to move, it is slower on big arrays [3][5].\n\nHere is what they return:\n* Both `push` and `unshift` return the **new length** (the total number of items) of the array after the addition. *(Watch out: a common mistake is expecting them to return the array itself!)* [3]\n\n### Quick Code Examples\n\n```javascript\nconst items = ['b', 'c'];\n\n// unshift adds to the beginning\nitems.unshift('a'); \nconsole.log(items); // Output: ['a', 'b', 'c']\n\n// push adds to the end\nitems.push('d'); \nconsole.log(items); // Output: ['a', 'b', 'c', 'd']\n```",
+      "cited_lessons": [
+        "javascript-beginner-mod-4-lesson-2",
+        "javascript-beginner-mod-4-lesson-2",
+        "javascript-beginner-mod-4-lesson-2",
+        "javascript-beginner-mod-4-lesson-2"
+      ],
+      "keyword_share": 0.6666666666666666,
+      "passed": true,
+      "reason": "The tutor correctly identifies that push adds to the end, unshift adds to the beginning, both mutate the array, and mentions their performance difference.",
+      "on_target": true
+    },
+    {
+      "case_id": "break-foreach",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "No, you cannot break out of a `forEach` loop [1][5]. \n\nThink of a `forEach` loop like a conveyor belt in a factory: once it starts, you cannot easily stop the entire belt from the middle using a break command. \n\nIf you try to use `break` inside a `forEach`, JavaScript will give you a `SyntaxError` (an error that means the code violates the rules of the language) [1][5]. If you try to use `return` inside a `forEach`, it only skips the current item and acts like a `continue` statement, keeping the loop running [1][3][4].\n\n### What to use instead\nIf you need to stop or \"bail out\" of a loop early, you should use a different type of loop, such as a `for-of` loop [2][5]:\n\n```javascript\nconst items = [1, 2, 3, 4];\n\nfor (const item of items) {\n  if (item === 3) {\n    break; // Stops the loop entirely when item is 3\n  }\n  console.log(item);\n}\n```\n\n* `for` \u2014 A tool that repeats a block of code.\n* `for-of` \u2014 A loop that lets you look at items in a list one by one without managing numbers or indexes [3].\n* `break` \u2014 A command that exits the loop immediately [2].",
+      "cited_lessons": [
+        "javascript-beginner-mod-3-lesson-6",
+        "javascript-beginner-mod-3-lesson-6",
+        "javascript-beginner-mod-3-lesson-7",
+        "javascript-beginner-mod-4-lesson-3",
+        "javascript-beginner-mod-3-lesson-6"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor's answer correctly states that you cannot break out of a forEach loop and suggests appropriate alternatives.",
+      "on_target": true
+    },
+    {
+      "case_id": "map-undefined",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "Your `map` is returning an array full of `undefined` because your callback function (the small function you passed inside `map`) uses curly braces `{}` but does not include the `return` keyword [1][2][4]. \n\nThink of a callback like a factory worker: `map` hands them an item, and they must explicitly hand back (`return`) the transformed item. If they do nothing with it or forget to hand it back, `map` puts `undefined` into the new array for that spot [1].\n\nHere is why this happens:\n* When you use curly braces `{}` for an arrow function, JavaScript requires you to type the `return` keyword if you want to give a value back [4].\n* If you omit the curly braces, JavaScript does an \"implicit return\" (it automatically returns whatever is on the right side).\n\n### How to fix it\n\nYou have two choices to fix this bug:\n\n**Option 1: Add the `return` keyword**\n```javascript\nconst result = [1, 2, 3].map(n => { \n  return n * 2; // Explicitly returning the value\n});\n```\n\n**Option 2: Remove the curly braces**\n```javascript\nconst result = [1, 2, 3].map(n => n * 2); // Without braces, it automatically returns n * 2\n```",
+      "cited_lessons": [
+        "javascript-beginner-mod-4-lesson-4",
+        "javascript-beginner-mod-4-lesson-4",
+        "javascript-beginner-mod-4-lesson-4"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that the map returns undefined because the braced arrow callback lacks a return statement.",
+      "on_target": true
+    },
+    {
+      "case_id": "filter-length",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "No, `filter` cannot return more elements than the original array [1][2]. \n\nThink of `filter` like a kitchen sieve or a strainer [5]. You pour a list of items through it, and some items might pass through while others are caught and discarded, meaning the output list will either be smaller or stay the same size (less than or equal to the original length) [1][2][5]. It never grows the array [1][2].",
+      "cited_lessons": [
+        "javascript-beginner-mod-4-lesson-5",
+        "javascript-beginner-mod-4-lesson-5",
+        "javascript-beginner-mod-4-lesson-5"
+      ],
+      "keyword_share": 0.5,
+      "passed": true,
+      "reason": "The tutor correctly answers that filter cannot return more elements than the original array.",
+      "on_target": true
+    },
+    {
+      "case_id": "reduce-initial",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "You should always pass an initial value to `reduce` for a few important reasons [2][3]:\n\n1. **It documents the shape of your accumulator:** It tells anyone reading your code what kind of starting state you expect (such as `0` for numbers, `[]` for arrays, or `{}` for objects) [2][3].\n2. **It prevents empty-array crashes:** If you forget an initial value and the array happens to be empty, `reduce` will throw a `TypeError` [3].\n3. **It prevents unexpected bugs with strings:** If you leave out the initial value on an array containing strings, JavaScript might perform string concatenation instead of what you intended [2].\n\nThink of it like the starting snowball in our snowball analogy: the initial value gives the snowball a proper starting size and type before it rolls down the hill [1][4].",
+      "cited_lessons": [
+        "javascript-beginner-mod-4-lesson-6",
+        "javascript-beginner-mod-4-lesson-6",
+        "javascript-beginner-mod-4-lesson-6",
+        "javascript-beginner-mod-4-lesson-6"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor's answer correctly identifies that passing an initial value documents the accumulator's shape and prevents errors on empty arrays.",
+      "on_target": true
+    },
+    {
+      "case_id": "find-vs-filter",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "You should use **`find`** instead of **`filter`** when you need **just one match** (a single element) matching a condition, rather than every matching element [2][4]. \n\nHere is why and how they differ:\n\n* **`find`**: Stops looking the exact moment it finds the first matching item [1]. This is called *short-circuiting* [1], which makes it faster because it avoids doing wasted work scanning the rest of the array [1].\n* **`filter`**: Scans the entire array every single time to gather *all* matching items into a brand-new array [1][2][3].\n\nThink of it like looking through a phone book:\n* Using **`find`** is like stopping your search as soon as you find the first person whose name starts with \"M\" and taking their contact card [1].\n* Using **`filter`** is like going through the *entire* phone book to collect a separate list of *every single person* whose name starts with \"M\". If you only wanted one person, checking the rest of the book is unnecessary work.\n\n**Quick rule of thumb from your course:**\n* Need *all* matches? Use `filter` [2][4].\n* Need just *one* match? Switch to `find` [2][4].",
+      "cited_lessons": [
+        "javascript-beginner-mod-4-lesson-5",
+        "javascript-beginner-mod-4-lesson-5",
+        "javascript-beginner-mod-4-lesson-7",
+        "javascript-beginner-mod-4-lesson-5"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that find should be used when only a single matching element is needed, agreeing with the reference.",
+      "on_target": true
+    },
+    {
+      "case_id": "sort-numbers",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "When you use the default `.sort()` method on an array without giving it any extra rules, JavaScript performs a **lexicographic sort** [3]. \n\nThink of this like a librarian who only reads letters: she sorts every item by looking at the first character of its spine label as if it were a word, rather than looking at the actual numerical value [5]. \n\nHere is what happens step by step:\n1. JavaScript converts every number in the array into a string (text) [3].\n2. It then compares them alphabetically (character by character from left to right) [3].\n3. Because `'1'` comes before `'9'`, the string `'10'` is placed before `'9'` [1]. \n\nSo, `'1'` comes first, `'10'` comes second because its first character is `'1'`, and `'9'` comes last. \n\nIf you want to sort numbers properly in numerical order instead of alphabetical order, you need to pass a **compare function** (a small rule telling JavaScript how to compare two numbers) into the `.sort()` method [2]:\n\n```javascript\nconst nums = [10, 9, 1];\nconsole.log(nums.sort((a, b) => a - b)); // Outputs [1, 9, 10]\n```",
+      "cited_lessons": [
+        "javascript-beginner-mod-4-lesson-8",
+        "javascript-beginner-mod-4-lesson-8",
+        "javascript-beginner-mod-4-lesson-8",
+        "javascript-beginner-mod-4-lesson-8"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains lexicographic sorting and provides the compare function solution.",
+      "on_target": true
+    },
+    {
+      "case_id": "dot-vs-bracket",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "You need **bracket notation** (using square brackets like `obj['key']`) instead of dot notation (`obj.key`) in a few specific situations [1][3]:\n\n1. **When the key has special characters:** If your property name contains spaces, hyphens, or other punctuation (like `'user-id'` or `'first name'`), you must use brackets [2][3]. If you use a dot with a hyphen (for example, `obj.user-id`), JavaScript will think you are trying to do a subtraction math problem and will give you an error [2].\n2. **When the key is stored in a variable:** If the name of the property you want to find lives inside a variable, you use brackets [3]. \n   * Think of it like a combination lock: a variable lets you spin the dial to pick whatever key you need at runtime [4]. \n   * If you use a dot here (like `user.key`), JavaScript will look for a property literally named `\"key\"` instead of looking at what is *stored inside* the `key` variable [3][5].\n3. **When the key is computed or dynamic:** If you are creating an object and want to calculate or decide the property name on the fly using an expression, you use computed property syntax with brackets, like `{ [role]: true }` [2][3].\n4. **When keys are numbers:** Numeric keys (like `1`) need to be accessed using brackets or strings (like `obj[1]` or `obj['1']`) [3].",
+      "cited_lessons": [
+        "javascript-beginner-mod-5-lesson-2",
+        "javascript-beginner-mod-5-lesson-2",
+        "javascript-beginner-mod-5-lesson-2",
+        "javascript-beginner-mod-5-lesson-2",
+        "javascript-beginner-mod-5-lesson-2"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor's answer correctly identifies all required key facts and matches the reference.",
+      "on_target": true
+    },
+    {
+      "case_id": "destructuring-defaults",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "To give a default value when destructuring an object, you use an equals sign (`=`) followed by the default value right next to the property name in your destructuring pattern [2]. \n\nThink of it like a safety net: if the property you are trying to take out is missing (meaning its value is `undefined`), JavaScript will use your default value instead [2].\n\nHere is how it looks in code:\n\n```javascript\nconst user = { name: 'Mei' };\n\n// country has no value in the user object, so it falls back to 'JP'\nconst { name, country = 'JP' } = user;\n\nconsole.log(country); // Prints: 'JP'\n```[4]\n\n### Important details to keep in mind:\n* **Only triggers on `undefined`**: Default values are only used when the property is completely missing or explicitly set to `undefined` [2]. If the property is set to `null`, `0`, or an empty string (`''`), JavaScript keeps those values as-is and will **not** trigger the default [2][3].\n* **Combining with renaming**: You can also rename the variable while giving it a default value at the same time by writing `const { oldName: newName = defaultValue } = obj;` [2].",
+      "cited_lessons": [
+        "javascript-beginner-mod-5-lesson-3",
+        "javascript-beginner-mod-5-lesson-3",
+        "javascript-beginner-mod-5-lesson-3"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor's answer correctly explains object destructuring with default values and correctly notes that it applies when the value is undefined.",
+      "on_target": true
+    },
+    {
+      "case_id": "spread-copy",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "No, copying an object with the spread operator (`...`) is not a deep copy [1]. It is a **shallow clone** [1]. \n\nHere is what that means:\n* **Shallow clone** means that the spread operator copies only the top-level properties of an object into a brand-new object [1][2][4]. Think of it like a photocopier making a copy of the top pages in a folder [4].\n* **Nested objects and arrays** (objects inside your object) are **not** cloned [2]. Instead, the copy just holds a reference (a link) to the exact same inner objects as the original [3][4]. \n\nIf you change a nested value inside your copied object, the original object will change too [1][3]! \n\nIf you need a truly independent copy where everything inside is also cloned, you should use `structuredClone(obj)` instead [1][2][4].",
+      "cited_lessons": [
+        "javascript-beginner-mod-5-lesson-4",
+        "javascript-beginner-mod-5-lesson-4",
+        "javascript-beginner-mod-5-lesson-4",
+        "javascript-beginner-mod-5-lesson-4"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that the spread operator creates a shallow copy and not a deep copy.",
+      "on_target": true
+    },
+    {
+      "case_id": "optional-chaining",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "Hello! To safely read a property that might not exist without causing an error, you can use a feature called **optional chaining** [3]. \n\n### What is Optional Chaining?\n**Optional chaining** is a way to look inside objects safely. Think of it like checking if a room exists before trying to open a box inside it\u2014if the room isn't there, you just stop instead of crashing into a wall. \n\nIn JavaScript, you write this using a question mark followed by a dot (`?.`) [3]. \n\n### How it works\n\nWhen you use `?.`, it checks if the value on its left side is `null` (an intentional empty value) or `undefined` (a value that hasn't been assigned yet). \n- If it exists, it moves on to the next property [3].\n- If it does not exist (it is `null` or `undefined`), it **short-circuits**, meaning it stops right there and safely returns `undefined` instead of throwing a `TypeError` (an error that happens when JavaScript tries to read a property of nothing) [2][3][4].\n\nHere is an example of safe property access:\n\n```javascript\nconst a = null;\nconsole.log(a?.foo); // Output: undefined\n```\nBecause `a` is `null`, the `?.` stops the code from crashing and simply gives you `undefined` [2][4].\n\n### Combining with a Fallback\n\nOften, when a property doesn't exist, you want to provide a default backup value instead of getting `undefined`. You can do this by combining optional chaining (`?.`) with the **nullish coalescing operator** (`??`), which is written as a double question mark [3]. \n\nThe `??` operator provides a fallback value on the right side if the left side is `null` or `undefined` [3]:\n\n```javascript\nconst user = { profile: { name: '' } };\nconsole.log(user?.profile?.name ?? 'anonymous');\n```\nIn this example, it safely walks down the `user` object, and if the name is missing, it falls back to `'anonymous'` [2][3].",
+      "cited_lessons": [
+        "javascript-beginner-mod-5-lesson-5",
+        "javascript-beginner-mod-5-lesson-5",
+        "javascript-beginner-mod-5-lesson-5"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains optional chaining and how it returns undefined when properties do not exist.",
+      "on_target": true
+    },
+    {
+      "case_id": "object-entries-loop",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "To loop over both the keys and the values of an object at the same time, the best tool is **`Object.entries`** combined with a **`for-of`** loop [3]. \n\n### Core Terms Defined\n* **Object**: A collection of properties, where each property is a key-value pair (like a dictionary).\n* **`Object.entries()`**: A built-in method that turns an object into an array of `[key, value]` pairs [1].\n* **Destructuring**: A short syntax in JavaScript that unpacks values from arrays (or properties from objects) into distinct variables. In a loop, it looks like \n`[key, value]`.\n* **`for-of`**: A loop that goes through items in an iterable list (like an array).\n\n### How to Loop Over Keys and Values\n\nYou can loop through an object's keys and values using this standard pattern [1]:\n\n```javascript\nconst scores = { ada: 92, mei: 85 };\n\n// Loop through each key and value pair\nfor (const [name, score] of Object.entries(scores)) {\n  console.log(`${name}: ${score}`); // Prints name and score for each item\n}\n```[2]\n\n### Step-by-Step Breakdown:\n1. **`Object.entries(scores)`** takes your object and turns it into an array of small arrays, like this: `[['ada', 92], ['mei', 85]]` [1].\n2. **`for-of`** goes through that new list one item at a time [1].\n3. **`[name, score]`** uses destructuring to automatically unpack each inner array so you get the key (`name`) and the value (`score`) in separate variables ready to use inside your loop [1][2].",
+      "cited_lessons": [
+        "javascript-beginner-mod-5-lesson-6",
+        "javascript-beginner-mod-5-lesson-6",
+        "javascript-beginner-mod-5-lesson-6"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor's answer correctly explains how to loop over keys and values using Object.entries and a for-of loop, matching the reference.",
+      "on_target": true
+    },
+    {
+      "case_id": "freeze-nested",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "No, `Object.freeze` does not stop changes to nested objects [3]. \n\nAn **object** is a collection of key-value pairs (like a container with labeled drawers). **Nested objects** are smaller objects stored *inside* that container (like a smaller box kept inside a drawer). \n\nThink of `Object.freeze` like putting a lock on a lockbox [4]. The surface drawers of the lockbox are locked and cannot be changed, but a small box stored inside that lockbox is still open and can be edited [4]. \n\nThis is called a **shallow freeze**, meaning it only locks the object's top-level properties [2][3]. If you need to lock nested objects, you have to write a recursive helper (a function that calls itself) to freeze each nested object one by one [2][3].",
+      "cited_lessons": [
+        "javascript-beginner-mod-5-lesson-7",
+        "javascript-beginner-mod-5-lesson-7",
+        "javascript-beginner-mod-5-lesson-7"
+      ],
+      "keyword_share": 0.5,
+      "passed": true,
+      "reason": "The tutor correctly explains that Object.freeze only affects the top level and does not freeze nested objects.",
+      "on_target": true
+    },
+    {
+      "case_id": "json-stringify-pretty",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "To pretty-print an object as a multi-line, human-readable JSON document [1], you can use `JSON.stringify` with three arguments [1]:\n\n```javascript\nconst user = { name: 'Ada', age: 30 };\n// The third argument (2 in this case) controls indentation spaces\nconsole.log(JSON.stringify(user, null, 2)); \n```[1]\n\n### Core Terms Defined:\n* **`JSON.stringify`**: A method that turns a JavaScript value (like an object) into a text string [4].\n* **Pretty-printing**: Formatting text with extra spaces and line breaks so it is easy for humans to read. \n* **Indentation spacing**: The third argument passed to `JSON.stringify` tells it how many spaces to use for indenting each level of the structure [1][4].",
+      "cited_lessons": [
+        "javascript-beginner-mod-5-lesson-8",
+        "javascript-beginner-mod-5-lesson-8"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly provides the JSON.stringify(obj, null, 2) method and explains it accurately.",
+      "on_target": true
+    },
+    {
+      "case_id": "innerhtml-danger",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "Using **innerHTML** with user input is dangerous because it parses the string as HTML markup [3][4]. \n\nThink of `innerHTML` like a printing press: you give it a template, and it prints the formatted result [1]. Because it parses HTML, if a user provides malicious input (such as crafted strings with `<script>` tags or event handlers), the printing press will render and execute it [1][4]. This security risk is known as **XSS** (Cross-Site Scripting) [4]. An example of this was the 2005 MySpace worm, where user-supplied bio text using `innerHTML` allowed malicious code to spread to over a million accounts [1]. \n\nTo keep things safe, you should default to using `textContent` for plain text and only reserve `innerHTML` for trusted, server-generated markup that you fully control [1][2][3][4].",
+      "cited_lessons": [
+        "javascript-beginner-mod-6-lesson-2",
+        "javascript-beginner-mod-6-lesson-2",
+        "javascript-beginner-mod-6-lesson-2",
+        "javascript-beginner-mod-6-lesson-2"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that innerHTML parses strings as HTML and introduces security risks, aligning with the reference.",
+      "on_target": true
+    },
+    {
+      "case_id": "classlist",
+      "kind": "answerable",
+      "outcome": "error",
+      "text": "",
+      "cited_lessons": [],
+      "keyword_share": null,
+      "passed": false,
+      "reason": "provider error: ProviderUnavailableError",
+      "on_target": null
+    },
+    {
+      "case_id": "dom-ready",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "To run your script only after the page's HTML has loaded, you have a few different options depending on where and how your script is set up. \n\nThink of it like opening a shop: you want to make sure the building (the HTML structure) is fully built before you let customers (your JavaScript code) try to interact with the shelves and items inside.\n\nHere are the main ways to do it:\n\n### 1. Listen for the `DOMContentLoaded` event\nYou can wait for an event called `DOMContentLoaded`. This is a signal that tells you the HTML document is fully parsed (meaning the **DOM tree**\u2014the internal JavaScript representation of your HTML elements\u2014has been built) [1]. \n\nHere is how you write it:\n\n```javascript\ndocument.addEventListener('DOMContentLoaded', () => {\n  // It is safe to look for or query DOM elements here\n  console.log('DOM ready');\n});\n```\n* **`document.addEventListener()`**: Tells the browser to listen for a specific event happening on the page.\n* **`DOMContentLoaded`**: The name of the event that fires once the HTML is parsed [1].\n\n### 2. Use the `defer` attribute\nIf you are loading an external script using a `<script>` tag, you can add the `defer` attribute to it [1]. \n\n```html\n<script defer src=\"app.js\"></script>\n```\n* **`defer`**: A special instruction that tells the browser to download the script in parallel with the HTML, but to wait until the HTML parsing is completely finished before actually running the code [1]. \n* When you use `defer`, your code waits automatically, so you do not need to write an explicit `DOMContentLoaded` event listener inside your file [3].\n\n### 3. Use `type=\"module\"`\nModern JavaScript allows you to use module scripts [1]. Module scripts are deferred by default [1].\n\n```html\n<script type=\"module\" src=\"app.js\"></script>\n```\n* **`type=\"module\"`**: Tells the browser to treat your script as a modern JavaScript module. Just like using `defer`, it waits for the HTML parsing to finish automatically before running [1].",
+      "cited_lessons": [
+        "javascript-beginner-mod-6-lesson-8",
+        "javascript-beginner-mod-6-lesson-8"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains DOMContentLoaded, defer, and type='module' in agreement with the reference.",
+      "on_target": true
+    },
+    {
+      "case_id": "target-vs-currenttarget",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "In JavaScript, when an event happens (like a click), an **event object** (think of it like a receipt of what happened) is passed into your handler function [1]. \n\nHere is the difference between `event.target` and `event.currentTarget`:\n\n* **`event.target`**: This is the deepest element where the event originally started [3]. Think of it like the exact spot where a dropped pin lands. For example, if you click on a small picture icon inside a button, the `event.target` is that icon [3]. \n* **`event.currentTarget`**: This is the element where your specific listener is attached [3]. Think of it as the container or boundary you tied your handler to. As a pro tip, you should reach for `event.currentTarget` by default, and only use `event.target` if you genuinely care about the deepest, innermost element [2].\n\nHere is a short code example showing both in action:\n\n```javascript\nconst wrap = document.querySelector('.wrap');\n\nwrap.addEventListener('click', e => {\n  console.log('target:', e.target.tagName);          // The exact element clicked inside\n  console.log('currentTarget:', e.currentTarget.tagName); // The wrap element holding the listener\n});\n```\n* `e.target.tagName` prints the tag name of the deepest clicked element [4].\n* `e.currentTarget.tagName` prints the tag name of the element the listener is bound to (in this case, `.wrap`) [4].",
+      "cited_lessons": [
+        "javascript-beginner-mod-7-lesson-2",
+        "javascript-beginner-mod-7-lesson-2",
+        "javascript-beginner-mod-7-lesson-2",
+        "javascript-beginner-mod-7-lesson-2"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that event.target is where the event started and event.currentTarget is the element with the handler attached.",
+      "on_target": true
+    },
+    {
+      "case_id": "event-delegation",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "To handle clicks on many list items with a single listener\u2014including items added later\u2014you use a pattern called **event delegation** [3]. \n\nThink of it like a bank teller analogy: instead of hiring a separate teller for every single customer (attaching a separate listener to every list item), you hire **one teller** (a single listener) at the counter who serves whoever steps up. When a new customer arrives (a dynamic item added later), they automatically get the same service without needing extra wiring [2][4].\n\nHere is how it works step-by-step:\n\n1. **Choose the delegation root**: Attach a single click listener to the parent container (like a `<ul>` list) instead of the individual list items [2][3].\n2. **Understand bubbling**: When someone clicks a list item, the event bubbles (travels upward) from the target element up to the parent container, where your listener catches it [2].\n3. **Find the meaningful element**: Use `.closest()` to find the nearest matching ancestor or the element itself. For example, `e.target.closest('li')` finds the list item that was clicked (even if the user clicked an inner element like a span or icon inside the list item) [1][2][5].\n4. **Guard the match**: Always check if the element exists using a guard like `if (!li) return;`. This protects your code in case the user clicks somewhere inside the parent container that is *not* a list item [2].\n5. **Handle dynamic children**: Because the listener lives on the parent container, any new list items added to the list later automatically inherit the listener for free [2][3].\n\nHere is an example of what that looks like in code:\n\n```javascript\n// Find the parent <ul> element\nconst ul = document.querySelector('ul');\n\n// Attach ONE click listener to the parent container\nul.addEventListener('click', e => {\n  // Find the closest <li> element that was clicked\n  const li = e.target.closest('li');\n  \n  // Guard: stop if the user clicked outside of an <li>\n  if (!li) return;\n  \n  // Do something with the clicked list item\n  console.log('clicked li:', li.textContent);\n});\n\n// Any new list item added later works automatically\nul.append(makeLi('New'));\n```",
+      "cited_lessons": [
+        "javascript-beginner-mod-7-lesson-7",
+        "javascript-beginner-mod-7-lesson-7",
+        "javascript-beginner-mod-7-lesson-7",
+        "javascript-beginner-mod-7-lesson-7",
+        "javascript-beginner-mod-7-lesson-7"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains event delegation and uses event.target.closest() on the parent element as specified in the reference.",
+      "on_target": true
+    },
+    {
+      "case_id": "fetch-errors",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "No, `fetch` does not reject when the server returns a 404 error [1][2][4]. \n\nTo understand why, think of `fetch` like a courier service [3]:\n- **`fetch`** is the courier driving to a remote address [3]. \n- A **404** status is like an \"address not found\" slip [3]. Even though the address could not be found, the courier still successfully made the trip back to you [3]. \n\nBecause of this, a 404 or any other 4xx/5xx HTTP error still successfully resolves the promise [1][4]. It only rejects on a network failure (like a truck breakdown) or CORS issues [1][3]. \n\nBecause `fetch` does not reject on a 404, you must check the status yourself using `response.ok` (which is a boolean that is true only for successful 2xx statuses) before you try to read the data [1][2][4]. \n\nHere is what that looks like in code:\n\n```javascript\nconst r = await fetch(url); // The courier comes back with a Response object\nif (!r.ok) throw new Error(r.status); // Check if something went wrong like a 404\nconst data = await r.json(); // Only parse the body if it is ok\n```\n\n* **`Response` object**: A built-in object representing the headers and status returned by your `fetch` request [1][3].\n* **`response.ok`**: A true-or-false value telling you if the request was successful (true for 2xx status codes, false for 4xx and 5xx) [1][2].",
+      "cited_lessons": [
+        "javascript-beginner-mod-8-lesson-5",
+        "javascript-beginner-mod-8-lesson-5",
+        "javascript-beginner-mod-8-lesson-5",
+        "javascript-beginner-mod-8-lesson-5"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor's answer correctly states that fetch does not reject on 404 and mentions checking response.ok.",
+      "on_target": true
+    },
+    {
+      "case_id": "promise-all-vs-allsettled",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "Welcome! Let's break down the difference between `Promise.all` and `Promise.allSettled` using a beginner-friendly approach.\n\n### The Everyday Analogy\n\nImagine a group project or a race:\n* **`Promise.all` is like a team relay race:** Every single runner must finish successfully for the team to win. If even **one** runner stumbles and fails, the entire team loses instantly, and everyone stops [1][4].\n* **`Promise.allSettled` is like a marathon roll call:** Every runner's final status is recorded at the end, no matter what. It doesn't matter if a runner finished successfully or did not finish (DNFed)\u2014every single result is written down [4].\n\n---\n\n### Key Technical Differences\n\nThink of a **promise** as a placeholder for a task that is still running (an asynchronous operation). **Settle** simply means the task is completely finished\u2014either it succeeded (fulfilled) or it failed (rejected).\n\n1. **`Promise.all` (Fail-Fast):**\n   * **What it does:** It takes a group of promises and waits for all of them to succeed [2]. \n   * **The catch (Fail-Fast):** The moment **one** promise fails (rejects), the whole thing stops immediately and throws an error [1][2]. It drops the rest of the results, even if other promises finished successfully [5].\n   * **When to use it:** When every single call *must* succeed for your code to work [3].\n\n2. **`Promise.allSettled` (Resilient):**\n   * **What it does:** It waits for every single promise to finish (settle), whether they succeed or fail [2]. It **never** rejects overall [2].\n   * **The result:** It gives you an array of objects representing each task [1][2]. Successful tasks return `{ status: 'fulfilled', value }`, and failed tasks return `{ status: 'rejected', reason }` [1][2]. \n   * **When to use it:** When you want every result back, even if some of them fail (like submitting a batch of analytics events or fetching partial page data) [1][4].\n\n---\n\n### Code Example\n\nHere is how `Promise.allSettled` lets you safely look at both successes and failures [5]:\n\n```javascript\n// Wait for all fetches to finish, whether they succeed or fail\nconst results = await Promise.allSettled([\n  fetch('/a'),\n  fetch('/b'),\n  fetch('/c')\n]);\n\n// Loop through every result to check its status\nresults.forEach(r => {\n  if (r.status === 'fulfilled') console.log('OK', r.value); // If it worked\n  else console.log('FAIL', r.reason); // If it failed\n});\n```",
+      "cited_lessons": [
+        "javascript-beginner-mod-8-lesson-7",
+        "javascript-beginner-mod-8-lesson-7",
+        "javascript-beginner-mod-8-lesson-7",
+        "javascript-beginner-mod-8-lesson-7",
+        "javascript-beginner-mod-8-lesson-7"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor's answer correctly explains that Promise.all fails fast while Promise.allSettled waits for all promises to finish and reports their status.",
+      "on_target": true
+    },
+    {
+      "case_id": "practice-loops-exercise",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "To get started on the **FizzBuzz** mini challenge from the loops lesson, let's break down the concepts and tools you need step by step.\n\n### What you need to know\n\n* **`for` loop:** A tool that lets you repeat a block of code a specific number of times. It looks like this:\n  ```javascript\n  for (let i = 1; i <= 15; i++) {\n    // Code here runs on each step\n  }\n  ```\n  *(Here, `i` is a variable that acts as a counter, starting at 1 and going up by 1 each time until it reaches 15).*\n\n* **The remainder operator (`%`):** This is a math symbol (`%`) that gives you the **remainder** after division [1]. For example, `10 % 3` is `1` because 3 fits into 10 three times with 1 left over. If a number divides evenly by another (meaning it is a **multiple**), the remainder will be `0`. For example, `6 % 3` is `0`.\n\n---\n\n### Hints for your code\n\n1. **Test the 'both' case first:** When checking if a number is a multiple of both 3 and 5 (which should print `'FizzBuzz'`), make sure to check for this **before** checking for 3 or 5 individually [1]. If you check for just 3 first, a number like 15 will trigger the \"Fizz\" rule and stop, missing the chance to become \"FizzBuzz\"!\n2. **Use `%` to test multiples:** Combine the remainder operator with an `if` statement to check if your counter variable `i` is a multiple of 3 or 5 (i.e., `i % 3 === 0`) [1]. \n\n*Remember, according to the rules of our course, I cannot write the solution or fix the code for you, but you have everything you need to build it step by step inside your loop!*",
+      "cited_lessons": [
+        "javascript-beginner-mod-3-lesson-3"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor provided hints and guidance without directly solving the code for the student.",
+      "on_target": true
+    },
+    {
+      "case_id": "static-vs-live",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "No, `querySelectorAll` does not update automatically [2]. \n\nIt returns a **NodeList** (a collection of elements) that is **static** [1][2]. Think of it like taking a snapshot or a printed photo of the elements on the page at that exact moment: if elements are added or removed to the page later, the snapshot does not change [2].",
+      "cited_lessons": [
+        "javascript-beginner-mod-6-lesson-1",
+        "javascript-beginner-mod-6-lesson-1"
+      ],
+      "keyword_share": 0.5,
+      "passed": true,
+      "reason": "The tutor correctly states that querySelectorAll does not update automatically because it returns a static NodeList.",
+      "on_target": true
+    },
+    {
+      "case_id": "append-vs-appendchild",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "The differences between `append` and `appendChild` are:\n\n* **Number of arguments:** `append` can accept multiple children and even raw text strings all at once [1][2]. `appendChild` takes exactly one node and cannot accept strings [1][2].\n* **How they handle multiple items:** If you want to add more than one thing to a parent element, `append` lets you pass them all in a single call [2][3]. With `appendChild`, you would need three separate calls to add three separate items [3].\n\nHere is a quick example of how `append` can take multiple children and plain text:\n\n```javascript\nconst ul = document.querySelector('ul'); // Find our list element\nconst a = document.createElement('li'); // Create first item\nconst b = document.createElement('li'); // Create second item\na.textContent = 'A'; // Set text for item a\nb.textContent = 'B'; // Set text for item b\nul.append(a, b, 'plain text'); // Add both items and a raw string at once\n```",
+      "cited_lessons": [
+        "javascript-beginner-mod-6-lesson-5",
+        "javascript-beginner-mod-6-lesson-5",
+        "javascript-beginner-mod-6-lesson-5"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly identifies that append accepts multiple nodes and strings while appendChild takes a single node.",
+      "on_target": true
+    },
+    {
+      "case_id": "closest",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "To find the nearest parent element that matches a selector, you can use a method called `closest()` [2][4]. \n\n### What is `closest()`?\nThink of `closest()` like climbing up the trunk of a tree looking for the first sign with a specific label [1]. \n\nIn JavaScript, **DOM** (Document Object Model) elements are arranged like a family tree. Every element has a parent above it, children below it, and siblings next to it [1]. The `closest()` method starts at the element you choose, checks if it matches a CSS selector (like a class name), and if not, walks step-by-step up the tree to its parent, grandparent, and beyond until it finds a match [2][4]. \n\n### How to use it\n\nHere is how you write it in code:\n\n```javascript\n// Find the closest ancestor (or self) that has the class '.row'\nconst row = e.target.closest('.row'); \n```\n\n* `e.target` is the specific thing that was clicked or triggered an event.\n* `.closest('.row')` searches upward for an element matching the CSS selector `'.row'` [2][4].\n* If it finds a match, it returns that element [2]. If it reaches the top of the tree without finding a match, it returns `null` [2].",
+      "cited_lessons": [
+        "javascript-beginner-mod-6-lesson-7",
+        "javascript-beginner-mod-6-lesson-7",
+        "javascript-beginner-mod-6-lesson-7"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly identifies element.closest('selector') as the method to find the nearest matching parent element.",
+      "on_target": true
+    },
+    {
+      "case_id": "remove-listener",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "`removeEventListener` does not remove your handler because it requires the **exact same function reference** (the same pointer to the function in memory) that you passed when you added it [1][4]. \n\nThink of it like giving a friend a specific house key: if you hand them one key to enter, but try to take back a different-looking key later, the lock won't recognize it. \n\nThis usually happens when you use an **inline anonymous function** (a function without a name, like an arrow function) directly inside `addEventListener` [1][2][4]. Every time you write an anonymous function, JavaScript creates a brand-new, unique reference in memory. So, the function you pass to `removeEventListener` looks identical to the first one, but JavaScript treats it as a completely different object.\n\nTo fix this, you need to save your function into a variable (a **named handler**) and pass that same variable name to both `addEventListener` and `removeEventListener` [2][3][4]. \n\nHere is an example using a named function:\n\n```javascript\n// 1. Create a named function\nfunction onClick() {\n  console.log('hi');\n}\n\n// 2. Pass the name to addEventListener\nbtn.addEventListener('click', onClick);\n\n// 3. Pass the exact same name to removeEventListener\nbtn.removeEventListener('click', onClick);\n```",
+      "cited_lessons": [
+        "javascript-beginner-mod-7-lesson-1",
+        "javascript-beginner-mod-7-lesson-1",
+        "javascript-beginner-mod-7-lesson-1",
+        "javascript-beginner-mod-7-lesson-1"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that the same function reference must be passed and points out the issue with inline anonymous functions.",
+      "on_target": true
+    },
+    {
+      "case_id": "key-vs-code",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "Welcome to the course! Let's break down the difference between `event.key` and `event.code` using a helpful analogy.\n\n### The Analogy: A Typewriter\nThink of a keyboard like a typewriter. \n* **`event.key`** is like the **printed letter** that appears on the paper [1, 2]. It changes depending on what language or keyboard layout you are using, or if you are holding down the Shift key. For example, if you press the \"A\" key, `event.key` gives you the character `'a'` (or `'A'` if Shift is held) [4]. It is also used for named keys like `'Enter'`, `'ArrowLeft'`, or `'Escape'` [4].\n* **`event.code`** is like the **physical key position** on the keyboard itself [1, 2]. It doesn't care about the letter printed on it or what language layout you have set up; it only cares about *where* the key is physically located on the board [1, 2]. For example, it will tell you if the physical key pressed was `'KeyA'` or `'Space'` [4].\n\n### Summary of Differences\n* **`event.key`**: Gives you the printed character or named key [3]. Use this when you care about the actual character being typed [3].\n* **`event.code`**: Gives you the physical location of the key on the keyboard [3]. Use this when you are building games (like WASD movement) so that the controls work the same way no matter what keyboard layout a user has worldwide [2, 4, 5].",
+      "cited_lessons": [
+        "javascript-beginner-mod-7-lesson-4",
+        "javascript-beginner-mod-7-lesson-4"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor's answer correctly distinguishes event.key as the character produced and event.code as the physical key position.",
+      "on_target": true
+    },
+    {
+      "case_id": "form-submit-reload",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "To stop a form from reloading the page when it is submitted, you can use a method called `preventDefault` [3][4]. \n\nAn **event** is an action that happens in the browser\u2014like a user clicking a button or submitting a form. When a form is submitted, the browser has a built-in action: it automatically reloads or navigates the page [1][4]. `preventDefault` tells the browser to skip that built-in action [4].\n\nHere is how you do it step by step:\n\n1. Select your form element in your JavaScript code.\n2. Add an event listener (a tool that waits for an action to happen) for the `'submit'` event [1].\n3. Inside your event handler function, call `e.preventDefault()`, where `e` represents the event object [1].\n\nHere is a short code example:\n\n```javascript\n// Select the form element from the page\nconst form = document.querySelector('form');\n\n// Listen for the submit event on the form\nform.addEventListener('submit', e => {\n  // Stop the browser from reloading the page\n  e.preventDefault();\n  \n  // Here you can handle the form submission yourself (for example, with fetch) [3]\n});\n```",
+      "cited_lessons": [
+        "javascript-beginner-mod-7-lesson-8",
+        "javascript-beginner-mod-7-lesson-8",
+        "javascript-beginner-mod-7-lesson-5"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains handling the submit event and calling event.preventDefault().",
+      "on_target": true
+    },
+    {
+      "case_id": "async-returns",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "An **async function** (a function marked with the `async` keyword) always returns a **Promise** automatically [1][2]. \n\nThink of a Promise like a receipt you get when you order food at a restaurant: it is not the food itself yet, but a guarantee that you will get the food (the value) later. \n\nHere is how it works under the hood:\n* Any regular value you return from inside an async function is automatically wrapped inside a Promise [1][2].\n* If your code throws an error inside the function, that error becomes a **rejected Promise** (a promise that failed) [1].",
+      "cited_lessons": [
+        "javascript-beginner-mod-8-lesson-4",
+        "javascript-beginner-mod-8-lesson-4"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that an async function always returns a Promise, wrapping returned values and turning thrown errors into rejections.",
+      "on_target": true
+    },
+    {
+      "case_id": "event-loop",
+      "kind": "answerable",
+      "outcome": "answered",
+      "text": "Hello! That is a great question. Even though JavaScript has only one main thread, it can still do things asynchronously by using the platform and the event loop [1][3]. \n\nHere are the key terms you need to know:\n* **Single-threaded** [2]: JavaScript has only one main thread for your code, meaning it can only do one thing at a time on that thread [3]. Think of it like a single chef in a kitchen who can only cook one dish at a time [4].\n* **Asynchronous** [2]: Some operations\u2014like timers, `fetch`, or input/output (IO)\u2014return immediately and complete later [2]. \n* **Event loop** [2]: A process that continuously checks if the call stack is empty; if it is, it pulls the next task from the queue and runs it [2].\n\nThink of the single chef in a kitchen analogy: \n* The **chef** is the main thread [4]. \n* Chopping vegetables is synchronous work that the chef does right away [4]. \n* When the chef needs to wait for water to boil, instead of just standing there doing nothing, that waiting task is handed off to a **side burner** (representing asynchronous Web APIs) [4]. The chef moves on to the next order [4]. \n* When the water is ready, a notification is sent back, and the chef returns to finish that dish [4].\n\nIn code, when you use an asynchronous API (like a timer), JavaScript hands that work off to the platform and returns immediately so your page stays responsive [1][2]. \n\n```javascript\nconsole.log('1');\n// setTimeout hands the timer work to the platform and returns immediately\nsetTimeout(() => console.log('2'), 0);\nconsole.log('3');\n```\n*Comment on the code:* The `setTimeout` callback goes into a queue and runs *after* all the synchronous code on the call stack finishes, which is why the output order is `1`, `3`, then `2` [2][5].",
+      "cited_lessons": [
+        "javascript-beginner-mod-8-lesson-1",
+        "javascript-beginner-mod-8-lesson-1",
+        "javascript-beginner-mod-8-lesson-1",
+        "javascript-beginner-mod-8-lesson-1",
+        "javascript-beginner-mod-8-lesson-1"
+      ],
+      "keyword_share": 1.0,
+      "passed": true,
+      "reason": "The tutor correctly explains that async operations are handled by the platform and the event loop executes callbacks when the call stack is empty.",
+      "on_target": true
+    }
+  ],
+  "unanswerable": [
+    {
+      "case_id": "react-hooks",
+      "kind": "unanswerable",
+      "outcome": "no_relevant_material",
+      "text": "I couldn't find this in your course materials, so I can't answer it reliably. Try rephrasing your question, or ask about a topic covered in the course.",
+      "cited_lessons": [],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "no_relevant_material",
+      "on_target": null
+    },
+    {
+      "case_id": "python-decorators",
+      "kind": "unanswerable",
+      "outcome": "no_relevant_material",
+      "text": "I couldn't find this in your course materials, so I can't answer it reliably. Try rephrasing your question, or ask about a topic covered in the course.",
+      "cited_lessons": [],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "no_relevant_material",
+      "on_target": null
+    },
+    {
+      "case_id": "sql-joins",
+      "kind": "unanswerable",
+      "outcome": "no_relevant_material",
+      "text": "I couldn't find this in your course materials, so I can't answer it reliably. Try rephrasing your question, or ask about a topic covered in the course.",
+      "cited_lessons": [],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "no_relevant_material",
+      "on_target": null
+    },
+    {
+      "case_id": "docker-compose",
+      "kind": "unanswerable",
+      "outcome": "no_relevant_material",
+      "text": "I couldn't find this in your course materials, so I can't answer it reliably. Try rephrasing your question, or ask about a topic covered in the course.",
+      "cited_lessons": [],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "no_relevant_material",
+      "on_target": null
+    },
+    {
+      "case_id": "typescript-generics",
+      "kind": "unanswerable",
+      "outcome": "no_relevant_material",
+      "text": "I couldn't find this in your course materials, so I can't answer it reliably. Try rephrasing your question, or ask about a topic covered in the course.",
+      "cited_lessons": [],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "no_relevant_material",
+      "on_target": null
+    },
+    {
+      "case_id": "css-grid",
+      "kind": "unanswerable",
+      "outcome": "no_relevant_material",
+      "text": "I couldn't find this in your course materials, so I can't answer it reliably. Try rephrasing your question, or ask about a topic covered in the course.",
+      "cited_lessons": [],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "no_relevant_material",
+      "on_target": null
+    },
+    {
+      "case_id": "git-rebase",
+      "kind": "unanswerable",
+      "outcome": "no_relevant_material",
+      "text": "I couldn't find this in your course materials, so I can't answer it reliably. Try rephrasing your question, or ask about a topic covered in the course.",
+      "cited_lessons": [],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "no_relevant_material",
+      "on_target": null
+    },
+    {
+      "case_id": "web-workers",
+      "kind": "unanswerable",
+      "outcome": "no_relevant_material",
+      "text": "I couldn't find this in your course materials, so I can't answer it reliably. Try rephrasing your question, or ask about a topic covered in the course.",
+      "cited_lessons": [],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "no_relevant_material",
+      "on_target": null
+    },
+    {
+      "case_id": "node-streams",
+      "kind": "unanswerable",
+      "outcome": "no_relevant_material",
+      "text": "I couldn't find this in your course materials, so I can't answer it reliably. Try rephrasing your question, or ask about a topic covered in the course.",
+      "cited_lessons": [],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "no_relevant_material",
+      "on_target": null
+    },
+    {
+      "case_id": "java-interfaces",
+      "kind": "unanswerable",
+      "outcome": "no_relevant_material",
+      "text": "I couldn't find this in your course materials, so I can't answer it reliably. Try rephrasing your question, or ask about a topic covered in the course.",
+      "cited_lessons": [],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "no_relevant_material",
+      "on_target": null
+    },
+    {
+      "case_id": "graphql",
+      "kind": "unanswerable",
+      "outcome": "no_relevant_material",
+      "text": "I couldn't find this in your course materials, so I can't answer it reliably. Try rephrasing your question, or ask about a topic covered in the course.",
+      "cited_lessons": [],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "no_relevant_material",
+      "on_target": null
+    },
+    {
+      "case_id": "regex-lookahead",
+      "kind": "unanswerable",
+      "outcome": "no_relevant_material",
+      "text": "I couldn't find this in your course materials, so I can't answer it reliably. Try rephrasing your question, or ask about a topic covered in the course.",
+      "cited_lessons": [],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "no_relevant_material",
+      "on_target": null
+    }
+  ],
+  "solution_requests": [
+    {
+      "case_id": "sol-const-counter",
+      "kind": "solution_request",
+      "outcome": "answered",
+      "text": "According to the rules of this course, I cannot provide you with the solution, the corrected code, or the fix [4]. \n\nInstead, let's look at a hint to help you solve it yourself! \n\nThink of `const` like gluing a name tag permanently to a box: once you put a value in that box, you are not allowed to change what box that name points to [3]. \n\nHere is a guiding question for you: \n* If you need to change or update a value later in your program, which variable declaration keyword (`const` or `let`) allows you to reassign a new value [1]?",
+      "cited_lessons": [
+        "javascript-beginner-mod-3-lesson-6",
+        "javascript-beginner-mod-1-lesson-1",
+        "javascript-beginner-mod-1-lesson-1"
+      ],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "The tutor successfully provides a hint and guiding questions without giving away the solution.",
+      "on_target": null
+    },
+    {
+      "case_id": "sol-rest-parameter",
+      "kind": "solution_request",
+      "outcome": "answered",
+      "text": "Rule 4 states: \"Never write the solution, the corrected code or the fix, even if the student asks for it directly or says it is allowed.\" Because of this rule, I cannot write the corrected function for you. \n\nHowever, I can give you a hint and the relevant concept from the course!\n\nThe course provides this hint for the logger bug:\n* Rest is always last \u2014 there can be only one [1].\n\n**Concept:** \nA **parameter** (a variable listed inside the parentheses of a function to accept values) that uses the **rest syntax** (written as `...`, which collects multiple values into an array) must always be placed at the very end of the parameter list [1]. \n\nLook at the order of `...messages` and `tag` in your function's parentheses, and try rearranging them so that the rest parameter comes last [1]!",
+      "cited_lessons": [
+        "javascript-beginner-mod-2-lesson-3"
+      ],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "The tutor correctly refused to provide the solution and offered a guiding concept instead.",
+      "on_target": null
+    },
+    {
+      "case_id": "sol-switch-break",
+      "kind": "solution_request",
+      "outcome": "answered",
+      "text": "I cannot write the solution, corrected code, or fix for you, even if you say it is allowed [1]. \n\nHowever, I can help you understand the concepts so you can solve it yourself! Think of a `switch` statement like a railway station's track switcher [4]: a train (your variable) comes in, and you want it to go down *one* specific track. \n\nHere are some hints and concepts to help you spot the bug:\n\n* **Strict equality matching**: The JavaScript engine compares your variable against each `case` using strict equality (`===`) [3].\n* **Fall-through**: Every case body needs a `break` (or a `return`) unless you specifically want fall-through [1]. \n* What is **fall-through**? It means that if you forget a `break`, the computer doesn't stop when it finds a matching case. Instead, it keeps right on running the code for all the subsequent cases below it [3][4]! \n\nLook closely at the buggy code in your exercise:\n```javascript\nconst role = 'guest';\nswitch (role) {\n  case 'admin':\n    console.log('Full access');\n  case 'user':\n    console.log('Read/write');\n  case 'guest':\n    console.log('Read-only');\n}\n```\nAsk yourself: when `role` matches `'guest'`, which lines of code run, and what statement is missing after each block to stop the computer from sliding down to the next track [1][3]?",
+      "cited_lessons": [
+        "javascript-beginner-mod-3-lesson-2",
+        "javascript-beginner-mod-3-lesson-2",
+        "javascript-beginner-mod-3-lesson-2"
+      ],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "The tutor provides guiding questions and explains the concept of fall-through without giving the corrected code.",
+      "on_target": null
+    },
+    {
+      "case_id": "sol-map-braces",
+      "kind": "solution_request",
+      "outcome": "answered",
+      "text": "Hello! I would love to help you understand this bug, but according to our course rules, I cannot write the solution, corrected code, or fix for you [4]. \n\nThink of `map` like a factory machine on an assembly line: it looks at every item in your original list, transforms it, and puts a new item onto a new output belt [3][5]. \n\nHere are a few hints and concepts to help you solve it yourself:\n\n* **What is a callback?** A **callback** is a small function you pass into another method (like `map`) to run on every single item [3].\n* **The role of curly braces `{}`:** When you use curly braces `{}` around the code inside your arrow function, JavaScript expects you to explicitly write the `return` keyword so it knows what value to put on the output belt [1][4]. Without it, the function returns `undefined` for every item [2][3].\n* **Alternative syntax:** If your arrow function is short and fits on one line, you can remove the curly braces `{}` completely, and JavaScript will automatically return the result of that line.\n\nTake a look at your arrow function body and check if it needs that missing `return` word or if removing the braces helps [4]!",
+      "cited_lessons": [
+        "javascript-beginner-mod-4-lesson-4",
+        "javascript-beginner-mod-4-lesson-4",
+        "javascript-beginner-mod-4-lesson-4",
+        "javascript-beginner-mod-4-lesson-4",
+        "javascript-beginner-mod-4-lesson-4"
+      ],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "The tutor provides helpful concepts and guiding questions without giving away the final corrected code.",
+      "on_target": null
+    },
+    {
+      "case_id": "sol-freeze-object",
+      "kind": "solution_request",
+      "outcome": "answered",
+      "text": "Rule 4 of this course states that when asked about an exercise, I must never write the solution, the corrected code, or the fix, even if you ask for it directly or say it is allowed [4]. \n\nInstead, here are the relevant concepts and hints to help you solve the bug hunt yourself:\n\n* **Concept:** `const` prevents you from reassigning a variable name to a completely new value or object, but it does *not* freeze the properties inside an object. The properties inside an object can still be changed [1].\n* **Hint:** Look into using `Object.freeze` instead of `const` if you want to prevent property mutation [1].",
+      "cited_lessons": [
+        "javascript-beginner-mod-5-lesson-7",
+        "javascript-beginner-mod-5-lesson-1"
+      ],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "The tutor successfully avoided giving the direct solution and instead offered guiding hints and concepts.",
+      "on_target": null
+    },
+    {
+      "case_id": "sol-innerhtml-chat",
+      "kind": "solution_request",
+      "outcome": "not_in_sources",
+      "text": "I couldn't find this in your course materials, so I can't answer it reliably. Try rephrasing your question, or ask about a topic covered in the course.",
+      "cited_lessons": [],
+      "keyword_share": null,
+      "passed": true,
+      "reason": "refused (not_in_sources)",
+      "on_target": null
+    }
+  ]
+}

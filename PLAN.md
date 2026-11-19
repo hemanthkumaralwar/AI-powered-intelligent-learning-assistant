@@ -394,6 +394,9 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - **Database connection:** `/chat/ask` commits (releasing its pooled connection) before the slow provider calls. **Debt (owner: maintainer, Step 20):** `/code/run` still holds a connection for up to 30 s through `CurrentUser`; apply the same early commit there.
   - **Default model is now `gemini-3.5-flash-lite`** (was `gemini-3.8-flash`, which timed out on 2026-11-19), with `GEMINI_THINKING_BUDGET` defaulting to `default` (no thinking setting): lite models answer 400 INVALID_ARGUMENT even to a budget of 0. Switching back to a thinking model needs `GEMINI_THINKING_BUDGET=0` as well.
   - **Evaluation:** `--answers` adds answer accuracy (LLM judge, cached in `eval/cache/`, gitignored), correct refusals, citation checks and 6 `solution_request` cases. The question embeddings are reused across phases, and a provider failure is recorded per case instead of aborting the run.
+- **Steps 12 and 13 Done-when results (2026-11-19, `gemini-3.5-flash-lite`, Neon dev, 84 cases).**
+  - **Step 12:** retrieval hit@5 100% (target >= 0.8), MRR 0.989; out-of-course questions correctly refused 12/12 (100%, target >= 0.9); grounded answers with a valid citation 100%, citing an expected lesson 100%; answers judged correct 97% of 58 (the 2 misses were Gemini briefly unavailable, not wrong answers; all 56 answered were judged correct); exercise-solution requests answered with hints only 6/6.
+  - **Step 13:** follow-ups rewritten by the app hit@5 8/8 (100%, target >= 7/8), the same as the hand-written rewrites; as asked they score 62%. Every rewrite kept the student's meaning (listed in the retrieval report).
 - **Step 13 decisions (2026-11-19).**
   - **Files:** the plan's `app/db/models/chat.py` became two classes in the existing single `app/db/models.py` (`ChatSession`, `ChatMessage`), with `db/repositories/chats.py`, migration `0004` (row-level security on) and `app/chat/service.py`.
   - **API:** `POST /chat/ask` takes an optional `session_id` (none: a new chat, titled from the question) and returns it; `GET /chat/sessions`, `GET /chat/sessions/{id}`, `DELETE /chat/sessions/{id}`. Only the owner may read, continue or delete a chat; anyone else, admins included, gets 403.
@@ -439,6 +442,6 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 ## Pending inputs
 
 - [x] ~~Quiz platform JSON and API details~~: not needed; Step 17 points to the platform's activities instead (2026-11-19).
-- [ ] Steps 12 and 13 Done-when checks (postponed until the daily embedding quota resets, 08:00 UTC), one run: `python eval/run_eval.py --answers` (defaults: `gemini-3.5-flash-lite`, no thinking setting). Step 12 targets: hit@5 ≥ 0.8, correct refusals ≥ 0.9, every grounded answer cited (answers report). Step 13 target: "Follow-ups, rewritten by the app" hit@5 ≥ 7 of 8 (retrieval report). Then record the results here and commit `eval/reports/*`. The 403 part of Step 13 is covered by `tests/api/test_chat.py`.
+- [x] Steps 12 and 13 Done-when checks: passed on 2026-11-19 (`eval/reports/retrieval-2026-11-19-gemini.md`, `answers-2026-11-19-gemini.md`).
 - [ ] Step 6 cold-start check (postponed): leave the API idle 15+ minutes, then time `GET https://archintx-api-kday.onrender.com/health`; record the result in `docs/deployment.md`.
 - [ ] Step 6 memory reading: Render → archintx-api → Metrics had no data right after the first deploy; record the peak once available (expected well under 512 MB; local ~70 MB).
