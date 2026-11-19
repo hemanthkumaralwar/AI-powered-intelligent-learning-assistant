@@ -17,6 +17,7 @@ from app.db.repositories.chats import ChatRepository, NewMessage
 from app.db.repositories.courses import CourseRepository
 from app.db.session import Database
 from app.llm.base import ChatMessage
+from app.llm.prompt_levels import DEFAULT_LEVEL, Level
 from app.rag.answer import Answer, AnswerService
 from app.rag.condense import HISTORY_MESSAGES
 
@@ -63,6 +64,7 @@ class ChatService:
         question: str,
         course_id: str | None = None,
         session_id: uuid.UUID | None = None,
+        level: Level = DEFAULT_LEVEL,
     ) -> ChatReply:
         """Answer `question` in `session_id` (a new session when None) and save the exchange.
 
@@ -83,7 +85,7 @@ class ChatService:
                     _as_turn(m) for m in await repo.recent_messages(session_id, HISTORY_MESSAGES)
                 ]
 
-        answer = await self._answers.ask(user_id, question, course_id, history)
+        answer = await self._answers.ask(user_id, question, course_id, history, level)
 
         async with self._database.session() as db:
             repo = ChatRepository(db)

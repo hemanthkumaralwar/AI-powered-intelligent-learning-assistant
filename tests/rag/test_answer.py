@@ -134,3 +134,11 @@ def test_ground_keeps_first_cited_order(hit) -> None:
 
     assert [c.number for c in answer.citations] == [2, 1]
     assert isinstance(answer.citations[0], Citation)
+
+
+async def test_answer_prompt_uses_the_requested_level(service, hit) -> None:
+    answers, model, _ = service([hit(0.8)], "let is block-scoped [1].")
+
+    await answers.ask("asha", "What is let?", level="advanced")
+
+    assert "Explanation level: advanced." in model.requests[0].messages[0].content

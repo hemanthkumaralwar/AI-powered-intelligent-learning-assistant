@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.chat.service import ChatReply
+from app.llm.prompt_levels import Level
 from app.rag.answer import Citation
 
 MAX_QUESTION_CHARS = 1000
@@ -18,6 +19,8 @@ class AskRequest(BaseModel):
     course_id: str | None = Field(default=None, min_length=1, max_length=100)
     # Continue this conversation; omitted, a new session is started.
     session_id: uuid.UUID | None = None
+    # Explanation level for this answer only; omitted, the profile's level is used.
+    level: Level | None = None
 
     @field_validator("question")
     @classmethod

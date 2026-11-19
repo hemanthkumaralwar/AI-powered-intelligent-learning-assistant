@@ -47,13 +47,13 @@ def _http_error(exc: ChatError) -> HTTPException:
 async def ask(body: AskRequest, user: CurrentUser, session: Session, chats: Chats) -> AskResponse:
     """Answer from the course, or say it is not covered (`grounded: false`). Pass the
     returned `session_id` back to ask a follow-up in the same conversation."""
-    user_id = user.id
+    user_id, level = user.id, body.level or user.level
     # Hand back the connection that loaded the user: the provider calls below are slow
     # and the pool is small. ChatService opens its own short transactions.
     await session.commit()
     try:
         with ai_errors():
-            reply = await chats.ask(user_id, body.question, body.course_id, body.session_id)
+            reply = await chats.ask(user_id, body.question, body.course_id, body.session_id, level)
     except ChatError as exc:
         raise _http_error(exc) from exc
     except DuplicateError as exc:

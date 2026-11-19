@@ -195,3 +195,18 @@ async def test_requires_login(coding: Coding) -> None:
     coding.headers = {}
 
     assert (await coding.post("explain", language="python", code="x")).status_code == 401
+
+
+async def test_coding_uses_the_profile_level_unless_the_request_overrides_it(
+    coding: Coding,
+) -> None:
+    explained = {"summary": "s", "lines": [], "concepts": []}
+    coding.reply(explained, explained)
+    await coding.client.patch("/auth/me", headers=coding.headers, json={"level": "intermediate"})
+
+    await coding.post("explain", language="python", code="x = 1")
+    await coding.post("explain", language="python", code="x = 1", level="advanced")
+
+    profile, override = (r.messages[0].content for r in coding.model.requests)
+    assert "Explanation level: intermediate." in profile
+    assert "Explanation level: advanced." in override

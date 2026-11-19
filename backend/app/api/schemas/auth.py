@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 from app.db.repositories.users import normalize_username
+from app.llm.prompt_levels import Level
 
 USERNAME_PATTERN = r"^[a-z0-9._-]+$"
 
@@ -40,3 +41,11 @@ class UserResponse(BaseModel):
     id: uuid.UUID
     username: str
     role: Literal["admin", "student"]
+    level: Level
+
+
+class UpdateMeRequest(BaseModel):
+    # extra="forbid": a body like {"role": "admin"} is rejected, not silently ignored.
+    model_config = ConfigDict(extra="forbid")
+
+    level: Level

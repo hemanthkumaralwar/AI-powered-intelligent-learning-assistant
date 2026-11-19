@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.coding.schemas import Issue, LineNote, PracticeQuestion
 from app.coding.service import CodingResult, RelatedLesson
+from app.llm.prompt_levels import Level
 from app.runner.base import Language, Outcome
 
 # Smaller than /code/run's 20 KB: a line-by-line explanation of more would not fit the
@@ -18,6 +19,8 @@ MAX_RUN_STREAM_CHARS = 20_000
 class CodeInput(BaseModel):
     language: Language
     code: str = Field(min_length=1)
+    # Explanation level for this answer only; omitted, the profile's level is used.
+    level: Level | None = None
 
     @field_validator("code")
     @classmethod
@@ -48,6 +51,8 @@ class DebugRequest(CodeInput):
 class TopicInput(BaseModel):
     language: Language
     topic: str = Field(min_length=1, max_length=MAX_TOPIC_CHARS)
+    # Explanation level for this answer only; omitted, the profile's level is used.
+    level: Level | None = None
 
     @field_validator("topic")
     @classmethod

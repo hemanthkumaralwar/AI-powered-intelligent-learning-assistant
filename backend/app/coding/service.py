@@ -21,6 +21,7 @@ from app.coding.schemas import (
 from app.core.quota import Quota
 from app.llm.base import ChatMessage, GenerationOptions
 from app.llm.client import LLMClient
+from app.llm.prompt_levels import DEFAULT_LEVEL, Level
 from app.providers.errors import InvalidResponseError, ProviderCallError
 from app.rag.retriever import Retriever, Source
 
@@ -62,10 +63,10 @@ class CodingService:
         self._retriever = retriever
 
     async def explain(
-        self, user_key: Hashable, language: str, code: str
+        self, user_key: Hashable, language: str, code: str, level: Level = DEFAULT_LEVEL
     ) -> CodingResult[ExplainOutput]:
         self._quota.consume(user_key)
-        messages = prompts.code_messages(prompts.EXPLAIN, language, code)
+        messages = prompts.code_messages(prompts.EXPLAIN, language, code, level=level)
         output = await self._generate(messages, ExplainOutput)
         lines = len(code.splitlines())
         output.lines = sorted(
@@ -83,13 +84,14 @@ class CodingService:
         code: str,
         run_output: str | None,
         exercise_code: Sequence[str],
+        level: Level = DEFAULT_LEVEL,
     ) -> CodingResult[DebugOutput]:
         """`exercise_code`: the course's exercise code in this language. A match switches
         to hints only, and `corrected_code` is forced to null whatever the model says."""
         self._quota.consume(user_key)
         exercise = matches_exercise(code, exercise_code)
         system = prompts.DEBUG_HINTS_ONLY if exercise else prompts.DEBUG
-        messages = prompts.code_messages(system, language, code, run_output)
+        messages = prompts.code_messages(system, language, code, run_output, level)
         output = await self._generate(messages, DebugOutput)
         lines = len(code.splitlines())
         output.issues = sorted(
@@ -106,10 +108,10 @@ class CodingService:
         return await self._finish(output, language, exercise=exercise)
 
     async def example(
-        self, user_key: Hashable, language: str, topic: str
+        self, user_key: Hashable, language: str, topic: str, level: Level = DEFAULT_LEVEL
     ) -> CodingResult[ExampleOutput]:
         self._quota.consume(user_key)
-        messages = prompts.topic_messages(prompts.EXAMPLE, language, topic)
+        messages = prompts.topic_messages(prompts.EXAMPLE, language, topic, level)
         output = await self._generate(messages, ExampleOutput)
         output.title = _cut(output.title, 200)
         output.code = output.code[:MAX_CODE_CHARS]
@@ -117,10 +119,10 @@ class CodingService:
         return await self._finish(output, language)
 
     async def practice(
-        self, user_key: Hashable, language: str, topic: str
+        self, user_key: Hashable, language: str, topic: str, level: Level = DEFAULT_LEVEL
     ) -> CodingResult[PracticeOutput]:
         self._quota.consume(user_key)
-        messages = prompts.topic_messages(prompts.PRACTICE, language, topic)
+        messages = prompts.topic_messages(prompts.PRACTICE, language, topic, level)
         output = await self._generate(messages, PracticeOutput)
         output.questions = output.questions[:MAX_PRACTICE_QUESTIONS]
         for question in output.questions:

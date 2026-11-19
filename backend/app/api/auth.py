@@ -3,9 +3,16 @@
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import Auth, CurrentUser, Session
-from app.api.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from app.api.schemas.auth import (
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UpdateMeRequest,
+    UserResponse,
+)
 from app.auth.errors import InvalidCredentialsError
 from app.db.errors import DuplicateError
+from app.db.repositories.users import UserRepository
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -37,4 +44,12 @@ async def login(body: LoginRequest, session: Session, auth: Auth) -> TokenRespon
 @router.get("/me")
 async def me(user: CurrentUser) -> UserResponse:
     """The account the bearer token belongs to."""
+    return UserResponse.model_validate(user)
+
+
+@router.patch("/me")
+async def update_me(body: UpdateMeRequest, user: CurrentUser, session: Session) -> UserResponse:
+    """Change your own explanation level. Only `level` is accepted: role and username
+    cannot be changed here (any other field is a 422)."""
+    await UserRepository(session).set_level(user, body.level)
     return UserResponse.model_validate(user)

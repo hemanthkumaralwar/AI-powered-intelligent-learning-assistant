@@ -77,7 +77,7 @@ COURSE = {
     "language": "javascript",
 }
 GET_ROUTES = {
-    "/auth/me": {"id": "1", "username": "asha", "role": "student"},
+    "/auth/me": {"id": "1", "username": "asha", "role": "student", "level": "beginner"},
     "/courses": [COURSE],
     "/courses/js": COURSE
     | {
@@ -188,6 +188,13 @@ class FakeApi(BaseHTTPRequestHandler):
         elif self._authorised():
             FakeApi.received[self.path] = body
             self._reply(200, POST_ROUTES[self.path])
+
+    def do_PATCH(self) -> None:  # noqa: N802
+        length = int(self.headers.get("Content-Length", 0))
+        body = json.loads(self.rfile.read(length) or b"{}")
+        if self._authorised():
+            FakeApi.received[self.path] = body
+            self._reply(200, GET_ROUTES["/auth/me"] | body)
 
     def do_GET(self) -> None:  # noqa: N802
         if self._authorised():
@@ -333,10 +340,22 @@ def test_share_appears_for_compiler_explorer_languages(fake_api_url: str) -> Non
 
 def test_dom_exercise_offers_the_page_sandbox(fake_api_url: str) -> None:
     app = signed_in(fake_api_url)
-    app = app.selectbox[1].select_index(1).run()  # the DOM lesson
+    lesson = next(s for s in app.selectbox if s.label == "Lesson")
+    app = lesson.select_index(1).run()  # the DOM lesson
 
     assert app.text_area(key="exercise-e2:code").value == DOM_CODE
     app = button(app, "Run in page sandbox").click().run()
 
     assert not app.exception
     assert app.session_state["exercise-e2:sandboxed"] == (DOM_CODE, "")
+
+
+def test_level_selector_saves_to_the_profile(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url)
+    level = next(s for s in app.selectbox if s.label == "Explanation level")
+    assert level.value == "beginner"
+
+    app = level.set_value("advanced").run()
+
+    assert FakeApi.received["/auth/me"] == {"level": "advanced"}
+    assert not app.exception

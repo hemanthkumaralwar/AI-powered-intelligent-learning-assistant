@@ -10,7 +10,8 @@ def test_messages_hold_rules_then_numbered_sources_and_question(hit) -> None:
 
     system, user = build_messages("What is let?", sources)
 
-    assert (system.role, system.content) == ("system", SYSTEM_PROMPT)
+    assert system.role == "system"
+    assert system.content.startswith(SYSTEM_PROMPT)  # rules first, then the level guidance
     assert user.role == "user"
     assert '<source id="1" kind="lesson">\nlet declares' in user.content
     assert '<source id="2" kind="exercise">\nFix the bug' in user.content

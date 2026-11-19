@@ -285,3 +285,21 @@ async def test_a_failed_answer_saves_nothing(chat: Chat) -> None:
 
 async def test_sessions_need_login(chat: Chat) -> None:
     assert (await chat.client.get("/chat/sessions")).status_code == 401
+
+
+# ---- explanation level (Step 16) --------------------------------------------------------
+
+
+async def test_answers_use_the_profile_level_unless_the_request_overrides_it(chat: Chat) -> None:
+    await chat.client.patch("/auth/me", headers=chat.headers, json={"level": "advanced"})
+
+    await chat.ask(question="What is let?")
+    await chat.ask(question="What is let?", level="beginner")
+
+    profile, override = (r.messages[0].content for r in chat.model.requests)
+    assert "Explanation level: advanced." in profile
+    assert "Explanation level: beginner." in override
+
+
+async def test_unknown_level_is_422(chat: Chat) -> None:
+    assert (await chat.ask(question="What is let?", level="expert")).status_code == 422

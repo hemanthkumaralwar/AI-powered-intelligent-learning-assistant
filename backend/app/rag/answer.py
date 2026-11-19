@@ -9,6 +9,7 @@ from typing import Literal
 from app.core.quota import Quota
 from app.llm.base import ChatMessage, GenerationOptions
 from app.llm.client import LLMClient
+from app.llm.prompt_levels import DEFAULT_LEVEL, Level
 from app.rag.citations import resolve_markers
 from app.rag.condense import Condenser
 from app.rag.prompts import NOT_IN_COURSE, build_messages
@@ -80,6 +81,7 @@ class AnswerService:
         question: str,
         course_id: str | None = None,
         history: Sequence[ChatMessage] = (),
+        level: Level = DEFAULT_LEVEL,
     ) -> Answer:
         """Answer from the course or refuse; a follow-up is first rewritten from `history`
         (oldest first). Raises `QuotaExceededError` (counted before any provider call)
@@ -90,7 +92,9 @@ class AnswerService:
         if not sources:
             answer = Answer(REFUSAL, "no_relevant_material")
         else:
-            response = await self._llm.chat(build_messages(standalone, sources), self._options)
+            response = await self._llm.chat(
+                build_messages(standalone, sources, level), self._options
+            )
             answer = ground(response.text, sources)
         if standalone != question:
             answer = replace(answer, standalone=standalone)

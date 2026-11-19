@@ -96,7 +96,8 @@ async def test_register_login_me_round_trip(client: httpx2.AsyncClient) -> None:
     assert created.status_code == 201
     assert created.json()["username"] == "asha"
     assert created.json()["role"] == "student"
-    assert set(created.json()) == {"id", "username", "role"}
+    assert created.json()["level"] == "beginner"
+    assert set(created.json()) == {"id", "username", "role", "level"}
 
     login = await client.post("/auth/login", json={"username": "ASHA", "password": PASSWORD})
     assert login.status_code == 200
@@ -279,3 +280,37 @@ async def test_seeding_tolerates_a_concurrent_instance(database: Database) -> No
             raise DuplicateError("username already exists")
 
     assert await seed_admin(database, RacingAuth(), "admin", SecretStr(PASSWORD)) is False
+
+
+# ---- explanation level (Step 16) --------------------------------------------------------
+
+
+async def test_student_sets_their_own_level(client: httpx2.AsyncClient) -> None:
+    await register(client)
+    headers = bearer(await login_token(client))
+
+    changed = await client.patch("/auth/me", headers=headers, json={"level": "advanced"})
+    me = await client.get("/auth/me", headers=headers)
+
+    assert changed.status_code == 200
+    assert changed.json()["level"] == me.json()["level"] == "advanced"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [{"level": "expert"}, {}, {"level": "advanced", "role": "admin"}, {"role": "admin"}],
+    ids=["unknown-level", "empty", "level-plus-role", "role-only"],
+)
+async def test_level_update_rejects_anything_else(client: httpx2.AsyncClient, body: dict) -> None:
+    await register(client)
+    headers = bearer(await login_token(client))
+
+    response = await client.patch("/auth/me", headers=headers, json=body)
+    me = await client.get("/auth/me", headers=headers)
+
+    assert response.status_code == 422
+    assert (me.json()["role"], me.json()["level"]) == ("student", "beginner")
+
+
+async def test_level_update_needs_login(client: httpx2.AsyncClient) -> None:
+    assert (await client.patch("/auth/me", json={"level": "advanced"})).status_code == 401

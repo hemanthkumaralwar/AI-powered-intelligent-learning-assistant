@@ -207,3 +207,11 @@ def test_api_messages_reach_the_student_except_server_errors(status, body, messa
 def test_expired_token_on_any_call_means_session_expired() -> None:
     with pytest.raises(SessionExpiredError):
         client_returning(respond(401, {"detail": "x"})).courses("old")
+
+
+def test_set_level_patches_the_profile() -> None:
+    handler, seen = recording(body={"level": "advanced"})
+
+    assert client_returning(handler).set_level("tok", "advanced") == {"level": "advanced"}
+    assert (seen[0].method, seen[0].url.path) == ("PATCH", "/auth/me")
+    assert json.loads(seen[0].content) == {"level": "advanced"}

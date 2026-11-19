@@ -27,6 +27,11 @@ class UserRepository:
     async def get(self, user_id: uuid.UUID) -> User | None:
         return await self._session.get(User, user_id)
 
+    async def set_level(self, user: User, level: str) -> User:
+        user.level = level
+        await self._session.flush()
+        return user
+
     async def get_by_username(self, username: str) -> User | None:
         query = select(User).where(User.username == normalize_username(username))
         return await self._session.scalar(query)

@@ -38,10 +38,10 @@ async def explain(
     body: CodeInput, user: CurrentUser, session: Session, coding: Coding
 ) -> ExplainResponse:
     """Line-by-line explanation of the code."""
-    user_id = user.id
+    user_id, level = user.id, body.level or user.level
     await session.commit()
     with ai_errors():
-        result = await coding.explain(user_id, body.language, body.code)
+        result = await coding.explain(user_id, body.language, body.code, level)
     return ExplainResponse.from_result(result)
 
 
@@ -51,7 +51,7 @@ async def debug(
 ) -> DebugResponse:
     """Bugs with line numbers and a corrected program. Pass the `/code/run` result as
     `run` for better answers. Course exercises get hints only (`exercise: true`)."""
-    user_id = user.id
+    user_id, level = user.id, body.level or user.level
     exercise_code = await CourseRepository(session).exercise_code(body.language)
     await session.commit()
     run = body.run
@@ -59,7 +59,9 @@ async def debug(
         run_output_text(run.outcome, run.stdout, run.stderr, run.compile_output) if run else None
     )
     with ai_errors():
-        result = await coding.debug(user_id, body.language, body.code, run_text, exercise_code)
+        result = await coding.debug(
+            user_id, body.language, body.code, run_text, exercise_code, level
+        )
     return DebugResponse.from_result(result)
 
 
@@ -68,10 +70,10 @@ async def example(
     body: TopicInput, user: CurrentUser, session: Session, coding: Coding
 ) -> ExampleResponse:
     """A short runnable example that teaches the topic."""
-    user_id = user.id
+    user_id, level = user.id, body.level or user.level
     await session.commit()
     with ai_errors():
-        result = await coding.example(user_id, body.language, body.topic)
+        result = await coding.example(user_id, body.language, body.topic, level)
     return ExampleResponse.from_result(result)
 
 
@@ -80,8 +82,8 @@ async def practice(
     body: TopicInput, user: CurrentUser, session: Session, coding: Coding
 ) -> PracticeResponse:
     """Practice questions with hints and expected output, never solutions."""
-    user_id = user.id
+    user_id, level = user.id, body.level or user.level
     await session.commit()
     with ai_errors():
-        result = await coding.practice(user_id, body.language, body.topic)
+        result = await coding.practice(user_id, body.language, body.topic, level)
     return PracticeResponse.from_result(result)

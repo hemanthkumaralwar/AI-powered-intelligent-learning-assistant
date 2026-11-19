@@ -58,8 +58,12 @@ class ApiClient:
         return self._json(response)["access_token"]
 
     def me(self, token: str) -> dict[str, Any]:
-        """Return the signed-in account (`id`, `username`, `role`)."""
+        """Return the signed-in account (`id`, `username`, `role`, `level`)."""
         return self._authed("GET", "/auth/me", token)
+
+    def set_level(self, token: str, level: str) -> dict[str, Any]:
+        """Save the explanation level (beginner, intermediate, advanced) to the profile."""
+        return self._authed("PATCH", "/auth/me", token, json={"level": level})
 
     # ---- course content -------------------------------------------------------------
 

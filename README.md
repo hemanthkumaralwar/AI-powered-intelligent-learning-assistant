@@ -196,7 +196,8 @@ Uploaded originals are stored in Postgres (`document_files`, `bytea`, at most 10
 |---|---|---|
 | `POST /auth/register` | anyone | creates a **student** account (`username`: 3–50 chars of `a-z 0-9 . _ -`, case-insensitive; `password`: 8–128 chars) |
 | `POST /auth/login` | anyone | returns `{"access_token", "token_type": "bearer", "expires_in"}` |
-| `GET /auth/me` | logged in | the current account |
+| `GET /auth/me` | logged in | the current account (`id`, `username`, `role`, `level`) |
+| `PATCH /auth/me` | logged in | `{"level": "beginner" \| "intermediate" \| "advanced"}` sets your explanation level; any other field is a 422 |
 
 Send the token as `Authorization: Bearer <token>`. In Swagger (`/docs`), use **Authorize**.
 
@@ -205,6 +206,7 @@ Send the token as `Authorization: Bearer <token>`. In Swagger (`/docs`), use **A
 - **Login failures** return the same `401 Invalid username or password` whether the username or the password was wrong.
 - **Admins:** the API cannot create admins; only `ADMIN_USERNAME` / `ADMIN_PASSWORD` can, at startup. Seeding never changes an existing account. After the first production deploy you can remove `ADMIN_PASSWORD` from Render.
 - **Route protection:** `CurrentUser` (any logged-in user) and `AdminUser` (admins only) in `app/api/deps.py`.
+- **Explanation level:** every account starts as `beginner`. Chat answers and the coding assistant adapt depth, vocabulary and length to it; each request can override it with its own `level`. The level never relaxes a rule (grounding, citations, refusals, hints-only for exercises): its guidance is added after the rules and says so. Shared wording: `app/llm/prompt_levels.py`.
 - **CORS** is deliberately off: the Streamlit frontend calls the API from its own server, so browsers never need cross-origin access.
 
 ## Course materials
@@ -257,7 +259,7 @@ Uploading a course starts indexing in the background: chunk → embed → save v
 
 ### Asking questions (`POST /chat/ask`)
 
-Any logged-in user: `{"question": "...", "course_id": "javascript-beginner-v1", "session_id": "..."}` (`course_id` and `session_id` are optional; questions are up to 1,000 characters). Without `session_id` a new chat starts; the response returns its `session_id`, which you send back to ask follow-ups.
+Any logged-in user: `{"question": "...", "course_id": "javascript-beginner-v1", "session_id": "..."}` (`course_id`, `session_id` and `level` are optional; questions are up to 1,000 characters). Without `session_id` a new chat starts; the response returns its `session_id`, which you send back to ask follow-ups.
 
 0. **Follow-ups** (a chat with earlier messages): the question is first rewritten into a standalone one from the last 3 exchanges ("How do I loop over it?" → "How do I loop over an array in JavaScript?"). That is one extra LLM call; if it fails, the question is used as asked.
 1. The (standalone) question is embedded and the top `RAG_TOP_K` chunks are retrieved. Chunks below `RAG_MIN_SCORE` are dropped; if none are left, the reply says the course doesn't cover it, **without an LLM call**.
@@ -321,7 +323,7 @@ python scripts/code_runner_smoke.py
 
 ## Coding assistant
 
-Any logged-in user, for `javascript`, `python`, `c`, `cpp`, `java` and `sql`. Code is up to 8 KB and 200 lines; topics up to 200 characters. Every response is validated JSON and lists up to 3 `related_lessons` (with `link`) found from the concepts involved.
+Any logged-in user, for `javascript`, `python`, `c`, `cpp`, `java` and `sql`. Code is up to 8 KB and 200 lines; topics up to 200 characters. An optional `level` overrides the profile's explanation level for one request. Every response is validated JSON and lists up to 3 `related_lessons` (with `link`) found from the concepts involved.
 
 | Endpoint | Body | Returns |
 |---|---|---|
@@ -363,7 +365,8 @@ backend/app/        FastAPI application (package "app")
   migrations/       Alembic migrations (config: alembic.ini at the repo root)
 frontend/           Streamlit app (streamlit_app.py) and its API client (api_client.py)
   components/       compiler panel, DOM sandbox (dom_sandbox.html), practice view
-eval/               dataset.jsonl + run_eval.py (RAG), code_cases.jsonl + run_code_eval.py (coding), reports/
+eval/               dataset.jsonl + run_eval.py (RAG), code_cases.jsonl + run_code_eval.py (coding),
+                    run_level_demo.py (levels), reports/
   materials/        course files used by tests and evaluation (javascript-beginner.json)
 docs/               deployment guide
 scripts/            manual smoke tests (llm, embedding, code runner)

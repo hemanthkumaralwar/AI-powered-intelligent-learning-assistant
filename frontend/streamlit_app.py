@@ -16,6 +16,7 @@ from api_client import ApiClient, ApiError, SessionExpiredError
 from components.practice import show_practice
 
 TOKEN_KEY = "access_token"  # noqa: S105 - session_state key name, not a secret
+LEVELS = ["beginner", "intermediate", "advanced"]
 
 
 def api_base_url() -> str | None:
@@ -66,7 +67,27 @@ def show_account(client: ApiClient, token: str) -> bool:
     if st.button("Log out"):
         del st.session_state[TOKEN_KEY]
         st.rerun()
+    show_level(client, token, user.get("level", LEVELS[0]))
     return True
+
+
+def show_level(client: ApiClient, token: str, current: str) -> None:
+    """Explanation depth for chat and coding answers, saved to the profile on change."""
+    chosen = st.selectbox(
+        "Explanation level",
+        LEVELS,
+        index=LEVELS.index(current) if current in LEVELS else 0,
+        format_func=str.capitalize,
+        help="How deep the assistant's explanations go.",
+    )
+    if chosen == current:
+        return
+    try:
+        client.set_level(token, chosen)
+    except ApiError as exc:
+        st.error(str(exc))
+        return
+    st.toast(f"Explanations set to {chosen}.")
 
 
 def main() -> None:

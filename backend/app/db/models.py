@@ -24,6 +24,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -63,12 +64,19 @@ class User(TimestampMixin, Base):
     __table_args__ = (
         CheckConstraint("role IN ('admin', 'student')", name="role_valid"),
         CheckConstraint("username = lower(username)", name="username_lowercase"),
+        CheckConstraint("level IN ('beginner', 'intermediate', 'advanced')", name="level_valid"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     username: Mapped[str] = mapped_column(String(50), unique=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(20))
+    # Explanation depth for chat and coding answers (app/llm/prompt_levels.py).
+    # The Python default sets it on new objects (a server default alone would leave the
+    # attribute unloaded after insert); the server default covers rows from before 0005.
+    level: Mapped[str] = mapped_column(
+        String(20), default="beginner", server_default=text("'beginner'")
+    )
 
 
 class Course(TimestampMixin, Base):
