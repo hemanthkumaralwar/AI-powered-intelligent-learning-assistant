@@ -55,6 +55,7 @@ Migrations run automatically on every Render build (`alembic upgrade head`), so 
    It must be `https://`. The app refuses plain `http://` except for localhost.
 3. Deploy. Streamlit installs [`frontend/requirements.txt`](../frontend/requirements.txt) only (just `streamlit` and `httpx2`).
 4. **Make it public.** Apps deployed from a private repo start **private**: visitors are sent to a Streamlit sign-in page. Go to share.streamlit.io → your app → **⋮ → Settings → Sharing → Who can view this app → public**. This controls only who can open the page; the source code stays private on GitHub.
+5. **After a push that changes frontend helper modules, reboot the app.** Streamlit Cloud pulls every push and re-runs `frontend/streamlit_app.py`, but it can keep already-imported modules (`menu.py`, `components/…`) from before the push. Old and new code then meet, e.g. on 2026-11-20 after Step 24: `AttributeError` at `page.path`, because the old `menu.py` still returned tuples. Fix: share.streamlit.io → your app → **⋮ → Reboot app** (or **Manage app → ⋮ → Reboot**), then reload the page.
 
 ## 4. Check it works (Step 6 done-when)
 
