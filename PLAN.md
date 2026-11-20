@@ -309,18 +309,37 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 ### Step 23 — Additional features (after submission) [PERF] [BUDGET]
 Built after Step 22 is submitted, in order of cost; each part ships on its own.
 
-**23a — Compiler in Arc (about half a day)**
-- **Goal:** run code without leaving the chat. An answer with a code block gets a "Run this example" expander that opens the compiler panel with that code; an answer citing a lesson with exercises gets an "Open in Practice" button that jumps to that lesson's Practice tab.
-- **Files:** `frontend/views/arc.py`, `frontend/components/compiler.py`, `tests/frontend/test_streamlit_app.py`.
-- **Rules:** "coding task" is decided without an AI call (code block in the answer, or the cited lesson has exercises); runs count against the existing per-student run quota; nothing is pre-filled from an exercise's solution (answers to exercise requests already carry no solution code).
-- **Done when:** a cited answer with code runs in the chat in one click, and "Open in Practice" lands on the cited lesson's Practice tab.
+**23a — Practice from Arc (about a day; first)**
+- **Goal:** close the loop from an answer to practice. Built in two pieces, in this order:
+  1. **"Open in Practice"**: an answer that cites a lesson gets a button that opens that lesson's Practice tab in LearnX (the tab already says when a lesson has no exercises, so no extra request is made to check).
+  2. **"Run this example"** (decided after piece 1 ships): a code block in the **latest** answer gets an expander with the compiler panel pre-filled. Whether it also belongs on the Reading tab's examples is decided then.
+- **Admin switch (your decision, 2026-11-20):** the feature is turned on or off **per course**, by admins only.
+  - Stored on the course (migration: `courses.arc_practice_enabled`, default **off**, so an admin opts each course in).
+  - `PATCH /admin/courses/{course_id}` `{"arc_practice_enabled": true|false}`: admin only (403 for students), audited in the log as metadata (who, which course, on/off).
+  - **Coding courses only:** the switch is refused (422) for a course whose language is not one the code runner supports. Today every course has one (a database constraint), so this guards future non-coding courses.
+  - Settings shows the switch per course; Arc shows the buttons only for answers whose cited course has it on.
+  - **What the switch is not:** a security boundary. It controls the shortcut, not access: students can open Practice and run code from LearnX either way, and `/code/run` keeps its own per-student quota.
+- **Backend change needed:** citations gain `course_id` (search results already carry it), because LearnX needs the course to open a lesson, and Arc needs it to read the course's switch.
+- **Rules:** no AI calls; runs count against the existing run quota; nothing is pre-filled from an exercise's solution. For "Run this example": the language comes from the code block's tag, falling back to the course's language; no button for languages the runner cannot run (e.g. HTML).
+- **Files:** `app/db/models.py` + migration `0007`, `app/api/admin_documents.py` (switch), `app/rag/answer.py` + `app/api/schemas/chat.py` (`course_id`), `frontend/views/arc.py`, `frontend/views/admin_courses.py`, `frontend/views/learnx.py` (open a lesson's Practice tab directly), `docs/api.md`, README, tests mirroring each.
+- **Done when:** with the switch on, an answer citing a lesson opens that lesson's Practice tab in one click; with it off (or for another course) no button appears; a student gets 403 on the switch endpoint; the switch is refused for a non-coding course.
 
-**23b — Spaced review (about a day)**
-- **Goal:** tell students *when* to revisit a lesson, not only what is weak. After each graded exercise attempt the lesson's next review moves out 1 → 3 → 7 → 14 → 30 days; a failed attempt resets it to 1 day. The LearnX course page shows "Due for review".
-- **Files:** `app/learning/review.py` (pure scheduling, injected clock), `/me/reviews` endpoint, `frontend/components/progress.py`, tests mirroring each.
-- **Rules:** no AI calls; derived from stored attempts (no new data collected); no reminders (no email or push on the free tier), so due reviews show when the student visits.
-- **Known limit:** only exercise attempts (about 3 per lesson) feed it, since quiz scores live on the platform; it becomes far more useful if the platform shares quiz results.
-- **Done when:** a seeded student with a failed attempt sees that lesson due tomorrow, and a lesson passed twice is not due for 3 days (tests with a fixed clock).
+**23b — Spaced review (about a day; second)**
+- **Goal:** tell students *when* to revisit a lesson, not only what is weak.
+- **Decisions (yours, 2026-11-20):**
+  - **Per lesson:** a lesson becomes due; reviewing it means re-submitting any of its exercises.
+  - **Ladder:** the lesson's attempts are replayed in time order. Each pass moves the next review out 1 → 3 → 7 → 14 → 30 days; any failed attempt resets it to 1 day. A pass at the 30-day review marks the lesson **mastered**, and it stops coming up.
+  - **Placement:** a separate **"Due for review"** list above "What to do next" on the LearnX course page. A lesson shown as due is left out of the review part of "What to do next", so nothing appears twice.
+  - **Admin switch per course,** like 23a: `courses.spaced_review_enabled`, default **off**, set with the same admin-only `PATCH /admin/courses/{course_id}`, shown in Settings. With it off, the course has no due list and `/me/reviews` returns nothing for it.
+- **Rules:**
+  - Derived from stored exercise attempts on every request: no new data collected, no schedule table.
+  - "Due" counts **24-hour periods** from the last attempt (the app does not know students' time zones, so no "calendar day").
+  - Only lessons the student has attempted can be due; not-started lessons stay with "What to do next".
+  - No AI calls to compute it. Each review is an exercise submission, so it costs one AI grading call, from the existing shared quota.
+  - No reminders (no email or push on the free tier): due reviews show when the student visits.
+- **Known limit:** about 3 exercises per lesson, so reviews re-use exercises the student has seen and can drift towards remembering answers. Fresh questions come with 23c, or with quiz scores if the platform shares them.
+- **Files:** `app/learning/review.py` (pure scheduling, injected clock), `GET /me/reviews?course_id=` (owner only), migration `0008` (the switch), `app/api/admin_documents.py` (switch), `frontend/components/progress.py`, `frontend/views/admin_courses.py`, `docs/api.md`, README, tests mirroring each.
+- **Done when (tests with a fixed clock):** a failed attempt makes the lesson due 24 hours later; two passes in a row push it to 3 days; a pass at the 30-day step marks it mastered and it never shows again; a due lesson is not repeated in "What to do next"; with the course's switch off nothing is due; a student gets 403 on the switch and only ever sees their own reviews.
 
 **23c — Tutor mode in Arc, scoped (largest; measure before building fully)**
 - **Goal:** a guided, one-question-at-a-time practice mode for one lesson's concepts (demo → varied practice → recall, with a mastery gate), built on the existing course schema rather than a free-form prompt.
