@@ -34,7 +34,7 @@ Send the token from `POST /auth/login` as `Authorization: Bearer <token>`; in Sw
 
 | Method and path | Who | What |
 |---|---|---|
-| `GET /courses` | logged in | course list |
+| `GET /courses` | logged in | course list, with each course's feature switches (`arc_practice_enabled`) |
 | `GET /courses/{course_id}` | logged in | outline: modules (with explanations) and lesson titles, in order |
 | `GET /lessons/{lesson_id}` | logged in | teaching content and exercises (starter code, hints), **never** solutions or quiz answers |
 
@@ -49,6 +49,7 @@ Course and lesson responses are cached for `CONTENT_CACHE_SECONDS`; any admin up
 | `GET /admin/documents/{document_id}/download` | admin | the original file (it includes every answer) |
 | `DELETE /admin/documents/{document_id}` | admin | delete one uploaded file |
 | `DELETE /admin/courses/{course_id}` | admin | delete a course and **everything** attached to it: lessons, quizzes, exercises, documents, vectors |
+| `PATCH /admin/courses/{course_id}` | admin | per-course feature switches, e.g. `{"arc_practice_enabled": true}` ("Open in Practice" in Arc; default off). Only the switches sent change; an empty body, only `null`s or an unknown switch is 422. Takes effect at once (the course cache is cleared) and is logged with the admin's id |
 | `POST /admin/reindex` | admin | re-queue every document; unchanged content already in the current embedding space costs no quota |
 | `POST /admin/search` | admin | `{query, course_id?, k}`: what retrieval would return, to check retrieval quality |
 
@@ -56,7 +57,7 @@ Course and lesson responses are cached for `CONTENT_CACHE_SECONDS`; any admin up
 
 | Method and path | Who | What |
 |---|---|---|
-| `POST /chat/ask` | logged in | `{question, course_id?, session_id?, level?}` → `{session_id, answer, grounded, citations, practice}`. Without `session_id` a new chat starts; send it back for follow-ups. `grounded: false` means the course does not cover it |
+| `POST /chat/ask` | logged in | `{question, course_id?, session_id?, level?}` → `{session_id, answer, grounded, citations, practice}`. Without `session_id` a new chat starts; send it back for follow-ups. `grounded: false` means the course does not cover it. Each citation has `course_id` and `lesson_id` (citations saved before `course_id` existed have `null`) |
 | `GET /chat/sessions` | owner | your chats, most recently active first (`limit` 1–50, `offset`); chats untouched for `CHAT_RETENTION_DAYS` are deleted first |
 | `GET /chat/sessions/{session_id}` | owner | one chat with all its messages (answers include `grounded` and `citations`) |
 | `DELETE /chat/sessions/{session_id}` | owner | delete a chat and its messages (204) |

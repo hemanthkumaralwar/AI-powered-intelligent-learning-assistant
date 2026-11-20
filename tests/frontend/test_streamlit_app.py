@@ -76,6 +76,7 @@ COURSE = {
     "description": None,
     "level": None,
     "language": "javascript",
+    "arc_practice_enabled": True,
 }
 GET_ROUTES = {
     "/auth/me": {"id": "1", "username": "asha", "role": "student", "level": "beginner"},
@@ -182,6 +183,7 @@ CHAT_REPLY = {
             "lesson_title": "Variables",
             "section": "Explanation",
             "link": "/lessons/l1",
+            "course_id": "js",
         }
     ],
     "practice": [
@@ -305,6 +307,8 @@ class FakeApi(BaseHTTPRequestHandler):
     POST bodies are recorded in `received` so tests can check what the UI sent."""
 
     received: dict[str, dict] = {}
+    # A test sets this to make PATCH fail (server error), then puts it back.
+    patch_fails = False
 
     def do_POST(self) -> None:  # noqa: N802 - name required by BaseHTTPRequestHandler
         length = int(self.headers.get("Content-Length", 0))
@@ -324,9 +328,14 @@ class FakeApi(BaseHTTPRequestHandler):
     def do_PATCH(self) -> None:  # noqa: N802
         length = int(self.headers.get("Content-Length", 0))
         body = json.loads(self.rfile.read(length) or b"{}")
-        if self._authorised():
-            FakeApi.received[self.path] = body
-            self._reply(200, GET_ROUTES["/auth/me"] | body)
+        if not self._authorised():
+            return
+        FakeApi.received[self.path] = body
+        if FakeApi.patch_fails:
+            self._reply(500, {"detail": "Internal server error"})
+            return
+        base = COURSE if self.path.startswith("/admin/courses/") else GET_ROUTES["/auth/me"]
+        self._reply(200, base | body)
 
     def do_GET(self) -> None:  # noqa: N802
         if not self._authorised():
@@ -834,3 +843,79 @@ def test_admin_deletes_a_course_and_sees_confirmation(fake_api_url: str) -> None
 
     assert "DELETE /admin/courses/js" in FakeApi.received
     assert any("Deleted `js`." in s.value for s in app.success)
+
+
+# ---- Step 23a: Open in Practice from Arc ------------------------------------------------
+
+
+def asked(fake_api_url: str) -> AppTest:
+    app = signed_in(fake_api_url, page="views/arc.py")
+    return app.chat_input[0].set_value("What is let?").run()
+
+
+def test_answer_opens_the_cited_lesson_on_its_practice_tab(fake_api_url: str) -> None:
+    app = asked(fake_api_url)
+
+    app = button(app, "Open in Practice: Variables").click().run()
+
+    state = app.session_state
+    assert (state["learnx:course"], state["learnx:lesson"], state["learnx:tab"]) == (
+        "js",
+        "l1",
+        "Practice",
+    )
+    assert "## Variables" in [m.value for m in app.markdown]  # LearnX shows the lesson
+    assert not app.exception
+
+
+def test_no_practice_button_when_the_course_is_switched_off(
+    fake_api_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setitem(COURSE, "arc_practice_enabled", False)
+
+    app = asked(fake_api_url)
+
+    assert not [b for b in app.button if b.label.startswith("Open in Practice")]
+
+
+def test_no_practice_button_for_citations_saved_before_course_ids(
+    fake_api_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delitem(CHAT_REPLY["citations"][0], "course_id")
+
+    app = asked(fake_api_url)
+
+    assert not [b for b in app.button if b.label.startswith("Open in Practice")]
+    assert not app.exception
+
+
+def test_lessons_opened_from_learnx_start_on_reading(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url, state={"learnx:course": "js"})
+
+    app = app.button(key="lesson:l1").click().run()
+
+    assert app.session_state["learnx:tab"] is None
+
+
+def test_admin_switches_open_in_practice_per_course(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url, page="views/admin_courses.py", token=ADMIN_TOKEN)
+    switch = app.toggle(key="feature:arc:js")
+    assert switch.value is True
+
+    app = switch.set_value(False).run()
+
+    assert FakeApi.received["/admin/courses/js"] == {"arc_practice_enabled": False}
+    assert any("Open in Practice is off for `js`." in s.value for s in app.success)
+
+
+def test_a_failed_switch_shows_the_error_and_keeps_the_server_value(
+    fake_api_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(FakeApi, "patch_fails", True)
+    app = signed_in(fake_api_url, page="views/admin_courses.py", token=ADMIN_TOKEN)
+
+    app = app.toggle(key="feature:arc:js").set_value(False).run()
+
+    assert any("server had a problem" in e.value for e in app.error)
+    assert app.toggle(key="feature:arc:js").value is True  # redrawn from the server
+    assert not app.exception

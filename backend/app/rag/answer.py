@@ -49,6 +49,9 @@ class Citation:
     lesson_title: str | None
     section: str
     score: float
+    # Lets the frontend open the cited lesson in LearnX (Step 23a); None in citations
+    # saved before it existed.
+    course_id: str | None = None
 
     @property
     def link(self) -> str | None:
@@ -154,4 +157,5 @@ def _citation(source: Source) -> Citation:
         lesson_title=source.lesson_title,
         section=source.section,
         score=source.score,
+        course_id=source.course_id,
     )

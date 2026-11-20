@@ -40,6 +40,8 @@ class CitationResponse(BaseModel):
     lesson_title: str | None
     section: str
     link: str | None
+    # None for citations saved before Step 23a (chat history keeps them as stored).
+    course_id: str | None = None
 
     @classmethod
     def from_citation(cls, citation: Citation) -> "CitationResponse":
@@ -51,6 +53,7 @@ class CitationResponse(BaseModel):
             lesson_title=citation.lesson_title,
             section=citation.section,
             link=citation.link,
+            course_id=citation.course_id,
         )
 
 

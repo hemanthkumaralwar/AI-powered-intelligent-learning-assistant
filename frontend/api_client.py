@@ -169,6 +169,12 @@ class ApiClient:
     def delete_course(self, token: str, course_id: str) -> None:
         self._authed("DELETE", f"/admin/courses/{quote(course_id, safe='')}", token)
 
+    def update_course_settings(self, token: str, course_id: str, **changes: bool) -> dict[str, Any]:
+        """Admin switches, e.g. `arc_practice_enabled=True`."""
+        return self._authed(
+            "PATCH", f"/admin/courses/{quote(course_id, safe='')}", token, json=changes
+        )
+
     def reindex(self, token: str) -> dict[str, Any]:
         return self._authed("POST", "/admin/reindex", token)
 

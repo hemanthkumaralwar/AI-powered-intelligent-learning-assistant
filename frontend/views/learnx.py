@@ -1,7 +1,8 @@
 """LearnX: your courses, a course's modules with progress and what to do next, and each
 lesson with Reading, Practice, Code and Quiz & activities tabs.
 
-Where you are (course, lesson) lives in `st.session_state`, so it survives reruns.
+Where you are (course, lesson, tab) lives in `st.session_state` (components/lesson_nav.py),
+so it survives reruns, and Arc can open a lesson's Practice tab directly.
 """
 
 from typing import Any
@@ -12,13 +13,13 @@ from api_client import ApiClient, ApiError
 from components.coding_helper import show_coding_helper
 from components.compiler import LANGUAGES
 from components.lesson import show_lesson_header, show_reading
+from components.lesson_nav import COURSE, LESSON, TAB, open_course, open_lesson
 from components.practice import show_exercises, show_platform_activities
 from components.progress import load_progress, mastery_label, show_next_steps
 from session import Session, current
 
-COURSE = "learnx:course"  # the open course's id
-LESSON = "learnx:lesson"  # the open lesson's id
 CATALOG_COLUMNS = 3
+LESSON_TABS = ["Reading", "Practice", "Code", "Quiz & activities"]
 
 
 def main() -> None:
@@ -36,15 +37,6 @@ def main() -> None:
     except ApiError as exc:
         st.error(str(exc))
         st.button("Back to all courses", on_click=open_course, args=(None,))
-
-
-def open_course(course_id: str | None) -> None:
-    st.session_state[COURSE] = course_id
-    st.session_state[LESSON] = None
-
-
-def open_lesson(lesson_id: str | None) -> None:
-    st.session_state[LESSON] = lesson_id
 
 
 def show_catalog(client: ApiClient, token: str) -> None:
@@ -122,9 +114,7 @@ def show_lesson(session: Session, outline: dict[str, Any], lesson: dict[str, Any
     )
     language = outline["language"]
     show_lesson_header(lesson)
-    reading, practice, code, activities = st.tabs(
-        ["Reading", "Practice", "Code", "Quiz & activities"]
-    )
+    reading, practice, code, activities = st.tabs(LESSON_TABS, default=st.session_state.get(TAB))
     with reading:
         show_reading(lesson, language)
     with practice:

@@ -61,6 +61,17 @@ class CourseRepository:
         result = await self._session.execute(delete(Course).where(Course.id == course_id))
         return result.rowcount == 1
 
+    async def update_settings(self, course_id: str, changes: dict[str, bool]) -> Course | None:
+        """Set admin switches on a course; None if it does not exist. `changes` comes from
+        a schema that allows only known switch names."""
+        course = await self._session.get(Course, course_id)
+        if course is None:
+            return None
+        for name, value in changes.items():
+            setattr(course, name, value)
+        await self._session.flush()
+        return course
+
     async def get_lesson(self, lesson_id: str) -> Lesson | None:
         """A lesson with its module and exercises (quiz questions are not loaded)."""
         query = (

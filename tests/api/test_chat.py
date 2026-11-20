@@ -123,6 +123,7 @@ async def test_grounded_answer_with_citation(chat: Chat) -> None:
             "lesson_title": "Variables",
             "section": "Explanation",
             "link": f"/lessons/{LESSON}",
+            "course_id": COURSE,
         }
     ]
     assert "<question>\nWhat is let?\n</question>" in chat.model.requests[0].messages[1].content

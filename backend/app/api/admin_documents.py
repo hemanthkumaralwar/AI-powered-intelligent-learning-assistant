@@ -1,5 +1,7 @@
-"""Admin-only course management: upload, list, download, delete, re-index, search."""
+"""Admin-only course management: upload, list, download, delete, course switches,
+re-index, search."""
 
+import logging
 import uuid
 from typing import Annotated
 
@@ -18,7 +20,7 @@ from fastapi import (
 
 from app.api.deps import ContentCache, Session, require_admin
 from app.api.downloads import file_response
-from app.api.schemas.materials import DocumentResponse
+from app.api.schemas.materials import CourseSettingsUpdate, CourseSummary, DocumentResponse
 from app.api.schemas.search import ReindexResponse, SearchHitResponse, SearchRequest
 from app.db.models import User
 from app.db.repositories.courses import CourseRepository
@@ -34,6 +36,8 @@ from app.ingestion.files import MAX_UPLOAD_BYTES, require_course_json, safe_file
 from app.ingestion.service import ingest_course
 from app.providers.errors import ProviderCallError
 from app.runner.base import Language
+
+logger = logging.getLogger(__name__)
 
 # Every route here requires an admin.
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
@@ -132,6 +136,26 @@ async def delete_course(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found")
     background.add_task(indexing.remove_course, course_id)
     cache.clear()
+
+
+@router.patch("/courses/{course_id}")
+async def update_course_settings(
+    course_id: str, body: CourseSettingsUpdate, admin: Admin, session: Session, cache: ContentCache
+) -> CourseSummary:
+    """Turn a course's features on or off (e.g. `arc_practice_enabled`). Only the settings
+    sent change. Every course is a coding course (database constraint), so no course is
+    refused for its language."""
+    changes = body.changes()
+    course = await CourseRepository(session).update_settings(course_id, changes)
+    if course is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found")
+    response = CourseSummary.model_validate(course)
+    # Commit before clearing the cached course list, so a request in between cannot
+    # re-cache the old value; the switch then takes effect at once.
+    await session.commit()
+    cache.clear()
+    logger.info("course settings changed admin_id=%s course_id=%s %s", admin.id, course_id, changes)
+    return response
 
 
 @router.post("/reindex", status_code=status.HTTP_202_ACCEPTED)

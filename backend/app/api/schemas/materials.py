@@ -3,9 +3,9 @@ answers, exercise solutions or bug explanations, so they cannot leak by accident
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Self
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class DocumentResponse(BaseModel):
@@ -30,6 +30,27 @@ class CourseSummary(BaseModel):
     description: str | None
     level: str | None
     language: str
+    # Admin switch: Arc offers "Open in Practice" for answers citing this course.
+    arc_practice_enabled: bool
+
+
+class CourseSettingsUpdate(BaseModel):
+    """Admin switches for one course. Only the fields sent are changed; unknown fields
+    are refused (422), so a typo never silently does nothing."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    arc_practice_enabled: bool | None = None
+
+    @model_validator(mode="after")
+    def _something_to_change(self) -> Self:
+        if not self.changes():
+            raise ValueError("Send at least one setting to change")
+        return self
+
+    def changes(self) -> dict[str, bool]:
+        """The settings to apply (fields sent as null change nothing)."""
+        return self.model_dump(exclude_none=True)
 
 
 class LessonSummary(BaseModel):

@@ -13,6 +13,7 @@ from session import current
 
 STATUS_ICONS = {"pending": "⏳", "processing": "⚙️", "ready": "✅", "failed": "❌"}
 FLASH = "admin:flash"
+FEATURE_ERROR = "admin:feature-error"  # set by the switch callback, shown on the next run
 
 
 def main() -> None:
@@ -25,6 +26,7 @@ def main() -> None:
         st.success(flash)
     upload(session.client, session.token)
     documents = show_documents(session.client, session.token)
+    course_features(session.client, session.token)
     if documents:
         delete_course(session.client, session.token, documents)
     reindex(session.client, session.token)
@@ -81,6 +83,44 @@ def show_documents(client: ApiClient, token: str) -> list[dict[str, Any]]:
         width="stretch",
     )
     return documents
+
+
+def course_features(client: ApiClient, token: str) -> None:
+    """Per-course switches. Every course is a coding course, so every course has them."""
+    st.subheader("Course features")
+    try:
+        courses = client.courses(token)
+    except ApiError as exc:
+        st.error(str(exc))
+        return
+    for course in courses:
+        key = f"feature:arc:{course['id']}"
+        # on_change, not "compare with the server every run": that would call the API
+        # again on every rerun whenever the two disagree (e.g. another admin changed it).
+        st.toggle(
+            f"**{course['title']}**: Open in Practice from Arc",
+            value=course["arc_practice_enabled"],
+            key=key,
+            on_change=_set_feature,
+            args=(client, token, course["id"], key),
+            help="Arc answers citing this course get a button that opens the lesson's "
+            "Practice tab.",
+        )
+    if error := st.session_state.pop(FEATURE_ERROR, None):
+        st.error(error)
+
+
+def _set_feature(client: ApiClient, token: str, course_id: str, key: str) -> None:
+    enabled = st.session_state[key]
+    try:
+        client.update_course_settings(token, course_id, arc_practice_enabled=enabled)
+    except ApiError as exc:
+        # Forget the flipped widget, so it is redrawn with the server's value.
+        del st.session_state[key]
+        st.session_state[FEATURE_ERROR] = str(exc)
+        return
+    state = "on" if enabled else "off"
+    st.session_state[FLASH] = f"Open in Practice is {state} for `{course_id}`."
 
 
 def delete_course(client: ApiClient, token: str, documents: list[dict[str, Any]]) -> None:

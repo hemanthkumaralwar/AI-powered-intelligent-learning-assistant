@@ -21,6 +21,7 @@ class Source:
     lesson_title: str | None
     section: str
     is_exercise: bool
+    course_id: str | None = None
 
     @classmethod
     def from_hit(cls, number: int, hit: SearchHit) -> "Source":
@@ -35,6 +36,7 @@ class Source:
             lesson_title=metadata.get("lesson_title"),
             section=hit.section,
             is_exercise=metadata.get("type") == "exercise",
+            course_id=hit.course_id,
         )
 
 
