@@ -301,7 +301,7 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 - **Done when:** the public URLs work from a fresh browser; the production report is committed; a backup recording exists. Don't run the full evaluation right before the live demo, so the quota isn't used up.
 
 ### Step 22 — Documentation and submission (Day 10, written alongside earlier steps)
-- **Goal:** README covering setup and provider switching (Gemini/OpenAI LLM; Gemini/OpenAI/local Hugging Face embeddings; Wandbox/Piston/Judge0 code runners). Swagger API docs. Technical documentation: architecture, design decisions, evaluation results, limitations, and how it integrates with ArchintX.
+- **Goal:** README covering setup and provider switching (Gemini/OpenAI LLM; Gemini/OpenAI/local Hugging Face embeddings; Judge0 CE and Compiler Explorer code runners, which replaced Wandbox/Piston in Step 7). Swagger API docs. Technical documentation: architecture, design decisions, evaluation results, limitations, and how it integrates with ArchintX.
 - **Files:** `README.md`, `docs/{architecture,api,evaluation,testing,deployment}.md`.
 - **Depends on:** 21.
 - **Done when:** a clean machine reaches a running app by following only the README; every deliverable maps to a file or link.

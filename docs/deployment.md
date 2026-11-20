@@ -80,7 +80,7 @@ To re-check later:
 
 1. Open the Streamlit app and log in as the admin.
 2. **Settings** (bottom of the rail): choose `eval/materials/javascript-beginner.json`, programming language JavaScript, **Upload**.
-3. Press **Refresh** until its status is `ready` (about a minute). Students can now ask about it.
+3. Press **Refresh** until its status is `ready` (about 5 minutes: 424 chunks, embedded at the free tier's pace). Students can now ask about it.
 
 Uploading the same course again is refused (409). To replace it, delete it first on the same page.
 
