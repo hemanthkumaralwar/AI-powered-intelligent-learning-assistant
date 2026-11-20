@@ -307,7 +307,7 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 - **Done when:** a clean machine reaches a running app by following only the README; every deliverable maps to a file or link.
 
 ### Step 23 — Additional features (after submission) [PERF] [BUDGET]
-Built after Step 22 is submitted, in order of cost; each part ships on its own.
+Built after Step 22 is submitted, in order: 23a, then 23b, then 23c (23c reuses 23b's schedule). Each part ships on its own, and each is turned on per course by an admin (all default off).
 
 **23a — Practice from Arc (about a day; first)**
 - **Goal:** close the loop from an answer to practice. Built in two pieces, in this order:
@@ -341,13 +341,30 @@ Built after Step 22 is submitted, in order of cost; each part ships on its own.
 - **Files:** `app/learning/review.py` (pure scheduling, injected clock), `GET /me/reviews?course_id=` (owner only), migration `0008` (the switch), `app/api/admin_documents.py` (switch), `frontend/components/progress.py`, `frontend/views/admin_courses.py`, `docs/api.md`, README, tests mirroring each.
 - **Done when (tests with a fixed clock):** a failed attempt makes the lesson due 24 hours later; two passes in a row push it to 3 days; a pass at the 30-day step marks it mastered and it never shows again; a due lesson is not repeated in "What to do next"; with the course's switch off nothing is due; a student gets 403 on the switch and only ever sees their own reviews.
 
-**23c — Tutor mode in Arc, scoped (largest; measure before building fully)**
-- **Goal:** a guided, one-question-at-a-time practice mode for one lesson's concepts (demo → varied practice → recall, with a mastery gate), built on the existing course schema rather than a free-form prompt.
-- **Schema mapping:** demo = the lesson's `example` and `analogy`; practice = `interactiveExercise` and `miniChallenge` plus AI-written variations grounded in the lesson's chunks; recall = `keyTakeaways`; the concept list = `concepts`.
-- **Rules (changes from the proposed prompt):** in-course only (no "any topic"); hints-only for course exercises (never "show the correct answer" for them); quizzes stay on the platform (Step 17); the **server** keeps the cycle step and mastery count (not a model-written header or a pasted RESUME block, which a student could edit); the model only writes the next question and grades the answer as JSON (the coding helper's pattern); at most 3 practice rounds and a mastery gate of 2 correct in a row.
-- **Budget check first:** the proposed cycle costs about 10–15 AI calls per concept (the JavaScript course has about 500 concepts) against 5 questions a minute per student, 20 a minute app-wide, and the daily embedding cap. Measure calls per concept on a few lessons before opening it to everyone; it may need its own quota.
-- **Files:** `app/tutor/{service,schemas}.py`, a migration for tutor state, `/tutor/*` endpoints, an Arc "Practice with Arc" mode, an evaluation set in `eval/`.
-- **Done when:** a student completes one concept's cycle with state surviving a page reload, the mastery gate holds, an exercise never reveals its solution (leak test), and the measured calls per concept are recorded.
+**23c — Tutor mode, an experiment (largest; last, after 23b)**
+- **Goal:** the adaptive part of your tutor prompt that a static lesson cannot do: one question at a time, a mastery gate, a fresh demo when stuck, and earlier concepts mixed back in. Built on the course schema and server-side state, not a free-form prompt.
+- **Decisions (yours, 2026-11-20):**
+  - **An experiment behind a switch:** admin-only per course (`courses.tutor_enabled`, default **off**, same `PATCH /admin/courses/{course_id}` as 23a/23b). Measure calls per concept on about 3 lessons before turning it on more widely.
+  - **Started from a lesson:** a "Practice with Arc" button on the LearnX lesson page tutors that lesson's concepts, so it is always in-course.
+  - **Its own daily cap:** `TUTOR_LESSONS_PER_STUDENT_PER_DAY` (default 2, about 80 calls) and an app-wide `TUTOR_CALLS_PER_DAY`, separate from Arc's quota, so tutoring never blocks normal answers. 429 with `Retry-After` when reached.
+  - **Stop rule:** after 2 wrong in a row, a new demo with a different analogy and mastery reset to 0; after 3 practice rounds plus that one re-demo, move to the next concept and mark it for spaced review (23b). Cost stays bounded.
+- **The cycle per concept (server-driven):**
+  1. **Demo** from the course: the lesson's `example` and `analogy` (no AI call).
+  2. **Practice,** at most 3 rounds, one question per turn. Each round changes one thing (domain, audience, constraint or format). The lesson's `interactiveExercise` / `miniChallenge` are used where they fit, but a lesson has 2–3 exercises for about 8 concepts, so most questions are AI-written from the lesson's chunks.
+  3. **Mastery gate:** 2 correct in a row to advance (or the stop rule above).
+  4. **Interleave:** after every 2 concepts, one question on an earlier concept in a new context.
+  5. **Recall:** at the end, "close the notes" questions turned from `keyTakeaways` (statements, so the AI phrases them as questions).
+  6. **Spacing:** a session opens with one recall question on a lesson that 23b says is due, if any.
+- **Feedback on every answer:** correct or incorrect, the right answer, and one sentence why. Showing the answer is fine for AI-written questions; **course exercises stay hints-only** (never their solution).
+- **One AI call per turn:** it grades the answer and writes the next question together, as JSON (the coding helper's pattern, one retry then 502). About 5 calls per concept, about 40 per lesson. The demo costs nothing.
+- **Framing:** the student's explanation level (beginner = simple words, one-sentence definitions of every term, a real analogy), reusing `prompt_levels.py`.
+- **State and privacy:** the server keeps the lesson, concept, cycle step, round and mastery in a `tutor_sessions` table (migration). No model-written state header and no pasted RESUME block, which a student could edit. Instead the page shows "Concept 3 of 8 · mastery 1/2". State survives a page reload. Student answers are **not stored** (only correct or incorrect); sessions follow the 90-day chat retention.
+- **Security:** student answers go into the grading prompt as data, neutralised like chat questions (`defuse`); owner-only access (403 otherwise); the reference solution is never in a reply (leak test).
+- **Files:** `app/tutor/{service,schemas,prompts}.py`, migration `0009`, `/tutor/*` endpoints, settings for the caps, `frontend/components/tutor.py` + the LearnX lesson page, `eval/tutor_cases.jsonl` + a runner, `docs/api.md`, README, tests mirroring each.
+- **Done when:**
+  - Mechanics (tests with a fake model): a student completes one concept's cycle; state survives a reload; the mastery gate and stop rule hold; interleave and due-review questions appear; a student hits the daily cap with 429; course exercises never reveal their solution; another student's session is 403.
+  - Quality (live, on about 3 lessons): practice questions stay in-course and are graded correctly on ≥ 90% of a 20-answer evaluation set.
+  - Cost (live): measured AI calls per concept and per lesson recorded in PLAN.md, and the switch is turned on more widely only if they fit the free tier.
 
 ---
 
