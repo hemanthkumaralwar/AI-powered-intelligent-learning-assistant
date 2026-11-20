@@ -504,6 +504,8 @@ Built after Step 22 is submitted, in order of cost; each part ships on its own.
 
 ## Pending inputs
 
+> **Deferred (2026-11-20, your decision):** the Done-when verifications for Steps 21 and 22 are postponed until you are ready (the items marked Step 21 / Step 22 below). The code and docs for both steps are done and pushed.
+
 - [x] ~~Quiz platform JSON and API details~~: not needed; Step 17 points to the platform's activities instead (2026-11-19).
 - [x] Step 19 admin demo: done on 2026-11-19 with a local test admin (`devadmin`, created on the Neon dev database with your approval; credentials kept outside the repo).
 - [x] Steps 12 and 13 Done-when checks: passed on 2026-11-19 (`eval/reports/retrieval-2026-11-19-gemini.md`, `answers-2026-11-19-gemini.md`).
