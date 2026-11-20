@@ -348,6 +348,7 @@ Built after Step 22 is submitted, in order: 23a, then 23b, then 23c (23c reuses 
   - **Started from a lesson:** a "Practice with Arc" button on the LearnX lesson page tutors that lesson's concepts, so it is always in-course.
   - **Its own daily cap:** `TUTOR_LESSONS_PER_STUDENT_PER_DAY` (default 2, about 80 calls) and an app-wide `TUTOR_CALLS_PER_DAY`, separate from Arc's quota, so tutoring never blocks normal answers. 429 with `Retry-After` when reached.
   - **Stop rule:** after 2 wrong in a row, a new demo with a different analogy and mastery reset to 0; after 3 practice rounds plus that one re-demo, move to the next concept and mark it for spaced review (23b). Cost stays bounded.
+- **Status: postponed (your decision, 2026-11-20).** Reviewed and decided, not started; pick it up with part 1 (backend) when ready.
 - **Review decisions (yours, 2026-11-20):**
   - **Daily caps in the database,** not memory: Render's free server restarts many times a day, which would reset in-memory counters. Lessons per student per day are counted from stored tutor sessions; app-wide AI calls per day use a small daily counter table (migration).
   - **AI-written questions only:** course exercises stay in the Practice tab and are not used by the tutor, so no solution can leak through it. (This replaces "the lesson's `interactiveExercise` / `miniChallenge` are used where they fit" below.)
