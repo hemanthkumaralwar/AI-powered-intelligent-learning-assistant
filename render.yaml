@@ -26,6 +26,10 @@ services:
         value: production
       - key: LOG_LEVEL
         value: INFO
+      # Pinned so a change to the code's default never silently switches the
+      # production model (the evaluations were measured with this one).
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite
       # Supabase SESSION pooler URL (port 5432, ?sslmode=require).
       - key: DATABASE_URL
         sync: false
@@ -40,4 +44,8 @@ services:
       - key: ADMIN_USERNAME
         sync: false
       - key: ADMIN_PASSWORD
+        sync: false
+      # Optional: the learning platform's lesson page, https with {lesson_id}. Empty means
+      # quizzes and activities are listed without links.
+      - key: PLATFORM_LESSON_URL
         sync: false

@@ -64,20 +64,63 @@ Results of the first deployment (2026-11-18):
 |---|---|
 | API | `https://archintx-api-kday.onrender.com`: `/health` 200, `/docs` 200, anonymous `/auth/me` 401, bad login 401, invalid input 422 with no echo |
 | Frontend | `https://ai-powered-intelligent-learning-assistant.streamlit.app/`: public (anonymous visitors reach the app); admin login showed "Signed in as … (admin)", and log out returned to the form |
-| Cold start | **Postponed.** Not yet measured; run the re-check below (leave the API idle 15+ minutes, then time `/health`). |
+| Cold start | **58 s** for `/health` after the API had been idle (measured 2026-11-20, Step 21). Later requests answer in well under a second. |
 | Memory | Render Metrics had no data yet right after the first deploy; local measurement ~70 MB (Windows, Python 3.12). Re-check Render → **Metrics** after a day of use; it should stay well under 512 MB. |
+| Step 21 re-check (2026-11-20, fresh browser, not signed in to Streamlit) | Frontend still **public**: Streamlit's "app has gone to sleep" page, then the login form after about 50 s; no menu before login. CI passed for the Step 20 commit, which Render then deploys (confirm in Render → **Events**). |
 
 To re-check later:
 
 - [ ] The public Streamlit URL logs in with the admin account (or a student registered through the API's `/docs`).
-- [ ] `https://…onrender.com/health` responds after a cold start (wait 15+ minutes, then load it; the first response may take up to a minute).
+- [x] `https://…onrender.com/health` responds after a cold start: 58 s on 2026-11-20.
 - [ ] Render → service → **Metrics** → memory stays well under 512 MB.
+
+## 5. Production launch (Step 21)
+
+### Load the course
+
+1. Open the Streamlit app and log in as the admin.
+2. **Manage courses**: choose `eval/materials/javascript-beginner.json`, programming language JavaScript, **Upload**.
+3. Press **Refresh** until its status is `ready` (about a minute). Students can now ask about it.
+
+Uploading the same course again is refused (409). To replace it, delete it first on the same page.
+
+### Run the production evaluation
+
+Register a student for the evaluation (not the admin, which should not be used for routine checks): open `https://archintx-api-kday.onrender.com/docs` → `POST /auth/register` → **Try it out**, enter a username and password, **Execute** (201). The Streamlit app has no sign-up form. Then, from the repository root:
+
+```bash
+.venv/Scripts/python eval/run_live_eval.py --api-url https://archintx-api-kday.onrender.com
+```
+
+- It asks for the student's username and password (hidden). Neither they nor the token are printed or saved.
+- 20 cases from `eval/dataset.jsonl` (10 covered questions, 4 out-of-course, 3 follow-up chats, 3 exercise-solution requests): 23 questions at 4 a minute, about 6 minutes.
+- Scored from the API's responses only: grounded or refused, an expected lesson cited, no solution code, and response times. No LLM judge, to save quota; answer correctness is measured offline in Step 12.
+- Writes `eval/reports/production.md` and `.json`. Commit both.
+- **Run it at least a few hours before a demo.** It uses the same Gemini key as the app, and the free tier's daily limits are shared.
+
+### Backup recording
+
+Record the demo once, so a cold start or provider outage during the live demo has a fallback. Use **Win+Alt+R** (Xbox Game Bar) or OBS. Keep the video **outside the repository** (it is too large for git), for example in your cloud drive, and note where it is in `eval/reports/production.md`.
+
+Demo script (about 5 minutes; warm up first, see below):
+
+1. **Admin:** log in, Manage courses: the JavaScript course is `ready`. Log out.
+2. **Student:** log in (the menu has no admin pages).
+3. **Courses:** open a lesson.
+4. **Ask the assistant:** "What is an array in JavaScript?" Show the cited answer and the lesson's activities.
+5. Follow up: "How do I loop over it?" The answer stays on arrays.
+6. Out of course: "How do React hooks work?" The assistant says the course doesn't cover it.
+7. **Practice:** open a bug hunt, run it (error shown), ask the AI (hints, no fixed code), submit (graded with a hint).
+8. **My progress:** the weak lesson is recommended first.
 
 ## Cold starts and the demo
 
 There is **no keep-alive** (decided in Step 6), so:
 
-- **Before a demo:** open `…/health`, then log in once in the Streamlit app, about 2 minutes before you start. That wakes both Render and Supabase.
+- **Before a demo (warm-up), about 2 minutes before you start:**
+  1. Open `https://archintx-api-kday.onrender.com/health` and wait for `{"status":"ok"}` (up to a minute after idle).
+  2. Open the Streamlit app and log in once. That also wakes Supabase.
+  3. Ask one short question, so the course index and the AI provider are warm.
 - **If Supabase paused** after a quiet week: Supabase dashboard → your project → **Restore**. It takes a few minutes, and the data is kept.
 - The frontend waits up to 60 s and shows "The server is waking up…" instead of an error, so a cold start looks like a pause, not a crash.
 

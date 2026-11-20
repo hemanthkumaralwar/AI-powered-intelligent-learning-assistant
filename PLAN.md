@@ -403,6 +403,11 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
   - **Follow-ups:** `app/rag/condense.py` rewrites the question from the last 3 exchanges (each cut to 500 characters, temperature 0) before retrieval, and only when the chat has history. The answer prompt sees only the rewritten question, not the history, so answers stay grounded. A failed or unusable rewrite falls back to the question as asked.
   - **Storage:** the question, its rewrite, the answer, `grounded` and citations. `ask` loads in one short transaction and saves in another, so no connection is held during the provider calls; a failed answer saves nothing. 100 messages per chat (409). A concurrent write to the same chat is a 409 via the (session, position) unique constraint.
   - **Evaluation:** `--answers` also scores follow-ups rewritten by the app ("Follow-ups, rewritten by the app" row) and lists every rewrite for review.
+- **Step 21 decisions (2026-11-20).**
+  - **Deployment was already live** from Step 6 (Render auto-deploys `main` after CI passes; Streamlit Cloud redeploys on push), so this step re-checks it rather than redeploying. `render.yaml` now pins `GEMINI_MODEL=gemini-3.5-flash-lite` (the model the evaluations measured) and declares `PLATFORM_LESSON_URL` as an optional dashboard value.
+  - **Checked from a fresh browser (2026-11-20):** the Streamlit app is public (sleep page, then the login form after about 50 s; no menu before login). API cold start **58 s** for `/health` after idle; warm 0.1–0.2 s.
+  - **Production evaluation through the API** (`eval/run_live_eval.py`, logic in `app/evaluation/live.py` and `live_api.py`): 20 cases (10 covered, 4 out-of-course, 3 follow-up chats, 3 solution requests), 23 questions at 4 a minute (the API allows 5 per student). Scored from responses only, no LLM judge, to save the shared quota; correctness stays measured offline (Step 12). Credentials are prompted (password hidden) and never printed or saved; https only.
+  - **Your part (security):** I can't enter production passwords or create production accounts, so you upload the course (admin), register the evaluation student and run the script, and make the backup recording (kept outside the repository). Steps in `docs/deployment.md` §5.
 - **Step 20 decisions (2026-11-19).**
   - **Sign-in protection:** after 5 wrong passwords for a username in 15 minutes, that username gets 429 with `Retry-After` (other accounts unaffected); app-wide caps of 60 sign-ins and 20 registrations a minute (`app/auth/limits.py`). Per username, not per IP: behind Render's proxy the client IP is not trustworthy without extra setup.
   - **Quotas stay in process memory** (`app/core/quota.py`, one Render instance; reset on restart). A shared store would need Redis, which the ₹0 budget rules out. The plan's `app/core/ratelimit.py` is that existing module.
@@ -461,5 +466,8 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 - [x] ~~Quiz platform JSON and API details~~: not needed; Step 17 points to the platform's activities instead (2026-11-19).
 - [x] Step 19 admin demo: done on 2026-11-19 with a local test admin (`devadmin`, created on the Neon dev database with your approval; credentials kept outside the repo).
 - [x] Steps 12 and 13 Done-when checks: passed on 2026-11-19 (`eval/reports/retrieval-2026-11-19-gemini.md`, `answers-2026-11-19-gemini.md`).
-- [ ] Step 6 cold-start check (postponed): leave the API idle 15+ minutes, then time `GET https://archintx-api-kday.onrender.com/health`; record the result in `docs/deployment.md`.
+- [x] Step 6 cold-start check: 58 s on 2026-11-20 (recorded in `docs/deployment.md`).
+- [ ] Step 21: upload `javascript-beginner-v1` to production (admin, Manage courses), if not loaded yet.
+- [ ] Step 21: register an evaluation student, run `eval/run_live_eval.py` against production at least a few hours before the demo, and commit `eval/reports/production.{md,json}`.
+- [ ] Step 21: record the backup demo (script in `docs/deployment.md` §5) and note where the video is kept in `eval/reports/production.md`.
 - [ ] Step 6 memory reading: Render → archintx-api → Metrics had no data right after the first deploy; record the peak once available (expected well under 512 MB; local ~70 MB).

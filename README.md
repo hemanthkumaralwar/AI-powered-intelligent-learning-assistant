@@ -338,6 +338,8 @@ python eval/run_eval.py --answers                                # + app-rewritt
 
 Live mode rebuilds the index from `DATABASE_URL` (the course must already be indexed there), so it embeds only the questions. Offline mode chunks `eval/materials/javascript-beginner.json` with the given size and embeds everything locally, which makes it the way to compare chunk sizes. Reports go to `eval/reports/retrieval-<date>-<label>.{md,json}`: hit@1/3/5/10, MRR, hit@5 by module, the per-question ranks, and the **answer-or-refuse similarity threshold** that Step 12 uses. With `--answers`, `eval/reports/answers-<date>-<label>.{md,json}` adds: answered and judged-correct rates, expected-keyword coverage, citations on the expected lesson, correct refusals, hints-only replies to solution requests, and every failure quoted for review. Judge verdicts are cached in `eval/cache/` (gitignored), so re-runs only judge answers that changed. The judge is the same free model, so it may be lenient; read the quoted failures.
 
+**Production evaluation (Step 21):** `python eval/run_live_eval.py --api-url https://…onrender.com` asks 20 of these cases (23 questions, about 6 minutes) through the live API as a student you registered, prompting for the password. It scores only what the API returns (refusals, cited lessons, no solution code, response times) and writes `eval/reports/production.{md,json}`. See [docs/deployment.md](docs/deployment.md#run-the-production-evaluation).
+
 ## Running code
 
 Student code **never runs on our server**. It is sent to free, open-source remote sandboxes:
