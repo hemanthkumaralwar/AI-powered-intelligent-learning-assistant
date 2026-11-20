@@ -306,6 +306,30 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 - **Depends on:** 21.
 - **Done when:** a clean machine reaches a running app by following only the README; every deliverable maps to a file or link.
 
+### Step 23 — Additional features (after submission) [PERF] [BUDGET]
+Built after Step 22 is submitted, in order of cost; each part ships on its own.
+
+**23a — Compiler in Arc (about half a day)**
+- **Goal:** run code without leaving the chat. An answer with a code block gets a "Run this example" expander that opens the compiler panel with that code; an answer citing a lesson with exercises gets an "Open in Practice" button that jumps to that lesson's Practice tab.
+- **Files:** `frontend/views/arc.py`, `frontend/components/compiler.py`, `tests/frontend/test_streamlit_app.py`.
+- **Rules:** "coding task" is decided without an AI call (code block in the answer, or the cited lesson has exercises); runs count against the existing per-student run quota; nothing is pre-filled from an exercise's solution (answers to exercise requests already carry no solution code).
+- **Done when:** a cited answer with code runs in the chat in one click, and "Open in Practice" lands on the cited lesson's Practice tab.
+
+**23b — Spaced review (about a day)**
+- **Goal:** tell students *when* to revisit a lesson, not only what is weak. After each graded exercise attempt the lesson's next review moves out 1 → 3 → 7 → 14 → 30 days; a failed attempt resets it to 1 day. The LearnX course page shows "Due for review".
+- **Files:** `app/learning/review.py` (pure scheduling, injected clock), `/me/reviews` endpoint, `frontend/components/progress.py`, tests mirroring each.
+- **Rules:** no AI calls; derived from stored attempts (no new data collected); no reminders (no email or push on the free tier), so due reviews show when the student visits.
+- **Known limit:** only exercise attempts (about 3 per lesson) feed it, since quiz scores live on the platform; it becomes far more useful if the platform shares quiz results.
+- **Done when:** a seeded student with a failed attempt sees that lesson due tomorrow, and a lesson passed twice is not due for 3 days (tests with a fixed clock).
+
+**23c — Tutor mode in Arc, scoped (largest; measure before building fully)**
+- **Goal:** a guided, one-question-at-a-time practice mode for one lesson's concepts (demo → varied practice → recall, with a mastery gate), built on the existing course schema rather than a free-form prompt.
+- **Schema mapping:** demo = the lesson's `example` and `analogy`; practice = `interactiveExercise` and `miniChallenge` plus AI-written variations grounded in the lesson's chunks; recall = `keyTakeaways`; the concept list = `concepts`.
+- **Rules (changes from the proposed prompt):** in-course only (no "any topic"); hints-only for course exercises (never "show the correct answer" for them); quizzes stay on the platform (Step 17); the **server** keeps the cycle step and mastery count (not a model-written header or a pasted RESUME block, which a student could edit); the model only writes the next question and grades the answer as JSON (the coding helper's pattern); at most 3 practice rounds and a mastery gate of 2 correct in a row.
+- **Budget check first:** the proposed cycle costs about 10–15 AI calls per concept (the JavaScript course has about 500 concepts) against 5 questions a minute per student, 20 a minute app-wide, and the daily embedding cap. Measure calls per concept on a few lessons before opening it to everyone; it may need its own quota.
+- **Files:** `app/tutor/{service,schemas}.py`, a migration for tutor state, `/tutor/*` endpoints, an Arc "Practice with Arc" mode, an evaluation set in `eval/`.
+- **Done when:** a student completes one concept's cycle with state surviving a page reload, the mastery gate holds, an exercise never reveals its solution (leak test), and the measured calls per concept are recorded.
+
 ---
 
 ## Changes from the brief's suggested 10-day plan
@@ -478,7 +502,7 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 - [x] Step 19 admin demo: done on 2026-11-19 with a local test admin (`devadmin`, created on the Neon dev database with your approval; credentials kept outside the repo).
 - [x] Steps 12 and 13 Done-when checks: passed on 2026-11-19 (`eval/reports/retrieval-2026-11-19-gemini.md`, `answers-2026-11-19-gemini.md`).
 - [x] Step 6 cold-start check: 58 s on 2026-11-20 (recorded in `docs/deployment.md`).
-- [ ] Step 21: upload `javascript-beginner-v1` to production (admin, Manage courses), if not loaded yet.
+- [ ] Step 21: upload `javascript-beginner-v1` to production (admin, Settings in the rail), if not loaded yet.
 - [ ] Step 21: register an evaluation student, run `eval/run_live_eval.py` against production at least a few hours before the demo, and commit `eval/reports/production.{md,json}`.
 - [ ] Step 21: record the backup demo (script in `docs/deployment.md` §5) and note where the video is kept in `eval/reports/production.md`.
 - [ ] Step 6 memory reading: Render → archintx-api → Metrics had no data right after the first deploy; record the peak once available (expected well under 512 MB; local ~70 MB).
