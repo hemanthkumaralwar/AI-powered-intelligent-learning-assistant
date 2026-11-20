@@ -562,6 +562,7 @@ Built after Step 22 is submitted, in order: 23a, then 23b, then 23c (23c reuses 
 - [ ] Step 21: upload `javascript-beginner-v1` to production (admin, Settings in the rail), if not loaded yet.
 - [ ] Step 21: register an evaluation student, run `eval/run_live_eval.py` against production at least a few hours before the demo, and commit `eval/reports/production.{md,json}`.
 - [ ] Step 21: record the backup demo (script in `docs/deployment.md` §5) and note where the video is kept in `eval/reports/production.md`.
+- [ ] Step 23b: test it later (your decision, 2026-11-20): apply migration 0008 (any local run or deploy), Settings → Course features → Spaced review on, then as a student fail an exercise; about 24 hours later the lesson is under "Due for review" and not repeated in "What to do next". Production needs the switch turned on per course after deploy.
 - [ ] Step 23a: test it later (your decision, 2026-11-20): Settings → Course features on, ask Arc, Open in Practice lands on the lesson's Practice tab; production needs the switch turned on per course after deploy.
 - [ ] Step 22: once the two Step 21 items above exist, change their "pending" rows in the README's Deliverables table and the Production section of `docs/evaluation.md`.
 - [ ] Step 6 memory reading: Render → archintx-api → Metrics had no data right after the first deploy; record the peak once available (expected well under 512 MB; local ~70 MB).
