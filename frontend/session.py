@@ -50,6 +50,28 @@ def current() -> Session:
     return Session(api_client(base_url), st.session_state[TOKEN_KEY], st.session_state[USER_KEY])
 
 
+@dataclass(frozen=True)
+class Visitor:
+    """Whoever is on a public page (LearnX): a guest (no token, no user) or signed in."""
+
+    client: ApiClient
+    token: str | None
+    user: dict[str, Any] | None
+
+    @property
+    def signed_in(self) -> bool:
+        return self.token is not None and self.user is not None
+
+
+def current_visitor() -> Visitor:
+    base_url = api_base_url()
+    if not base_url:
+        st.stop()
+    return Visitor(
+        api_client(base_url), st.session_state.get(TOKEN_KEY), st.session_state.get(USER_KEY)
+    )
+
+
 def sign_out() -> None:
     for key in (TOKEN_KEY, USER_KEY):
         st.session_state.pop(key, None)

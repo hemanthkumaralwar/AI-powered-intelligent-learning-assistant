@@ -1,8 +1,11 @@
-"""LearnX: your courses, a course's modules with progress and what to do next, and each
-lesson with Reading, Practice, Code and Quiz & activities tabs.
+"""LearnX: the courses, a course's modules (with progress and what to do next once signed
+in), and each lesson with Reading, Ask Nexus, Practice, Code and Quiz & activities tabs.
+
+Open to everyone (Step 24): guests read courses and lessons; Nexus, practice, the coding
+helper and progress need an account, and their tabs say so.
 
 Where you are (course, lesson, tab) lives in `st.session_state` (components/lesson_nav.py),
-so it survives reruns, and Arc can open a lesson's Practice tab directly.
+so it survives reruns, and Nexus can open a lesson's Practice tab directly.
 """
 
 from typing import Any
@@ -14,6 +17,7 @@ from components.coding_helper import show_coding_helper
 from components.compiler import LANGUAGES
 from components.lesson import show_lesson_header, show_reading
 from components.lesson_nav import COURSE, LESSON, TAB, open_course, open_lesson
+from components.nexus import show_nexus
 from components.practice import show_exercises, show_platform_activities
 from components.progress import (
     load_due_reviews,
@@ -22,31 +26,32 @@ from components.progress import (
     show_due_reviews,
     show_next_steps,
 )
-from session import Session, current
+from menu import SIGN_IN
+from session import Visitor, current_visitor
 
 CATALOG_COLUMNS = 3
-LESSON_TABS = ["Reading", "Practice", "Code", "Quiz & activities"]
+LESSON_TABS = ["Reading", "Ask Nexus", "Practice", "Code", "Quiz & activities"]
 
 
 def main() -> None:
-    session = current()
+    visitor = current_visitor()
     course_id, lesson_id = st.session_state.get(COURSE), st.session_state.get(LESSON)
     try:
         if course_id is None:
-            show_catalog(session.client, session.token)
+            show_catalog(visitor.client, visitor.token)
             return
-        outline = session.client.course(session.token, course_id)
+        outline = visitor.client.course(visitor.token, course_id)
         if lesson_id is None:
-            show_course(session, outline)
+            show_course(visitor, outline)
         else:
-            show_lesson(session, outline, session.client.lesson(session.token, lesson_id))
+            show_lesson(visitor, outline, visitor.client.lesson(visitor.token, lesson_id))
     except ApiError as exc:
         st.error(str(exc))
         st.button("Back to all courses", on_click=open_course, args=(None,))
 
 
-def show_catalog(client: ApiClient, token: str) -> None:
-    st.markdown("#### Your courses")
+def show_catalog(client: ApiClient, token: str | None) -> None:
+    st.markdown("#### Courses")
     courses = client.courses(token)
     if not courses:
         st.info("No courses yet. An admin needs to upload one first.")
@@ -69,7 +74,7 @@ def show_catalog(client: ApiClient, token: str) -> None:
             )
 
 
-def show_course(session: Session, outline: dict[str, Any]) -> None:
+def show_course(visitor: Visitor, outline: dict[str, Any]) -> None:
     st.button(
         "All courses",
         icon=":material/arrow_back:",
@@ -80,42 +85,56 @@ def show_course(session: Session, outline: dict[str, Any]) -> None:
     st.markdown(f"## {outline['title']}")
     if outline.get("description"):
         st.caption(outline["description"])
-    loaded = load_progress(session.client, session.token, outline["id"])
-    picks, progress = loaded if loaded else (None, None)
     modules_column, next_column = st.columns([3, 2], gap="large")
+    if visitor.token is None:
+        with modules_column:
+            show_modules(outline, None, scores=False)
+        with next_column:
+            sign_in_prompt("track your progress and see what to do next")
+        return
+    loaded = load_progress(visitor.client, visitor.token, outline["id"])
+    picks, progress = loaded if loaded else (None, None)
     with modules_column:
         show_modules(outline, progress)
     with next_column:
         due: list[dict[str, Any]] = []
         if outline.get("spaced_review_enabled"):
-            due = load_due_reviews(session.client, session.token, outline["id"])
+            due = load_due_reviews(visitor.client, visitor.token, outline["id"])
             show_due_reviews(due)
         if picks is not None:
             due_lessons = frozenset(review["lesson_id"] for review in due)
             show_next_steps(picks, _go_to_lesson, due_lessons)
 
 
-def show_modules(outline: dict[str, Any], progress: dict[str, Any] | None) -> None:
+def show_modules(
+    outline: dict[str, Any], progress: dict[str, Any] | None, scores: bool = True
+) -> None:
+    """Modules and their lessons; `scores` off for guests (no progress to show)."""
     modules = {m["module_id"]: m for m in (progress or {}).get("modules", [])}
     for module in outline["modules"]:
         stats = modules.get(module["id"], {})
         lessons = {lesson["lesson_id"]: lesson for lesson in stats.get("lessons", [])}
-        label = f"{module['position']}. {module['title']} · {mastery_label(stats.get('mastery'))}"
+        label = f"{module['position']}. {module['title']}"
+        if scores:
+            label += f" · {mastery_label(stats.get('mastery'))}"
         with st.expander(label, expanded=module is outline["modules"][0]):
             for lesson in module["lessons"]:
-                done = lessons.get(lesson["id"], {})
-                title_column, score_column, open_column = st.columns(
-                    [6, 2, 2], vertical_alignment="center"
-                )
-                title_column.markdown(lesson["title"])
-                weak = " · review" if done.get("weak") else ""
-                score_column.caption(mastery_label(done.get("mastery")) + weak)
-                open_column.button(
-                    "Open", key=f"lesson:{lesson['id']}", on_click=open_lesson, args=(lesson["id"],)
-                )
+                lesson_row(lesson, lessons.get(lesson["id"], {}) if scores else None)
 
 
-def show_lesson(session: Session, outline: dict[str, Any], lesson: dict[str, Any]) -> None:
+def lesson_row(lesson: dict[str, Any], done: dict[str, Any] | None) -> None:
+    """One lesson in a module: title, its mastery (None: not shown, e.g. for guests), Open."""
+    title_column, score_column, open_column = st.columns([6, 2, 2], vertical_alignment="center")
+    title_column.markdown(lesson["title"])
+    if done is not None:
+        weak = " · review" if done.get("weak") else ""
+        score_column.caption(mastery_label(done.get("mastery")) + weak)
+    open_column.button(
+        "Open", key=f"lesson:{lesson['id']}", on_click=open_lesson, args=(lesson["id"],)
+    )
+
+
+def show_lesson(visitor: Visitor, outline: dict[str, Any], lesson: dict[str, Any]) -> None:
     st.button(
         outline["title"],
         icon=":material/arrow_back:",
@@ -125,13 +144,27 @@ def show_lesson(session: Session, outline: dict[str, Any], lesson: dict[str, Any
     )
     language = outline["language"]
     show_lesson_header(lesson)
-    reading, practice, code, activities = st.tabs(LESSON_TABS, default=st.session_state.get(TAB))
+    reading, nexus, practice, code, activities = st.tabs(
+        LESSON_TABS, default=st.session_state.get(TAB)
+    )
     with reading:
         show_reading(lesson, language)
+    token = visitor.token
+    with nexus:
+        if token is None:
+            sign_in_prompt("ask Nexus, the course assistant")
+        else:
+            show_nexus(visitor.client, token, outline["id"])
     with practice:
-        show_exercises(session.client, session.token, lesson, language)
+        if token is None:
+            sign_in_prompt("run and submit this lesson's exercises")
+        else:
+            show_exercises(visitor.client, token, lesson, language)
     with code:
-        show_coding_helper(session.client, session.token, language)
+        if token is None:
+            sign_in_prompt("use the coding helper")
+        else:
+            show_coding_helper(visitor.client, token, language)
     with activities:
         found = lesson.get("content", {}).get("practice", [])
         if found:
@@ -163,6 +196,11 @@ def show_neighbours(outline: dict[str, Any], lesson_id: str) -> None:
             on_click=open_lesson,
             args=(order[index + 1]["id"],),
         )
+
+
+def sign_in_prompt(to_do: str) -> None:
+    st.info(f"Sign in to {to_do}.")
+    st.page_link(SIGN_IN.path, label="Sign in", icon=SIGN_IN.icon)
 
 
 def _go_to_lesson(lesson_id: str) -> None:

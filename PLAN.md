@@ -375,7 +375,7 @@ Built after Step 22 is submitted, in order: 23a, then 23b, then 23c (23c reuses 
 
 
 ### Step 24 — Public LearnX, admin area at /admin, Nexus in lessons [SEC] [UX]
-Your request (2026-11-20), after 23b; 23c stays postponed. Not started.
+Your request (2026-11-20), after 23b; 23c stays postponed. **Built 2026-11-20** (see the result at the end of this step).
 
 - **Goal:** anyone can browse courses and read lessons without an account; signed-in students get the AI and practice features; admin work lives at its own address; the assistant is called **Nexus** and lives inside lessons instead of the rail.
 - **Decisions (yours, 2026-11-20):**
@@ -393,6 +393,14 @@ Your request (2026-11-20), after 23b; 23c stays postponed. Not started.
 - **Security:** public endpoints are read-only and cached; nothing personal is public; admin pages are not in a non-admin's navigation and the API enforces roles; tests check every AI, progress and admin endpoint still returns 401 without a token.
 - **Files:** `app/api/materials.py` (public), an anonymous rate limit in `app/core`, `frontend/streamlit_app.py`, `frontend/menu.py`, `frontend/views/learnx.py`, a Nexus chat component (from `views/arc.py`), `frontend/views/admin_courses.py` (url_path), README, `docs/api.md`, `docs/architecture.md`, tests mirroring each.
 - **Done when:** a visitor without an account can open the app, list courses and read a lesson, and is asked to sign in for Nexus or Practice; a student's rail has no Arc and Nexus works from a lesson tab; an admin reaches Settings at `/admin` and a student cannot; the AI, progress and admin endpoints still return 401 without a token.
+- **Result (2026-11-20):**
+  - **Backend:** the course list, outlines and lessons are public (`allow_guests` in `app/api/deps.py`): a valid token passes freely; no token, or a bad or expired one, counts against one app-wide guest quota (`GUEST_REQUESTS_PER_MINUTE`, default 120; 429 + `Retry-After`), because every guest reaches the API through the same Streamlit server. A test reads every endpoint from the OpenAPI spec and checks all but the public three (plus health, register, login) still return 401 without a token.
+  - **Frontend:** guests land on LearnX (courses, outlines, the Reading and Quiz & activities tabs) with a Sign in page in the rail and a Sign in link in the top bar; the Ask Nexus, Practice and Code tabs and the course page's progress say "Sign in to …". The Arc page is gone; Nexus (`components/nexus.py`) is the second lesson tab and asks within the lesson's course. Admins' Settings is served at `/admin`; anyone else opening `/admin` gets Streamlit's "Page not found" and LearnX.
+  - **Rename:** Nexus in all UI text and docs; the API field `arc_practice_enabled` keeps its name.
+  - **Browser check (local API + Neon dev):** as a guest, courses, a course page without scores and a full lesson, with sign-in prompts in Ask Nexus; signed in (dev test admin), the rail shows LearnX and Settings, Nexus answered in the lesson tab with sources and Open in Practice; Settings opened at `/admin`; a fresh (guest) tab at `/admin` got "Page not found" and LearnX.
+  - **Known gap:** an admin who is not signed in also gets "Page not found" at `/admin` and must sign in first; nothing is exposed.
+  - **Answer scope changed:** Nexus asks within the open lesson's course (Arc searched all courses).
+  - **Dev database:** migration `0008` applied while preparing this check.
 - **Proposed additions (not decided; your call):**
   - **A sign-up form**, so a visitor can become a student without Swagger. Without it, "open to all" stops at reading. Uses the existing registration caps.
   - **A privacy notice** at sign-up and in Nexus (Gemini's free tier may use what is sent to improve its products).

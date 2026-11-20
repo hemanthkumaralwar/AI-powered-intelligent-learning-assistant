@@ -30,7 +30,7 @@ class CourseSummary(BaseModel):
     description: str | None
     level: str | None
     language: str
-    # Admin switches: Arc offers "Open in Practice" for answers citing this course;
+    # Admin switches: Nexus offers "Open in Practice" for answers citing this course;
     # students see which attempted lessons are due for review.
     arc_practice_enabled: bool
     spaced_review_enabled: bool

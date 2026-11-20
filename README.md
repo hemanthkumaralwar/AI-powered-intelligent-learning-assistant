@@ -1,6 +1,6 @@
 # ArchintX AI-Powered Intelligent Learning Assistant
 
-A learning assistant for the ArchintX platform. **Arc** answers students' questions from the uploaded course material using retrieval-augmented generation (RAG), with source citations, follow-up questions, and a plain "the course doesn't cover this" when it doesn't. **LearnX** shows the courses with staged lessons, a coding assistant with a remote code runner, AI-graded exercises, and personalised recommendations. Quizzes and other activities stay on the ArchintX platform; the assistant points to them.
+A learning assistant for the ArchintX platform. **LearnX** shows the courses with staged lessons, open to everyone for reading. Signed-in students also get **Nexus**, which answers questions from the uploaded course material using retrieval-augmented generation (RAG), with source citations, follow-up questions, and a plain "the course doesn't cover this" when it doesn't; a coding assistant with a remote code runner; AI-graded exercises; and personalised recommendations. Quizzes and other activities stay on the ArchintX platform; the assistant points to them.
 
 | | |
 |---|---|
@@ -71,7 +71,7 @@ streamlit run frontend/streamlit_app.py
 
 **6. Load the course.** Open http://localhost:8501, log in as your admin, open **Settings** (bottom of the rail), upload `eval/materials/javascript-beginner.json` as JavaScript, and press **Refresh** until it is `ready` (about 5 minutes: 424 chunks embedded at the free tier's pace).
 
-**7. Make a student.** The app has no sign-up form: in Swagger (http://127.0.0.1:8000/docs) use `POST /auth/register` → **Try it out** with a username and password (8+ characters). Log in with it, then try **Arc** ("What is an array in JavaScript?") and **LearnX** (open a lesson, run its bug hunt in **Practice**).
+**7. Make a student.** The app has no sign-up form: in Swagger (http://127.0.0.1:8000/docs) use `POST /auth/register` → **Try it out** with a username and password (8+ characters). Log in with it, open a lesson in **LearnX**, ask **Nexus** in its **Ask Nexus** tab ("What is an array in JavaScript?") and run its bug hunt in **Practice**. Without signing in you can still browse the courses and read the lessons.
 
 Without a Gemini key you can still click through with `LLM_PROVIDER=fake`, `EMBEDDING_PROVIDER=fake` and `CODE_RUNNERS=fake` (canned replies; refused in production).
 
@@ -136,9 +136,9 @@ The frontend follows the LearnX platform's look: a narrow rail on the left, a to
 
 | Rail | For | What it does |
 |---|---|---|
-| **Arc** | everyone | the course assistant: answers with citations, follow-ups in the same chat, past chats, pointers to the lesson's platform activities, and **Open in Practice** (opens a cited lesson's Practice tab, for courses where an admin turned it on) |
-| **LearnX** | everyone | courses → a course's modules with your mastery, lessons **due for review** (spaced review, where an admin turned it on) and **what to do next** → a lesson with **Reading** (numbered stages: mission, brief, concepts, analogy, syntax, examples, flow, real world, recap), **Practice** (the lesson's exercises in a code editor: run, ask the AI about the output, submit for grading), **Code** (explain code, show an example, practice questions) and **Quiz & activities** (links to the platform) |
-| **Settings** | admins only | upload course JSON, indexing status, per-course feature switches (Open in Practice, spaced review; off by default), delete a course, re-index |
+| **LearnX** | everyone; no account needed to read | courses → a course's modules → a lesson with **Reading** (numbered stages: mission, brief, concepts, analogy, syntax, examples, flow, real world, recap) and **Quiz & activities** (links to the platform), open to all. Signed in, you also get **Ask Nexus** (the course assistant: answers with citations, follow-ups, past chats, practice pointers and, where an admin turned it on, **Open in Practice**), **Practice** (the lesson's exercises in a code editor: run, ask the AI about the output, submit for grading), **Code** (explain code, show an example, practice questions), and on the course page your mastery, lessons **due for review** and **what to do next** |
+| **Sign in** | guests | the login form (accounts are created through the API for now) |
+| **Settings** (`<app URL>/admin`) | admins only | upload course JSON, indexing status, per-course feature switches (Open in Practice, spaced review; off by default), delete a course, re-index |
 
 - **Code runs remotely,** never on the server: Judge0 CE, with Compiler Explorer as fallback (and **Open in Compiler Explorer** for a public share link). JavaScript that uses the page (`document`, `window`) runs in a locked-down iframe in your browser.
 - **Answers stay on the platform:** students never receive quiz answers or exercise solutions; the assistant gives hints for exercises.
@@ -169,6 +169,7 @@ All settings come from environment variables or `.env`. `.env.example` lists eve
 | `LOGIN_FAILURES_PER_USERNAME` | wrong passwords per username in 15 minutes before that account's sign-in is paused | `5` |
 | `LOGINS_PER_MINUTE` | whole-app sign-in attempts per minute | `60` |
 | `REGISTRATIONS_PER_MINUTE` | whole-app new accounts per minute | `20` |
+| `GUEST_REQUESTS_PER_MINUTE` | requests per minute to the public course endpoints from all visitors without a valid token, together (they all come through the Streamlit server) | `120` |
 | `CHAT_RETENTION_DAYS` | chats untouched this long are deleted (when their owner next lists chats) | `90` |
 | `CONTENT_CACHE_SECONDS` | how long course and lesson responses are cached; `0` turns caching off. Admin uploads and deletes clear the cache | `600` |
 | `PLATFORM_LESSON_URL` | `https://` link template to a lesson on the learning platform, containing `{lesson_id}`; makes practice pointers clickable | — (no links) |

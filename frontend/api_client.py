@@ -76,16 +76,19 @@ class ApiClient:
 
     # ---- course content -------------------------------------------------------------
 
-    def courses(self, token: str) -> list[dict[str, Any]]:
-        return self._authed("GET", "/courses", token)
+    # Public since Step 24: token None for guests. Students still send theirs, so their
+    # requests never count against the app-wide guest quota.
 
-    def course(self, token: str, course_id: str) -> dict[str, Any]:
+    def courses(self, token: str | None) -> list[dict[str, Any]]:
+        return self._public("GET", "/courses", token)
+
+    def course(self, token: str | None, course_id: str) -> dict[str, Any]:
         """The course outline: modules with their lessons."""
-        return self._authed("GET", f"/courses/{quote(course_id, safe='')}", token)
+        return self._public("GET", f"/courses/{quote(course_id, safe='')}", token)
 
-    def lesson(self, token: str, lesson_id: str) -> dict[str, Any]:
+    def lesson(self, token: str | None, lesson_id: str) -> dict[str, Any]:
         """Lesson content and exercises (starter code and hints, never solutions)."""
-        return self._authed("GET", f"/lessons/{quote(lesson_id, safe='')}", token)
+        return self._public("GET", f"/lessons/{quote(lesson_id, safe='')}", token)
 
     # ---- running code and the coding assistant -------------------------------------
 
@@ -186,6 +189,11 @@ class ApiClient:
         self._http.close()
 
     # ---- plumbing --------------------------------------------------------------------
+
+    def _public(self, method: str, path: str, token: str | None) -> Any:
+        if token is None:
+            return self._json(self._send(method, path))
+        return self._authed(method, path, token)
 
     def _authed(self, method: str, path: str, token: str, **kwargs: Any) -> Any:
         response = self._send(method, path, headers={"Authorization": f"Bearer {token}"}, **kwargs)

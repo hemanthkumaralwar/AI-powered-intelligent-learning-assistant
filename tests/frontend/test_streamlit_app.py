@@ -31,8 +31,13 @@ def run_app(api_base_url: str | None = None) -> AppTest:
     return app.run()
 
 
+def sign_in_page(api_base_url: str | None = None) -> AppTest:
+    """Guests land on LearnX (Step 24); the login form is on the Sign in page."""
+    return run_app(api_base_url).switch_page("views/sign_in.py").run()
+
+
 def test_shows_login_form_when_configured() -> None:
-    app = run_app("http://localhost:8000")
+    app = sign_in_page("http://localhost:8000")
 
     assert not app.exception
     assert [field.label for field in app.text_input] == ["Username", "Password"]
@@ -52,7 +57,7 @@ def test_explains_missing_configuration() -> None:
 def test_reads_url_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("API_BASE_URL", "http://127.0.0.1:8000")
 
-    app = run_app()
+    app = sign_in_page()
 
     assert not app.exception
     assert len(app.text_input) == 2
@@ -339,9 +344,14 @@ class FakeApi(BaseHTTPRequestHandler):
         self._reply(200, base | body)
 
     def do_GET(self) -> None:  # noqa: N802
+        path = self.path.split("?")[0]
+        public = path == "/courses" or path.startswith(("/courses/", "/lessons/"))
+        if public and "Authorization" not in self.headers:
+            FakeApi.received[f"GUEST {path}"] = {}
+            self._reply(200, GET_ROUTES[path])
+            return
         if not self._authorised():
             return
-        path = self.path.split("?")[0]
         if path == "/auth/me" and self._is_admin():
             self._reply(200, GET_ROUTES[path] | {"username": "boss", "role": "admin"})
         else:
@@ -394,14 +404,14 @@ def log_in(app: AppTest, username: str, password: str) -> AppTest:
 
 
 def test_wrong_password_shows_friendly_error(fake_api_url: str) -> None:
-    app = log_in(run_app(fake_api_url), "asha", "wrong")
+    app = log_in(sign_in_page(fake_api_url), "asha", "wrong")
 
     assert app.error[0].value == "Invalid username or password."
     assert len(app.text_input) == 2
 
 
 def test_login_shows_the_account_in_the_profile_menu(fake_api_url: str) -> None:
-    app = log_in(run_app(fake_api_url), "asha", "right-password")
+    app = log_in(sign_in_page(fake_api_url), "asha", "right-password")
 
     assert "Signed in as **asha** (student)" in [m.value for m in app.markdown]
     assert app.session_state["access_token"] == GOOD_TOKEN
@@ -574,7 +584,8 @@ def test_lesson_has_reading_practice_code_and_activity_tabs(fake_api_url: str) -
     app = in_lesson(fake_api_url)
 
     labels = [t.label for t in app.tabs]  # the Code tab's own tabs are listed inside it
-    assert labels[:3] == ["Reading", "Practice", "Code"] and labels[-1] == "Quiz & activities"
+    assert labels[:4] == ["Reading", "Ask Nexus", "Practice", "Code"]
+    assert labels[-1] == "Quiz & activities"
     facts = "**25 minutes** · **2 concepts** · **1 example** · **1 exercise**"
     assert facts in [m.value for m in app.markdown]
     assert not app.exception
@@ -585,7 +596,11 @@ def test_reading_tab_shows_numbered_stages_safely(fake_api_url: str) -> None:
     markdown = [m.value for m in app.markdown]
     captions = [c.value for c in app.caption]
 
-    stages = [m.removeprefix("#### ") for m in markdown if m.startswith("#### ")]
+    stages = [
+        m.removeprefix("#### ")
+        for m in markdown
+        if m.startswith("#### ") and m != "#### Ask Nexus about this course"
+    ]
     assert stages == [
         "Your mission",
         "Brief",
@@ -738,11 +753,11 @@ def test_code_tab_examples_and_practice_questions(
 
 
 def test_chat_asks_then_shows_history_sources_and_practice(fake_api_url: str) -> None:
-    app = signed_in(fake_api_url, page="views/arc.py")
+    app = in_lesson(fake_api_url)
 
     app = app.chat_input[0].set_value("What is let?").run()
 
-    assert FakeApi.received["/chat/ask"] == {"question": "What is let?"}
+    assert FakeApi.received["/chat/ask"] == {"question": "What is let?", "course_id": "js"}
     assert app.session_state["chat:active"] == "s1"
     markdown = [m.value for m in app.markdown]
     assert "`let` is block-scoped [1]." in markdown
@@ -751,16 +766,20 @@ def test_chat_asks_then_shows_history_sources_and_practice(fake_api_url: str) ->
 
 
 def test_follow_up_goes_to_the_same_chat(fake_api_url: str) -> None:
-    app = signed_in(fake_api_url, page="views/arc.py")
+    app = in_lesson(fake_api_url)
     app = app.chat_input[0].set_value("What is let?").run()
 
     app.chat_input[0].set_value("And const?").run()
 
-    assert FakeApi.received["/chat/ask"] == {"question": "And const?", "session_id": "s1"}
+    assert FakeApi.received["/chat/ask"] == {
+        "question": "And const?",
+        "course_id": "js",
+        "session_id": "s1",
+    }
 
 
 def test_past_chats_open_and_new_chat_starts_fresh(fake_api_url: str) -> None:
-    app = signed_in(fake_api_url, page="views/arc.py")
+    app = in_lesson(fake_api_url)
 
     app = app.button(key="chat-s1").click().run()
     assert app.session_state["chat:active"] == "s1"
@@ -768,20 +787,22 @@ def test_past_chats_open_and_new_chat_starts_fresh(fake_api_url: str) -> None:
 
     app = button(app, "New chat").click().run()
     assert app.session_state["chat:active"] is None
-    assert "#### Ask Arc about your course" in [m.value for m in app.markdown]
+    assert "#### Ask Nexus about this course" in [m.value for m in app.markdown]
 
 
 # ---- the rail and admin pages ----------------------------------------------------------
 
 
-def test_rail_has_arc_and_learnx_and_settings_only_for_admins() -> None:
+def test_rail_per_visitor_has_no_arc_and_admin_lives_at_slash_admin() -> None:
     from menu import pages_for
 
-    student = [title for _, title, _ in pages_for("student")]
-    admin = [title for _, title, _ in pages_for("admin")]
+    def titles(user: dict | None) -> list[str]:
+        return [page.title for page in pages_for(user)]
 
-    assert student == ["Arc", "LearnX"]
-    assert admin == ["Arc", "LearnX", "Settings"]
+    assert titles(None) == ["LearnX", "Sign in"]
+    assert titles({"role": "student"}) == ["LearnX"]
+    assert titles({"role": "admin"}) == ["LearnX", "Settings"]
+    assert pages_for({"role": "admin"})[-1].url_path == "admin"
 
 
 def test_a_student_cannot_open_the_admin_page(fake_api_url: str) -> None:
@@ -826,11 +847,14 @@ def test_admin_sees_documents_and_can_reindex(fake_api_url: str) -> None:
     assert any("Queued 1 document" in s.value for s in app.success)
 
 
-def test_the_login_screen_lists_no_pages(fake_api_url: str) -> None:
+def test_guests_never_get_the_admin_page(fake_api_url: str) -> None:
     app = run_app(fake_api_url)
 
-    # No auto-discovered page menu before sign-in (page scripts live in views/, not pages/).
+    # No auto-discovered page menu (page scripts live in views/, not pages/), and the
+    # admin page is not in a guest's navigation.
     assert not (Path(APP).parent / "pages").exists()
+    with pytest.raises(ValueError, match="Could not find a navigation page"):
+        app.switch_page("views/admin_courses.py")
     assert not app.sidebar.children or not any(
         "admin" in str(child).lower() for child in app.sidebar.children.values()
     )
@@ -846,11 +870,11 @@ def test_admin_deletes_a_course_and_sees_confirmation(fake_api_url: str) -> None
     assert any("Deleted `js`." in s.value for s in app.success)
 
 
-# ---- Step 23a: Open in Practice from Arc ------------------------------------------------
+# ---- Step 23a: Open in Practice from Nexus ------------------------------------------------
 
 
 def asked(fake_api_url: str) -> AppTest:
-    app = signed_in(fake_api_url, page="views/arc.py")
+    app = in_lesson(fake_api_url)
     return app.chat_input[0].set_value("What is let?").run()
 
 
@@ -906,7 +930,7 @@ def test_admin_switches_open_in_practice_per_course(fake_api_url: str) -> None:
     app = switch.set_value(False).run()
 
     assert FakeApi.received["/admin/courses/js"] == {"arc_practice_enabled": False}
-    assert any("Open in Practice from Arc is off for `js`." in s.value for s in app.success)
+    assert any("Open in Practice from Nexus is off for `js`." in s.value for s in app.success)
 
 
 def test_a_failed_switch_shows_the_error_and_keeps_the_server_value(
@@ -1010,3 +1034,45 @@ def test_admin_switches_spaced_review_per_course(fake_api_url: str) -> None:
 
     assert FakeApi.received["/admin/courses/js"] == {"spaced_review_enabled": True}
     assert any("Spaced review is on for `js`." in s.value for s in app.success)
+
+
+# ---- Step 24: guests browse and read; sign in for the rest ---------------------------
+
+
+def guest(fake_api_url: str, state: dict[str, object] | None = None) -> AppTest:
+    FakeApi.received.clear()
+    app = AppTest.from_file(APP, default_timeout=60)
+    app.secrets["API_BASE_URL"] = fake_api_url
+    for key, value in (state or {}).items():
+        app.session_state[key] = value
+    return app.run()
+
+
+def test_guests_see_the_courses_without_signing_in(fake_api_url: str) -> None:
+    app = guest(fake_api_url)
+
+    assert "**JavaScript**" in [m.value for m in app.markdown]
+    assert "GUEST /courses" in FakeApi.received  # sent without a token
+    assert not app.exception
+
+
+def test_guests_read_lessons_and_are_asked_to_sign_in_for_the_rest(fake_api_url: str) -> None:
+    app = guest(fake_api_url, {"learnx:course": "js", "learnx:lesson": "l1"})
+
+    markdown = [m.value for m in app.markdown]
+    assert "#### Your mission" in markdown  # the Reading tab
+    prompts = [i.value for i in app.info]
+    assert "Sign in to ask Nexus, the course assistant." in prompts
+    assert "Sign in to run and submit this lesson's exercises." in prompts
+    assert "Sign in to use the coding helper." in prompts
+    assert not app.text_area  # no code editor for guests
+    assert not app.chat_input
+    assert not app.exception
+
+
+def test_guests_see_no_progress_on_the_course_page(fake_api_url: str) -> None:
+    app = guest(fake_api_url, {"learnx:course": "js"})
+
+    assert app.expander[0].label == "1. Basics"  # no mastery for guests
+    assert "Sign in to track your progress and see what to do next." in [i.value for i in app.info]
+    assert "#### What to do next" not in [m.value for m in app.markdown]

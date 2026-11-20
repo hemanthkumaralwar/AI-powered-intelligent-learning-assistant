@@ -1,5 +1,6 @@
-"""The LearnX-style frame around every signed-in page: a narrow icon rail on the left
-(Streamlit's sidebar, restyled) and a top bar with the page title and the profile menu.
+"""The LearnX-style frame around every page: a narrow icon rail on the left (Streamlit's
+sidebar, restyled) and a top bar with the page title and the profile menu (or, for
+guests, a Sign in link).
 
 The rail is CSS over Streamlit's own sidebar markup (`data-testid` hooks). Streamlit does
 not promise those hooks across versions, which is one reason `streamlit` is pinned; if an
@@ -10,6 +11,7 @@ import streamlit as st
 
 from api_client import ApiClient
 from components.account import show_profile
+from menu import SIGN_IN
 
 RAIL_WIDTH = "84px"
 
@@ -52,9 +54,12 @@ def apply_shell_style() -> None:
     st.html(SHELL_CSS)
 
 
-def show_topbar(client: ApiClient, token: str, user: dict, title: str) -> None:
-    title_column, profile_column = st.columns([5, 1], vertical_alignment="center")
+def show_topbar(client: ApiClient, token: str | None, user: dict | None, title: str) -> None:
+    title_column, account_column = st.columns([5, 1], vertical_alignment="center")
     title_column.markdown(f"### {title}")
-    with profile_column:
-        show_profile(client, token, user)
+    with account_column:
+        if user is None or token is None:
+            st.page_link(SIGN_IN.path, label="Sign in", icon=SIGN_IN.icon)
+        else:
+            show_profile(client, token, user)
     st.divider()

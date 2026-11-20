@@ -97,10 +97,11 @@ class Course(TimestampMixin, Base):
     level: Mapped[str | None] = mapped_column(String(50))
     # Programming language of the course's exercises (the course JSON does not say).
     # The check constraint above also makes every course a coding course, which the
-    # per-course Arc switch below relies on: if non-coding courses are ever allowed, the
+    # per-course Nexus switch below relies on: if non-coding courses are ever allowed, the
     # switch must refuse them (Step 23a).
     language: Mapped[str] = mapped_column(String(20))
-    # Admin switch (Step 23a): Arc answers citing this course offer "Open in Practice".
+    # Admin switch (Step 23a): Nexus answers citing this course offer "Open in Practice"
+    # (the field keeps its first name, arc_practice_enabled: it is part of the API).
     # A Python default for new objects; the server default for rows from before 0007.
     arc_practice_enabled: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=false()

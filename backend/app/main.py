@@ -32,6 +32,7 @@ from app.core.cache import TTLCache
 from app.core.config import Settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
+from app.core.quota import MINUTE, Quota, QuotaRule
 from app.db.session import Database, build_database
 from app.indexing.factory import build_indexing_service
 from app.indexing.service import IndexingService
@@ -139,8 +140,8 @@ def create_app(
 
 
 def add_support_services(app: FastAPI, settings: Settings) -> None:
-    """Chats, practice pointers, sign-in limits and the content cache (needs app.state's
-    database and answers)."""
+    """Chats, practice pointers, sign-in and guest limits, and the content cache (needs
+    app.state's database and answers)."""
     app.state.practice = PracticeFinder(settings.platform_lesson_url)
     app.state.chats = ChatService(
         app.state.database,
@@ -152,6 +153,17 @@ def add_support_services(app: FastAPI, settings: Settings) -> None:
         failures_per_username=settings.login_failures_per_username,
         logins_per_minute=settings.logins_per_minute,
         registrations_per_minute=settings.registrations_per_minute,
+    )
+    # Guests share one budget: they all reach the API through the Streamlit server.
+    app.state.guest_quota = Quota(
+        [
+            QuotaRule(
+                "Lots of visitors right now; try again in a moment.",
+                settings.guest_requests_per_minute,
+                MINUTE,
+                per_user=False,
+            )
+        ]
     )
     # CONTENT_CACHE_SECONDS=0 turns caching off (every entry is already expired).
     app.state.content_cache = TTLCache(CONTENT_CACHE_ENTRIES, settings.content_cache_seconds)

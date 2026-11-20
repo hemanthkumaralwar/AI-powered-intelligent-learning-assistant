@@ -16,7 +16,7 @@ flowchart LR
     fe -. DOM exercises .-> sandbox[Browser iframe sandbox<br/>no network, no parent access]
 ```
 
-- **Frontend** (`frontend/`): Streamlit in the LearnX style: a rail with Arc (the assistant) and LearnX (courses), plus Settings for admins. It holds the access token only in Streamlit's server-side session and never talks to providers directly.
+- **Frontend** (`frontend/`): Streamlit in the LearnX style: a rail with LearnX (courses, open to everyone for reading) and, for admins, Settings at `/admin`. Nexus, the course assistant, is a tab in each lesson for signed-in students. It holds the access token only in Streamlit's server-side session and never talks to providers directly.
 - **Backend** (`backend/app/`): one FastAPI app built by `create_app()` (`main.py`), the composition root. Shared services live on `app.state` and are created in the lifespan; tests inject their own.
 - **Database:** PostgreSQL through SQLAlchemy 2 (async, psycopg 3), migrations with Alembic. Neon in development and tests, Supabase in production.
 - **Vector search:** FAISS in memory, rebuilt from the vectors stored in Postgres at startup (no embedding calls).
@@ -79,7 +79,7 @@ Each lesson also stores its platform activities as names and sizes only (`lesson
 
 ```mermaid
 sequenceDiagram
-    participant S as Student (Arc)
+    participant S as Student (Nexus)
     participant A as API /chat/ask
     participant L as LLM
     participant E as Embeddings
@@ -129,6 +129,7 @@ Mastery comes from graded exercise attempts (quiz scores live on the platform). 
 
 - **Secrets** only in `.env` (gitignored) or the Render and Streamlit dashboards (`render.yaml` declares them with `sync: false`). A secret scan runs before every commit.
 - **Authentication:** Argon2id passwords; short-lived JWTs carrying only the user id; the role is re-read from the database on every request. Brute force: per-username lockout plus app-wide caps.
+- **Public reading:** course lists, outlines and lessons are open to everyone (Step 24), behind an app-wide guest quota; everything else needs a token, and a test checks every other endpoint returns 401 without one.
 - **Authorisation:** students only ever see their own chats, attempts and progress (403 otherwise); admin endpoints need the admin role; admins are created only from configuration, never through the API. `tests/api/test_privacy.py` covers each rule.
 - **Input limits:** 64 KB per JSON request, 10 MB per upload (checked before parsing; uploads without a token are refused before the body is read), schema validation for course files, length limits on every field.
 - **Output:** course text is rendered as Markdown with HTML escaped (never `unsafe_allow_html`); stored HTML snippets are skipped; errors never include provider, runner or server internals.
@@ -168,4 +169,4 @@ What exists today:
 - **Activities stay on the platform:** answers and coding responses point to each lesson's quizzes, drag and drop, card matching and code reordering; with `PLATFORM_LESSON_URL` set (`https://…/{lesson_id}`) the pointers link straight to the lesson on the platform.
 - **API first:** everything the frontend does goes through the documented REST API, so the platform can call the same endpoints.
 
-Proposed next steps (not built): sign-in through the platform's accounts instead of separate ones; the platform sharing quiz results so mastery includes them; embedding Arc in LearnX lesson pages; and the Step 23 features in [PLAN.md](../PLAN.md) (compiler in Arc, spaced review, a scoped tutor mode).
+Proposed next steps (not built): sign-in through the platform's accounts instead of separate ones; the platform sharing quiz results so mastery includes them; the Step 23c tutor mode and the proposed Step 24 additions (sign-up, privacy notice, shareable lesson links, user management) in [PLAN.md](../PLAN.md).

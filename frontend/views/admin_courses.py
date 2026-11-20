@@ -101,8 +101,8 @@ FEATURES = (
     Feature(
         "arc",
         "arc_practice_enabled",
-        "Open in Practice from Arc",
-        "Arc answers citing this course get a button that opens the lesson's Practice tab.",
+        "Open in Practice from Nexus",
+        "Nexus answers citing this course get a button that opens the lesson's Practice tab.",
     ),
     Feature(
         "review",

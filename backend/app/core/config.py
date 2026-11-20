@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     login_failures_per_username: int = Field(default=5, ge=1, le=100)
     logins_per_minute: int = Field(default=60, ge=1, le=10_000)
     registrations_per_minute: int = Field(default=20, ge=1, le=10_000)
+    # Public course endpoints (Step 24): requests without a valid token, all guests together.
+    guest_requests_per_minute: int = Field(default=120, ge=1, le=100_000)
     # Chats untouched for this many days are deleted when their owner next lists chats.
     chat_retention_days: int = Field(default=90, ge=1, le=3650)
     # Course outlines and lessons are cached this long (cleared on upload/delete anyway).

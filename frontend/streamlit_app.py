@@ -3,10 +3,10 @@
 Run locally:  streamlit run frontend/streamlit_app.py
 Config:       API_BASE_URL in .streamlit/secrets.toml (or the environment).
 
-Signs the user in, then shows the left rail (Arc, LearnX, and Settings for admins), the
-top bar and the chosen page. Students never see the admin page in the rail, and the API
-refuses admin actions from them anyway (403), so hiding it is convenience, not the
-protection.
+Anyone can browse courses and read lessons (Step 24). Signing in adds Nexus (the course
+assistant, in each lesson), practice and progress; admins also get Settings at /admin.
+Students never have the admin page in their navigation, and the API refuses admin
+actions from them anyway (403), so hiding it is convenience, not the protection.
 
 The access token lives only in `st.session_state`, which stays on the Streamlit server;
 it never reaches browser storage or cookies.
@@ -17,7 +17,7 @@ from pathlib import Path
 import streamlit as st
 from streamlit.navigation.page import StreamlitPage
 
-from components.account import load_user, show_login
+from components.account import load_user
 from components.shell import apply_shell_style, show_topbar
 from menu import pages_for
 from session import TOKEN_KEY, api_base_url, api_client
@@ -25,9 +25,10 @@ from session import TOKEN_KEY, api_base_url, api_client
 LOGO = str(Path(__file__).parent / "static" / "logo.svg")
 
 
-def navigation(user: dict) -> StreamlitPage:
+def navigation(user: dict | None) -> StreamlitPage:
     pages = [
-        st.Page(path, title=title, icon=icon) for path, title, icon in pages_for(user.get("role"))
+        st.Page(page.path, title=page.title, icon=page.icon, url_path=page.url_path)
+        for page in pages_for(user)
     ]
     return st.navigation(pages)
 
@@ -49,11 +50,8 @@ def main() -> None:
 
     token = st.session_state.get(TOKEN_KEY)
     user = load_user(client, token) if token else None
-    if user is None:
-        st.title("ArchintX Learning Assistant")
-        if not token:
-            show_login(client)
-        return
+    if token and user is None:
+        return  # load_user explained it (expired session, or the server failed)
     st.logo(LOGO, size="large")
     apply_shell_style()
     page = navigation(user)

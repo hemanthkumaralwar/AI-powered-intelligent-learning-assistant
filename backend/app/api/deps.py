@@ -1,4 +1,5 @@
-"""Request-scoped dependencies: database session, current user, and role checks."""
+"""Request-scoped dependencies: database session, current user, role checks, and the
+guest check for public endpoints."""
 
 from collections.abc import AsyncIterator
 from typing import Annotated
@@ -7,9 +8,11 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.http_errors import too_many_requests
 from app.auth.errors import InvalidTokenError
 from app.auth.service import AuthService
 from app.core.cache import TTLCache
+from app.core.quota import QuotaExceededError
 from app.db.models import User
 from app.db.session import Database
 
@@ -60,6 +63,32 @@ async def require_user(
 
 
 CurrentUser = Annotated[User, Depends(require_user)]
+
+
+async def allow_guests(
+    request: Request,
+    session: Session,
+    auth: Auth,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> None:
+    """For the public course endpoints (Step 24). A valid token passes freely; anything
+    else (no token, or a bad or expired one) is a guest and counts against one app-wide
+    guest quota: every guest arrives through the same Streamlit server, so guests cannot
+    be told apart, and only a real token can skip the count."""
+    if credentials is not None:
+        try:
+            await auth.user_from_token(session, credentials.credentials)
+        except InvalidTokenError:
+            pass  # treated as a guest below
+        else:
+            return
+    try:
+        request.app.state.guest_quota.consume("guests")
+    except QuotaExceededError as exc:
+        raise too_many_requests(exc) from exc
+
+
+GuestOrUser = Depends(allow_guests)
 
 
 async def require_admin(user: CurrentUser) -> User:

@@ -34,11 +34,11 @@ Send the token from `POST /auth/login` as `Authorization: Bearer <token>`; in Sw
 
 | Method and path | Who | What |
 |---|---|---|
-| `GET /courses` | logged in | course list, with each course's feature switches (`arc_practice_enabled`, `spaced_review_enabled`) |
-| `GET /courses/{course_id}` | logged in | outline: modules (with explanations) and lesson titles, in order |
-| `GET /lessons/{lesson_id}` | logged in | teaching content and exercises (starter code, hints), **never** solutions or quiz answers |
+| `GET /courses` | anyone | course list, with each course's feature switches (`arc_practice_enabled`, `spaced_review_enabled`) |
+| `GET /courses/{course_id}` | anyone | outline: modules (with explanations) and lesson titles, in order |
+| `GET /lessons/{lesson_id}` | anyone | teaching content and exercises (starter code, hints), **never** solutions or quiz answers |
 
-Course and lesson responses are cached for `CONTENT_CACHE_SECONDS`; any admin upload or delete clears the cache.
+**Public since Step 24:** no token needed. Requests without a valid token share one app-wide guest quota (`GUEST_REQUESTS_PER_MINUTE`, 429 + `Retry-After` when reached); a valid token is never counted. They expose course text only: the response models have no fields for answers or solutions. Course and lesson responses are cached for `CONTENT_CACHE_SECONDS`; any admin upload or delete clears the cache.
 
 ### Admin: course files and indexing
 
@@ -49,11 +49,11 @@ Course and lesson responses are cached for `CONTENT_CACHE_SECONDS`; any admin up
 | `GET /admin/documents/{document_id}/download` | admin | the original file (it includes every answer) |
 | `DELETE /admin/documents/{document_id}` | admin | delete one uploaded file |
 | `DELETE /admin/courses/{course_id}` | admin | delete a course and **everything** attached to it: lessons, quizzes, exercises, documents, vectors |
-| `PATCH /admin/courses/{course_id}` | admin | per-course feature switches: `arc_practice_enabled` ("Open in Practice" in Arc) and `spaced_review_enabled` (spaced review); both default off. Only the switches sent change; an empty body, only `null`s or an unknown switch is 422. Takes effect at once (the course cache is cleared) and is logged with the admin's id |
+| `PATCH /admin/courses/{course_id}` | admin | per-course feature switches: `arc_practice_enabled` ("Open in Practice" in Nexus) and `spaced_review_enabled` (spaced review); both default off. Only the switches sent change; an empty body, only `null`s or an unknown switch is 422. Takes effect at once (the course cache is cleared) and is logged with the admin's id |
 | `POST /admin/reindex` | admin | re-queue every document; unchanged content already in the current embedding space costs no quota |
 | `POST /admin/search` | admin | `{query, course_id?, k}`: what retrieval would return, to check retrieval quality |
 
-### Arc: questions and chats
+### Nexus: questions and chats
 
 | Method and path | Who | What |
 |---|---|---|

@@ -237,7 +237,7 @@ async def test_missing_course_or_lesson_is_404(api: httpx2.AsyncClient) -> None:
 
     assert (await api.get("/courses/nope", headers=student)).status_code == 404
     assert (await api.get("/lessons/nope", headers=student)).status_code == 404
-    assert (await api.get("/courses", headers={})).status_code == 401
+    # Anonymous access to course content is allowed since Step 24: test_public_access.py
 
 
 async def test_only_admins_download_the_original_course_json(api: httpx2.AsyncClient) -> None:
