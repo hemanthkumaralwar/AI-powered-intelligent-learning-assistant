@@ -95,7 +95,7 @@ sequenceDiagram
     else
         A->>L: numbered sources + question + rules
         L-->>A: answer with [n] markers
-        A-->>S: answer, citations built by the server, practice pointers
+        A-->>S: answer and citations built by the server (+ practice pointers in the API response)
     end
 ```
 

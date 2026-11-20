@@ -10,10 +10,8 @@ import streamlit as st
 
 from api_client import ApiClient, ApiError
 from components.lesson_nav import open_practice
-from components.practice import show_practice_pointers
 
 ACTIVE = "chat:active"  # the open chat's id; None for a new chat
-POINTERS = "chat:practice"  # practice pointers of the last answer in the open chat
 
 
 def show_nexus(client: ApiClient, token: str, course_id: str) -> None:
@@ -35,7 +33,6 @@ def show_nexus(client: ApiClient, token: str, course_id: str) -> None:
             )
         if question:
             ask(client, token, question, course_id, active)
-        show_practice_pointers(st.session_state.get(POINTERS, []))
 
 
 def choose_chat(client: ApiClient, token: str) -> None:
@@ -136,10 +133,8 @@ def ask(client: ApiClient, token: str, question: str, course_id: str, active: st
             st.error(str(exc))
             return
     st.session_state[ACTIVE] = reply["session_id"]
-    st.session_state[POINTERS] = reply.get("practice", [])
     st.rerun()
 
 
 def _open(chat_id: str | None) -> None:
     st.session_state[ACTIVE] = chat_id
-    st.session_state[POINTERS] = []

@@ -136,7 +136,7 @@ The frontend follows the LearnX platform's look: a narrow rail on the left, a to
 
 | Rail | For | What it does |
 |---|---|---|
-| **LearnX** | everyone; no account needed to read | courses → a course's modules → a lesson with **Reading** (numbered stages: mission, brief, concepts, analogy, syntax, examples, flow, real world, recap) and **Quiz & activities** (links to the platform), open to all. Signed in, you also get **Ask Nexus** (the course assistant: answers with citations, follow-ups, past chats, practice pointers and, where an admin turned it on, **Open in Practice**), **Practice** (the lesson's exercises in a code editor: run, ask the AI about the output, submit for grading), **Code** (explain code, show an example, practice questions), and on the course page your mastery, lessons **due for review** and **what to do next** |
+| **LearnX** | everyone; no account needed to read | courses → a course's modules → a lesson with **Reading** (numbered stages: mission, brief, concepts, analogy, syntax, examples, flow, real world, recap) and **Quiz & activities** (links to the platform), open to all. Signed in, you also get **Ask Nexus** (the course assistant: answers with citations, follow-ups, past chats and, where an admin turned it on, **Open in Practice**), **Practice** (the lesson's exercises in a code editor: run, ask the AI about the output, submit for grading), **Code** (explain code, show an example, practice questions), and on the course page your mastery, lessons **due for review** and **what to do next** |
 | **Sign in** | guests | the login form (accounts are created through the API for now) |
 | **Settings** (`<app URL>/admin`) | admins only | upload course JSON, indexing status, per-course feature switches (Open in Practice, spaced review; off by default), delete a course, re-index |
 
@@ -172,7 +172,7 @@ All settings come from environment variables or `.env`. `.env.example` lists eve
 | `GUEST_REQUESTS_PER_MINUTE` | requests per minute to the public course endpoints from all visitors without a valid token, together (they all come through the Streamlit server) | `120` |
 | `CHAT_RETENTION_DAYS` | chats untouched this long are deleted (when their owner next lists chats) | `90` |
 | `CONTENT_CACHE_SECONDS` | how long course and lesson responses are cached; `0` turns caching off. Admin uploads and deletes clear the cache | `600` |
-| `PLATFORM_LESSON_URL` | `https://` link template to a lesson on the learning platform, containing `{lesson_id}`; makes practice pointers clickable | — (no links) |
+| `PLATFORM_LESSON_URL` | `https://` link template to a lesson on the learning platform, containing `{lesson_id}`; adds the link to the `practice` pointers in API responses (the app itself lists a lesson's activities only in its Quiz & activities tab) | — (no links) |
 | `DATABASE_URL` | PostgreSQL URL: Neon direct (dev) or Supabase session pooler (prod) | — (required by the API from Step 5) |
 | `TEST_DATABASE_URL` | Neon `test` branch URL, read only by the test suite | — (database tests skip without it) |
 | `DB_POOL_SIZE` | `1`–`20` | `5` |

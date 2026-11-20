@@ -762,7 +762,8 @@ def test_chat_asks_then_shows_history_sources_and_practice(fake_api_url: str) ->
     markdown = [m.value for m in app.markdown]
     assert "`let` is block-scoped [1]." in markdown
     assert any("Sources: [1] Basics › Variables — Explanation" in c.value for c in app.caption)
-    assert any("Practise Variables on the learning platform" in box.value for box in app.info)
+    # Platform activities live only in the lesson's Quiz & activities tab, not under answers.
+    assert not any("Practise Variables on the learning platform" in box.value for box in app.info)
 
 
 def test_follow_up_goes_to_the_same_chat(fake_api_url: str) -> None:

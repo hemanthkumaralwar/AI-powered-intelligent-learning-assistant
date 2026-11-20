@@ -61,21 +61,9 @@ def activity_label(activity: dict[str, Any]) -> str:
     return f"{ACTIVITY_NAMES.get(activity['kind'], activity['kind'])}: {activity['title']}{size}"
 
 
-def show_platform_activities(activities: list[dict[str, Any]], url: str | None = None) -> None:
-    """The lesson's quizzes and activities, which run on the learning platform."""
+def show_platform_activities(activities: list[dict[str, Any]]) -> None:
+    """The lesson's quizzes and activities, which run on the learning platform. Shown only
+    in the lesson's Quiz & activities tab (not under answers or recommendations)."""
     if activities:
         lines = "\n".join(f"- {activity_label(a)}" for a in activities)
-        link = f"\n\n[Open this lesson on the platform]({url})" if url else ""
-        st.info(f"**Practise this lesson on the learning platform:**\n{lines}{link}")
-
-
-def show_practice_pointers(pointers: list[dict[str, Any]]) -> None:
-    """Practice pointers from chat or coding answers: each lesson's platform activities."""
-    for pointer in pointers:
-        lines = "\n".join(f"- {activity_label(a)}" for a in pointer["activities"])
-        title = (
-            f"[{pointer['lesson_title']}]({pointer['url']})"
-            if pointer.get("url")
-            else (pointer["lesson_title"])
-        )
-        st.info(f"**Practise {title} on the learning platform:**\n{lines}")
+        st.info(f"**Practise this lesson on the learning platform:**\n{lines}")

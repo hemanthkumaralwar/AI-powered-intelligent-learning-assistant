@@ -108,7 +108,7 @@ Demo script (about 5 minutes; warm up first, see below):
 1. **Admin:** log in, open **Settings** (bottom of the rail, or `<app URL>/admin`): the JavaScript course is `ready`. Log out.
 2. **Guest, then student:** before logging in, open a course and read a lesson (no account needed); then log in (the rail has only LearnX). Show light and dark from the ⋮ menu.
 3. **LearnX:** open the course, then a lesson; scroll through the Reading stages.
-4. **Ask Nexus** (a lesson tab): "What is an array in JavaScript?" Show the cited answer and the lesson's activities.
+4. **Ask Nexus** (a lesson tab): "What is an array in JavaScript?" Show the cited answer, then the lesson's **Quiz & activities** tab.
 5. Follow up: "How do I loop over it?" The answer stays on arrays.
 6. Out of course: "How do React hooks work?" Nexus says the course doesn't cover it.
 7. **Lesson → Practice:** run the bug hunt (error shown), ask the AI (hints, no fixed code), submit (graded with a hint).

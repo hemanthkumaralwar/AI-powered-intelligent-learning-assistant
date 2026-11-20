@@ -8,7 +8,6 @@ import streamlit as st
 
 from api_client import ApiClient, ApiError
 from components.lesson_nav import review_lesson
-from components.practice import show_platform_activities
 
 EXERCISE_NAMES = {
     "interactive": "Try it yourself",
@@ -92,7 +91,6 @@ def show_recommendation(pick: dict[str, Any], open_lesson: OpenLesson) -> None:
             score = "not tried" if item["score"] is None else f"{item['score']:.0%}"
             name = EXERCISE_NAMES.get(item["kind"], item["kind"])
             st.markdown(f"- {name}: {item['title']} ({score})")
-        show_platform_activities(pick["practice"], pick.get("practice_url"))
         if st.button("Open lesson", key=f"next:{pick['lesson_id']}", type="primary"):
             open_lesson(pick["lesson_id"])
 

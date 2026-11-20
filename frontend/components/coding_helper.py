@@ -8,7 +8,6 @@ import streamlit as st
 
 from api_client import ApiClient, ApiError
 from components.compiler import LANGUAGES
-from components.practice import show_practice_pointers
 
 RESULT = "helper:result"
 
@@ -55,7 +54,6 @@ def show_result(result: dict[str, Any] | None) -> None:
         return
     st.divider()
     RENDERERS[result["task"]](result)
-    show_practice_pointers(result.get("practice", []))
 
 
 def _explanation(result: dict[str, Any]) -> None:
