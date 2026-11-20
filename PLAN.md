@@ -348,6 +348,12 @@ Built after Step 22 is submitted, in order: 23a, then 23b, then 23c (23c reuses 
   - **Started from a lesson:** a "Practice with Arc" button on the LearnX lesson page tutors that lesson's concepts, so it is always in-course.
   - **Its own daily cap:** `TUTOR_LESSONS_PER_STUDENT_PER_DAY` (default 2, about 80 calls) and an app-wide `TUTOR_CALLS_PER_DAY`, separate from Arc's quota, so tutoring never blocks normal answers. 429 with `Retry-After` when reached.
   - **Stop rule:** after 2 wrong in a row, a new demo with a different analogy and mastery reset to 0; after 3 practice rounds plus that one re-demo, move to the next concept and mark it for spaced review (23b). Cost stays bounded.
+- **Review decisions (yours, 2026-11-20):**
+  - **Daily caps in the database,** not memory: Render's free server restarts many times a day, which would reset in-memory counters. Lessons per student per day are counted from stored tutor sessions; app-wide AI calls per day use a small daily counter table (migration).
+  - **AI-written questions only:** course exercises stay in the Practice tab and are not used by the tutor, so no solution can leak through it. (This replaces "the lesson's `interactiveExercise` / `miniChallenge` are used where they fit" below.)
+  - **A fifth lesson tab, "Practice with Arc",** shown only when the course's switch is on (instead of a button).
+  - **Three commits:** 1) backend engine, API, caps and tests with a fake model; 2) the lesson-page tutor UI; 3) live measuring of cost and quality on the dev database, with your OK before it runs.
+  - **Filled in the review:** questions are written from the lesson's stored chunks (no embedding search, no embedding quota); each session has a turn counter and a stale or repeated answer gets 409; sessions older than 90 days are deleted when a student starts a new one; the server picks the step and the model only grades and writes that step's question (JSON, one retry), with student answers neutralised against prompt injection; `TUTOR_LESSONS_PER_STUDENT_PER_DAY` and `TUTOR_CALLS_PER_DAY` are documented in the README and `.env.example`.
 - **The cycle per concept (server-driven):**
   1. **Demo** from the course: the lesson's `example` and `analogy` (no AI call).
   2. **Practice,** at most 3 rounds, one question per turn. Each round changes one thing (domain, audience, constraint or format). The lesson's `interactiveExercise` / `miniChallenge` are used where they fit, but a lesson has 2–3 exercises for about 8 concepts, so most questions are AI-written from the lesson's chunks.
