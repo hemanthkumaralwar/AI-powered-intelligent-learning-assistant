@@ -1,4 +1,4 @@
-"""Sign-in, the signed-in sidebar (account, log out) and the explanation level."""
+"""Sign-in, the profile menu in the top bar (account, explanation level, log out)."""
 
 import streamlit as st
 
@@ -14,7 +14,7 @@ def show_login(client: ApiClient) -> None:
     with st.form("login", clear_on_submit=True):
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Log in")
+        submitted = st.form_submit_button("Log in", type="primary")
     if not submitted:
         return
     try:
@@ -41,13 +41,14 @@ def load_user(client: ApiClient, token: str) -> dict | None:
     return user
 
 
-def show_account(client: ApiClient, token: str, user: dict) -> None:
-    with st.sidebar:
-        st.success(f"Signed in as **{user['username']}** ({user['role']})")
-        if st.button("Log out", key="account:logout"):
+def show_profile(client: ApiClient, token: str, user: dict) -> None:
+    with st.popover(user["username"], icon=":material/account_circle:", width="stretch"):
+        st.markdown(f"Signed in as **{user['username']}** ({user['role']})")
+        show_level(client, token, user.get("level", LEVELS[0]))
+        st.caption("Light or dark: the ⋮ menu at the top right.")
+        if st.button("Log out", key="account:logout", icon=":material/logout:"):
             sign_out()
             st.rerun()
-        show_level(client, token, user.get("level", LEVELS[0]))
 
 
 def show_level(client: ApiClient, token: str, current: str) -> None:

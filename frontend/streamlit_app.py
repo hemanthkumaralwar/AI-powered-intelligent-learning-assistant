@@ -1,35 +1,39 @@
-"""ArchintX Learning Assistant: Streamlit frontend.
+"""ArchintX Learning Assistant: Streamlit frontend in the LearnX style.
 
 Run locally:  streamlit run frontend/streamlit_app.py
 Config:       API_BASE_URL in .streamlit/secrets.toml (or the environment).
 
-Signs the user in, then shows the pages their role allows. Students never see the admin
-pages in the menu, and the API refuses admin actions from them anyway (403), so hiding
-the menu entries is convenience, not the protection.
+Signs the user in, then shows the left rail (Arc, LearnX, and Settings for admins), the
+top bar and the chosen page. Students never see the admin page in the rail, and the API
+refuses admin actions from them anyway (403), so hiding it is convenience, not the
+protection.
 
 The access token lives only in `st.session_state`, which stays on the Streamlit server;
 it never reaches browser storage or cookies.
 """
 
+from pathlib import Path
+
 import streamlit as st
 from streamlit.navigation.page import StreamlitPage
 
-from components.account import load_user, show_account, show_login
+from components.account import load_user, show_login
+from components.shell import apply_shell_style, show_topbar
 from menu import pages_for
 from session import TOKEN_KEY, api_base_url, api_client
 
+LOGO = str(Path(__file__).parent / "static" / "logo.svg")
+
 
 def navigation(user: dict) -> StreamlitPage:
-    return st.navigation(
-        {
-            section: [st.Page(path, title=title, icon=icon) for path, title, icon in pages]
-            for section, pages in pages_for(user.get("role")).items()
-        }
-    )
+    pages = [
+        st.Page(path, title=title, icon=icon) for path, title, icon in pages_for(user.get("role"))
+    ]
+    return st.navigation(pages)
 
 
 def main() -> None:
-    st.set_page_config(page_title="ArchintX Learning Assistant", page_icon="🎓", layout="wide")
+    st.set_page_config(page_title="ArchintX Learning Assistant", page_icon=LOGO, layout="wide")
 
     base_url = api_base_url()
     if not base_url:
@@ -50,8 +54,11 @@ def main() -> None:
         if not token:
             show_login(client)
         return
-    show_account(client, token, user)
-    navigation(user).run()
+    st.logo(LOGO, size="large")
+    apply_shell_style()
+    page = navigation(user)
+    show_topbar(client, token, user, page.title)
+    page.run()
 
 
 main()

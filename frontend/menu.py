@@ -1,4 +1,9 @@
-"""Which pages each role sees (pure, so it can be tested without running the app).
+"""Which pages each role sees in the left rail (pure, so it can be tested without running
+the app).
+
+The rail follows the LearnX platform: Arc (the course assistant) and LearnX (courses and
+lessons, with practice, the coding helper and progress inside them). Admins also get
+Settings (managing courses), last in the rail.
 
 The page scripts live in `views/`, not `pages/`: Streamlit auto-lists a `pages/` folder
 in the sidebar whenever `st.navigation` is not called (the login screen), which would
@@ -8,19 +13,14 @@ Hiding admin pages from students is a convenience: the admin page checks the rol
 the API refuses admin actions from students (403) whatever the menu shows.
 """
 
-STUDENT_PAGES = [
-    ("views/courses.py", "Courses", "📚"),
-    ("views/chat.py", "Ask the assistant", "💬"),
-    ("views/practice.py", "Practice", "🧪"),
-    ("views/coding.py", "Coding helper", "🛠️"),
-    ("views/progress.py", "My progress", "📈"),
+type MenuPage = tuple[str, str, str]  # (page file, title, Material icon)
+
+STUDENT_PAGES: list[MenuPage] = [
+    ("views/arc.py", "Arc", ":material/chat_bubble_outline:"),
+    ("views/learnx.py", "LearnX", ":material/menu_book:"),
 ]
-ADMIN_PAGES = [("views/admin_courses.py", "Manage courses", "🗂️")]
+ADMIN_PAGES: list[MenuPage] = [("views/admin_courses.py", "Settings", ":material/settings:")]
 
 
-def pages_for(role: str | None) -> dict[str, list[tuple[str, str, str]]]:
-    """Menu sections -> (page file, title, icon)."""
-    sections = {"Learn": STUDENT_PAGES}
-    if role == "admin":
-        sections["Admin"] = ADMIN_PAGES
-    return sections
+def pages_for(role: str | None) -> list[MenuPage]:
+    return STUDENT_PAGES + ADMIN_PAGES if role == "admin" else list(STUDENT_PAGES)

@@ -6,3 +6,43 @@ gatherUsageStats = false
 [server]
 # Matches the API's upload limit (10 MB), so the uploader does not offer 200 MB.
 maxUploadSize = 10
+
+# LearnX look (colours from the platform's --ax-* design tokens). Visitors switch between
+# light and dark (or System) at the top of the app's ⋮ menu; Streamlit has no in-page
+# theme toggle.
+# Inter and JetBrains Mono load from Google Fonts in the visitor's browser.
+[theme]
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+codeFont = "JetBrains Mono:https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap, monospace"
+baseRadius = "0.75rem"
+buttonRadius = "0.5rem"
+showWidgetBorder = true
+linkUnderline = false
+
+[theme.light]
+primaryColor = "#3572c6"
+backgroundColor = "#f9f9fb"
+secondaryBackgroundColor = "#f0f0f4"
+textColor = "#0a0a0a"
+linkColor = "#3572c6"
+borderColor = "#e5e5ea"
+codeBackgroundColor = "#f4f4f7"
+
+[theme.light.sidebar]
+backgroundColor = "#f5f5f8"
+secondaryBackgroundColor = "#eeeff3"
+borderColor = "#e5e5ea"
+
+[theme.dark]
+primaryColor = "#4a90e2"
+backgroundColor = "#0d1220"
+secondaryBackgroundColor = "#1f2a42"
+textColor = "#fafafa"
+linkColor = "#6aa6ec"
+borderColor = "#334155"
+codeBackgroundColor = "#131c30"
+
+[theme.dark.sidebar]
+backgroundColor = "#0a0e1a"
+secondaryBackgroundColor = "#131c30"
+borderColor = "#334155"

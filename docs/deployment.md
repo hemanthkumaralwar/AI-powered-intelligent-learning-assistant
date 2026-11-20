@@ -79,7 +79,7 @@ To re-check later:
 ### Load the course
 
 1. Open the Streamlit app and log in as the admin.
-2. **Manage courses**: choose `eval/materials/javascript-beginner.json`, programming language JavaScript, **Upload**.
+2. **Settings** (bottom of the rail): choose `eval/materials/javascript-beginner.json`, programming language JavaScript, **Upload**.
 3. Press **Refresh** until its status is `ready` (about a minute). Students can now ask about it.
 
 Uploading the same course again is refused (409). To replace it, delete it first on the same page.
@@ -104,14 +104,14 @@ Record the demo once, so a cold start or provider outage during the live demo ha
 
 Demo script (about 5 minutes; warm up first, see below):
 
-1. **Admin:** log in, Manage courses: the JavaScript course is `ready`. Log out.
-2. **Student:** log in (the menu has no admin pages).
-3. **Courses:** open a lesson.
-4. **Ask the assistant:** "What is an array in JavaScript?" Show the cited answer and the lesson's activities.
+1. **Admin:** log in, open **Settings** (bottom of the rail): the JavaScript course is `ready`. Log out.
+2. **Student:** log in (the rail has only Arc and LearnX). Show light and dark from the ⋮ menu.
+3. **LearnX:** open the course, then a lesson; scroll through the Reading stages.
+4. **Arc:** "What is an array in JavaScript?" Show the cited answer and the lesson's activities.
 5. Follow up: "How do I loop over it?" The answer stays on arrays.
-6. Out of course: "How do React hooks work?" The assistant says the course doesn't cover it.
-7. **Practice:** open a bug hunt, run it (error shown), ask the AI (hints, no fixed code), submit (graded with a hint).
-8. **My progress:** the weak lesson is recommended first.
+6. Out of course: "How do React hooks work?" Arc says the course doesn't cover it.
+7. **Lesson → Practice:** run the bug hunt (error shown), ask the AI (hints, no fixed code), submit (graded with a hint).
+8. **LearnX course page:** "What to do next" recommends the weak lesson first.
 
 ## Cold starts and the demo
 

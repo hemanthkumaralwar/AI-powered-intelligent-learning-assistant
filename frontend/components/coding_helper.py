@@ -1,5 +1,5 @@
-"""Coding helper: explain code, see an example, or get practice questions (any language).
-Debugging lives in the compiler panel on the Practice page, next to the run output."""
+"""The lesson's Code tab: explain code, see an example, or get practice questions.
+Debugging lives in the compiler panel on the Practice tab, next to the run output."""
 
 from typing import Any
 
@@ -8,31 +8,35 @@ import streamlit as st
 from api_client import ApiClient, ApiError
 from components.compiler import LANGUAGES
 from components.practice import show_practice_pointers
-from session import current
+
+RESULT = "helper:result"
 
 
-def main() -> None:
-    session = current()
-    st.title("Coding helper")
+def show_coding_helper(client: ApiClient, token: str, language: str) -> None:
+    languages = list(LANGUAGES)
     language = st.selectbox(
-        "Language", list(LANGUAGES), format_func=LANGUAGES.__getitem__, key="helper:language"
+        "Language",
+        languages,
+        index=languages.index(language) if language in languages else 0,
+        format_func=LANGUAGES.__getitem__,
+        key="helper:language",
     )
     explain_tab, example_tab, practice_tab = st.tabs(
         ["Explain my code", "Show an example", "Practice questions"]
     )
     with explain_tab:
         code = st.text_area("Code", height=220, key="helper:code")
-        if st.button("Explain", key="helper:explain") and code.strip():
-            _run(session.client, session.token, "explain", language, code=code)
+        if st.button("Explain", key="helper:explain", type="primary") and code.strip():
+            _run(client, token, "explain", language, code=code)
     with example_tab:
         topic = st.text_input("Topic", key="helper:example-topic", placeholder="e.g. closures")
-        if st.button("Show example", key="helper:example") and topic.strip():
-            _run(session.client, session.token, "example", language, topic=topic)
+        if st.button("Show example", key="helper:example", type="primary") and topic.strip():
+            _run(client, token, "example", language, topic=topic)
     with practice_tab:
         topic = st.text_input("Topic", key="helper:practice-topic", placeholder="e.g. loops")
-        if st.button("Get questions", key="helper:practice") and topic.strip():
-            _run(session.client, session.token, "practice", language, topic=topic)
-    show_result(st.session_state.get("helper:result"))
+        if st.button("Get questions", key="helper:practice", type="primary") and topic.strip():
+            _run(client, token, "practice", language, topic=topic)
+    show_result(st.session_state.get(RESULT))
 
 
 def _run(client: ApiClient, token: str, task: str, language: str, **body: str) -> None:
@@ -42,7 +46,7 @@ def _run(client: ApiClient, token: str, task: str, language: str, **body: str) -
         except ApiError as exc:
             st.error(str(exc))
             return
-    st.session_state["helper:result"] = {"task": task, "language": language, **result}
+    st.session_state[RESULT] = {"task": task, "language": language, **result}
 
 
 def show_result(result: dict[str, Any] | None) -> None:
@@ -67,6 +71,3 @@ def show_result(result: dict[str, Any] | None) -> None:
                 for hint in question["hints"]:
                     st.markdown(f"- {hint}")
     show_practice_pointers(result.get("practice", []))
-
-
-main()

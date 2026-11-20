@@ -1,4 +1,5 @@
-"""Chat with the course assistant: answers with citations, follow-ups, past chats."""
+"""Arc: chat with the course assistant. Answers with citations, follow-ups in the same
+chat, and your past chats on the left."""
 
 from typing import Any
 
@@ -14,36 +15,46 @@ POINTERS = "chat:practice"  # practice pointers of the last answer in the open c
 
 def main() -> None:
     session = current()
-    st.title("Ask the assistant")
-    st.caption(
-        "Answers come only from your course materials, with sources. Ask a follow-up in the "
-        "same chat; ask to be quizzed and you are pointed to the lesson's activities."
-    )
-    with st.sidebar:
+    chats_column, chat_column = st.columns([1, 3], gap="large")
+    with chats_column:
         choose_chat(session.client, session.token)
     active = st.session_state.get(ACTIVE)
-    if active:
-        show_history(session.client, session.token, active)
-    question = st.chat_input("Ask about your course…")
-    if question:
-        ask(session.client, session.token, question, active)
-    show_practice_pointers(st.session_state.get(POINTERS, []))
+    with chat_column:
+        # Messages go in a container placed above the input, so a new question and its
+        # answer appear under the conversation, not under the input box.
+        messages = st.container()
+        question = st.chat_input("Ask about your course…")
+    with messages:
+        if active:
+            show_history(session.client, session.token, active)
+        else:
+            st.markdown("#### Ask Arc about your course")
+            st.caption(
+                "Answers come only from your course materials, with sources. Ask a follow-up "
+                "in the same chat; ask to be quizzed and you are pointed to the lesson's "
+                "activities."
+            )
+        if question:
+            ask(session.client, session.token, question, active)
+        show_practice_pointers(st.session_state.get(POINTERS, []))
 
 
 def choose_chat(client: ApiClient, token: str) -> None:
-    st.subheader("Your chats")
-    if st.button("New chat", icon="➕"):
+    if st.button("New chat", icon=":material/add:", type="primary", width="stretch"):
         _open(None)
+    st.caption("Your chats")
     try:
         chats = client.chat_sessions(token)
     except ApiError as exc:
         st.error(str(exc))
         return
-    for chat in chats:
-        if st.button(chat["title"], key=f"chat-{chat['id']}", width="stretch"):
-            _open(chat["id"])
     active = st.session_state.get(ACTIVE)
-    if active and st.button("Delete this chat", icon="🗑️"):
+    for chat in chats:
+        kind = "secondary" if chat["id"] == active else "tertiary"
+        if st.button(chat["title"], key=f"chat-{chat['id']}", type=kind, width="stretch"):
+            _open(chat["id"])
+            st.rerun()
+    if active and st.button("Delete this chat", icon=":material/delete:", width="stretch"):
         try:
             client.delete_chat(token, active)
         except ApiError as exc:

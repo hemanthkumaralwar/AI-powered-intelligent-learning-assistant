@@ -390,29 +390,29 @@ def test_wrong_password_shows_friendly_error(fake_api_url: str) -> None:
     assert len(app.text_input) == 2
 
 
-def test_login_shows_the_account_in_the_sidebar(fake_api_url: str) -> None:
+def test_login_shows_the_account_in_the_profile_menu(fake_api_url: str) -> None:
     app = log_in(run_app(fake_api_url), "asha", "right-password")
 
-    assert app.sidebar.success[0].value == "Signed in as **asha** (student)"
+    assert "Signed in as **asha** (student)" in [m.value for m in app.markdown]
     assert app.session_state["access_token"] == GOOD_TOKEN
 
 
-def account_sidebar() -> None:
-    """The signed-in sidebar on its own: AppTest re-runs only the current page after the
-    first run, so widgets drawn by the entry point are tested here instead."""
+def profile_menu() -> None:
+    """The profile menu on its own: AppTest re-runs only the current page after the first
+    run, so widgets drawn by the entry point are tested here instead."""
     import streamlit as st
 
     from api_client import ApiClient
-    from components.account import show_account
+    from components.account import show_profile
 
     if st.session_state.get("access_token"):
         user = {"username": "asha", "role": "student", "level": "beginner"}
-        show_account(ApiClient(st.secrets["API_BASE_URL"]), st.session_state["access_token"], user)
+        show_profile(ApiClient(st.secrets["API_BASE_URL"]), st.session_state["access_token"], user)
 
 
-def sidebar_app(fake_api_url: str) -> AppTest:
+def profile_app(fake_api_url: str) -> AppTest:
     FakeApi.received.clear()
-    app = AppTest.from_function(account_sidebar, default_timeout=30)
+    app = AppTest.from_function(profile_menu, default_timeout=30)
     app.secrets["API_BASE_URL"] = fake_api_url
     app.session_state["access_token"] = GOOD_TOKEN
     app.session_state["user"] = {"username": "asha"}
@@ -420,9 +420,9 @@ def sidebar_app(fake_api_url: str) -> AppTest:
 
 
 def test_log_out_forgets_the_session(fake_api_url: str) -> None:
-    app = sidebar_app(fake_api_url)
+    app = profile_app(fake_api_url)
 
-    app = app.sidebar.button(key="account:logout").click().run()
+    app = app.button(key="account:logout").click().run()
 
     assert "access_token" not in app.session_state and "user" not in app.session_state
 
@@ -447,31 +447,159 @@ def test_server_error_on_account_page_is_shown_plainly(fake_api_url: str) -> Non
     assert not app.exception
 
 
-# ---- practice and the compiler panel (Step 15) ------------------------------------------
+def test_level_selector_saves_to_the_profile(fake_api_url: str) -> None:
+    app = profile_app(fake_api_url)
+    level = app.selectbox(key="account:level")
+    assert level.value == "beginner"
+
+    app = level.set_value("advanced").run()
+
+    assert FakeApi.received["/auth/me"] == {"level": "advanced"}
+    assert app.session_state["user"]["level"] == "advanced"
+    assert not app.exception
+
+
+# ---- LearnX: courses, course page, lesson tabs -----------------------------------------
+
+# The first lesson gets reading content, to check the staged Reading tab.
+GET_ROUTES["/lessons/l1"]["objective"] = "Declare variables with let and const."
+GET_ROUTES["/lessons/l1"]["content"] |= {
+    "duration": "25 minutes",
+    "concepts": ["let", "const"],
+    "analogy": {
+        "subject": "Labelled boxes",
+        "comparison": "A variable is a labelled box.",
+        "mapping": [{"from": "Glued | label", "to": "const"}],
+    },
+    "keyTakeaways": ["Prefer const."],
+    "hooklineimage": {"html": "<script>alert(1)</script>"},
+    "hooklines": [{"text": "A variable is a label.", "image": {"html": "<b>x</b>"}}],
+    "lessonExplanation": [{"topic": "Declaring", "points": ["let can change."]}],
+    "syntax": {"title": "Syntax", "highlight": {"code": "let x = 1;"}},
+    "parts": [{"label": "Step 1", "name": "let", "description": "Can be reassigned."}],
+    "example": [{"title": "Example 1", "code": "const a = 1;", "explanation": "Fixed."}],
+    "flowchart": {"title": "Choosing", "code": "flowchart LR\n A --> B"},
+    "realWorldStory": {
+        "storyTitle": "Config",
+        "storyText": "Keys stay const.",
+        "storyCompany": "Acme",
+    },
+    "useCaseCards": [{"industry": "Web", "jobRole": "Developer", "useCase": "Form state"}],
+}
 
 
 def signed_in(
-    fake_api_url: str, page: str | None = "views/practice.py", token: str = GOOD_TOKEN
+    fake_api_url: str,
+    page: str | None = "views/learnx.py",
+    token: str = GOOD_TOKEN,
+    state: dict[str, object] | None = None,
 ) -> AppTest:
-    """Signed in, then on `page` (None: the entry point's run, where the sidebar lives;
-    AppTest's switch_page runs only the page script)."""
+    """Signed in, with `state` in session_state, then on `page` (None: the entry point's
+    run; AppTest's switch_page runs only the page script)."""
     FakeApi.received.clear()
     app = AppTest.from_file(APP, default_timeout=60)
     app.secrets["API_BASE_URL"] = fake_api_url
     app.session_state["access_token"] = token
+    for key, value in (state or {}).items():
+        app.session_state[key] = value
     app.run()
     return app if page is None else app.switch_page(page).run()
+
+
+def in_course(fake_api_url: str) -> AppTest:
+    return signed_in(fake_api_url, state={"learnx:course": "js"})
+
+
+def in_lesson(fake_api_url: str, lesson: str = "l1") -> AppTest:
+    return signed_in(fake_api_url, state={"learnx:course": "js", "learnx:lesson": lesson})
 
 
 def button(app: AppTest, label: str):
     return next(b for b in app.button if b.label == label)
 
 
-def test_exercise_opens_with_its_starter_code(fake_api_url: str) -> None:
+def test_learnx_lists_courses_and_opens_one(fake_api_url: str) -> None:
     app = signed_in(fake_api_url)
 
+    assert "**JavaScript**" in [m.value for m in app.markdown]
+    assert any(c.value == "JavaScript" for c in app.caption)
+
+    app = app.button(key="course:js").click().run()
+
+    assert app.session_state["learnx:course"] == "js"
+    assert "## JavaScript" in [m.value for m in app.markdown]
     assert not app.exception
-    assert app.header[0].value == "Practice"
+
+
+def test_course_page_shows_modules_progress_and_what_to_do_next(fake_api_url: str) -> None:
+    app = in_course(fake_api_url)
+
+    assert app.expander[0].label == "1. Basics · 0%"
+    captions = [c.value for c in app.caption]
+    assert "0% · review" in captions and "not started" in captions
+    markdown = [m.value for m in app.markdown]
+    assert "🔁 **Variables** · Basics" in markdown
+    assert "- Bug hunt: Fix the counter (0%)" in markdown
+
+    app = app.button(key="next:l1").click().run()
+
+    assert app.session_state["learnx:lesson"] == "l1"
+    assert not app.exception
+
+
+def test_course_page_opens_a_lesson_and_goes_back(fake_api_url: str) -> None:
+    app = in_course(fake_api_url)
+
+    app = app.button(key="lesson:l2").click().run()
+    assert "## The DOM" in [m.value for m in app.markdown]
+
+    app = button(app, "Previous: Variables").click().run()
+    assert "## Variables" in [m.value for m in app.markdown]
+
+    app = button(app, "JavaScript").click().run()
+    assert app.session_state["learnx:lesson"] is None
+
+
+def test_lesson_has_reading_practice_code_and_activity_tabs(fake_api_url: str) -> None:
+    app = in_lesson(fake_api_url)
+
+    labels = [t.label for t in app.tabs]  # the Code tab's own tabs are listed inside it
+    assert labels[:3] == ["Reading", "Practice", "Code"] and labels[-1] == "Quiz & activities"
+    facts = "**25 minutes** · **2 concepts** · **1 example** · **1 exercise**"
+    assert facts in [m.value for m in app.markdown]
+    assert not app.exception
+
+
+def test_reading_tab_shows_numbered_stages_safely(fake_api_url: str) -> None:
+    app = in_lesson(fake_api_url)
+    markdown = [m.value for m in app.markdown]
+    captions = [c.value for c in app.caption]
+
+    stages = [m.removeprefix("#### ") for m in markdown if m.startswith("#### ")]
+    assert stages == [
+        "Your mission",
+        "Brief",
+        "Core concepts",
+        "Mental model",
+        "Syntax anatomy",
+        "Examples",
+        "Flow",
+        "In the real world",
+        "Recap",
+    ]
+    assert "Stage 1 of 9" in captions and "Stage 9 of 9" in captions
+    assert "**Objective:** Declare variables with let and const." in markdown
+    assert "- A variable is a label." in markdown and "1. **let:** Can be reassigned." in markdown
+    assert "**Config** (Acme)" in markdown and "- **Web · Developer:** Form state" in markdown
+    codes = [c.value for c in app.code]
+    assert "let x = 1;" in codes and "flowchart LR\n A --> B" in codes
+    assert "| Glued \\| label | const |" in "\n".join(markdown)  # a | cannot split a cell
+    assert not any("<script>" in value for value in markdown)  # stored HTML is skipped
+
+
+def test_exercise_opens_with_its_starter_code(fake_api_url: str) -> None:
+    app = in_lesson(fake_api_url)
+
     assert app.text_area(key="exercise-e1:code").value == BUG_HUNT
     assert app.selectbox(key="exercise-e1:language").value == "javascript"
     # Compiler Explorer cannot run JavaScript, so there is no share button for it.
@@ -479,7 +607,7 @@ def test_exercise_opens_with_its_starter_code(fake_api_url: str) -> None:
 
 
 def test_run_shows_output_then_ai_explains_it(fake_api_url: str) -> None:
-    app = button(signed_in(fake_api_url), "Run").click().run()
+    app = button(in_lesson(fake_api_url), "Run").click().run()
 
     assert "**Runtime error**" in [m.value for m in app.markdown]
     assert any("TypeError: Assignment" in c.value for c in app.code)
@@ -498,7 +626,7 @@ def test_run_shows_output_then_ai_explains_it(fake_api_url: str) -> None:
 
 
 def test_pasted_output_is_sent_without_an_outcome(fake_api_url: str) -> None:
-    app = signed_in(fake_api_url)
+    app = in_lesson(fake_api_url)
     app.text_area(key="exercise-e1:pasted").input("TypeError on my laptop")
     app = button(app.run(), "Ask AI about this output").click().run()
 
@@ -506,7 +634,7 @@ def test_pasted_output_is_sent_without_an_outcome(fake_api_url: str) -> None:
 
 
 def test_share_appears_for_compiler_explorer_languages(fake_api_url: str) -> None:
-    app = signed_in(fake_api_url)
+    app = in_lesson(fake_api_url)
     app = app.selectbox(key="exercise-e1:language").set_value("python").run()
 
     app = button(app, "Open in Compiler Explorer").click().run()
@@ -516,9 +644,7 @@ def test_share_appears_for_compiler_explorer_languages(fake_api_url: str) -> Non
 
 
 def test_dom_exercise_offers_the_page_sandbox(fake_api_url: str) -> None:
-    app = signed_in(fake_api_url)
-    lesson = next(s for s in app.selectbox if s.label == "Lesson")
-    app = lesson.select_index(1).run()  # the DOM lesson
+    app = in_lesson(fake_api_url, lesson="l2")
 
     assert app.text_area(key="exercise-e2:code").value == DOM_CODE
     app = button(app, "Run in page sandbox").click().run()
@@ -527,45 +653,87 @@ def test_dom_exercise_offers_the_page_sandbox(fake_api_url: str) -> None:
     assert app.session_state["exercise-e2:sandboxed"] == (DOM_CODE, "")
 
 
-def test_level_selector_saves_to_the_profile(fake_api_url: str) -> None:
-    app = sidebar_app(fake_api_url)
-    level = app.sidebar.selectbox(key="account:level")
-    assert level.value == "beginner"
-
-    app = level.set_value("advanced").run()
-
-    assert FakeApi.received["/auth/me"] == {"level": "advanced"}
-    assert app.session_state["user"]["level"] == "advanced"
-    assert not app.exception
-
-
-def test_lesson_lists_its_platform_activities(fake_api_url: str) -> None:
-    app = signed_in(fake_api_url)
+def test_activities_tab_lists_the_platform_activities(fake_api_url: str) -> None:
+    app = in_lesson(fake_api_url)
 
     (box,) = [i.value for i in app.info if "learning platform" in i.value]
     assert "- Quiz: Quiz (10 questions)" in box
     assert "- Card matching: Match the terms (6 pairs)" in box
 
 
+def test_lesson_without_activities_says_so(fake_api_url: str) -> None:
+    app = in_lesson(fake_api_url, lesson="l2")
+
+    assert any("no quizzes or activities" in i.value for i in app.info)
+
+
 def test_submit_for_grading_shows_hint_feedback(fake_api_url: str) -> None:
-    app = button(signed_in(fake_api_url), "Submit for grading").click().run()
+    app = button(in_lesson(fake_api_url), "Submit for grading").click().run()
 
     assert FakeApi.received["/exercises/e1/attempts"] == {"code": BUG_HUNT}
     assert app.warning[0].value == "Not yet. Can a const be reassigned?"
     assert not app.exception
 
 
-# ---- full frontend (Step 19) ------------------------------------------------------------
+def test_code_tab_explains_code_in_the_course_language(fake_api_url: str) -> None:
+    app = in_lesson(fake_api_url)
+    assert app.selectbox(key="helper:language").value == "javascript"
+    app.text_area(key="helper:code").input("x = 1")
+
+    app = button(app.run(), "Explain").click().run()
+
+    assert FakeApi.received["/coding/explain"]["code"] == "x = 1"
+    assert "- **Line 1:** Sets x." in [m.value for m in app.markdown]
 
 
-def test_admin_pages_are_only_in_the_admin_menu() -> None:
-    from menu import ADMIN_PAGES, pages_for
+# ---- Arc: the course assistant ----------------------------------------------------------
 
-    student = [path for pages in pages_for("student").values() for path, _, _ in pages]
-    admin = [path for pages in pages_for("admin").values() for path, _, _ in pages]
 
-    assert ADMIN_PAGES[0][0] not in student
-    assert ADMIN_PAGES[0][0] in admin and set(student) < set(admin)
+def test_chat_asks_then_shows_history_sources_and_practice(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url, page="views/arc.py")
+
+    app = app.chat_input[0].set_value("What is let?").run()
+
+    assert FakeApi.received["/chat/ask"] == {"question": "What is let?"}
+    assert app.session_state["chat:active"] == "s1"
+    markdown = [m.value for m in app.markdown]
+    assert "`let` is block-scoped [1]." in markdown
+    assert any("Sources: [1] Basics › Variables — Explanation" in c.value for c in app.caption)
+    assert any("Practise Variables on the learning platform" in box.value for box in app.info)
+
+
+def test_follow_up_goes_to_the_same_chat(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url, page="views/arc.py")
+    app = app.chat_input[0].set_value("What is let?").run()
+
+    app.chat_input[0].set_value("And const?").run()
+
+    assert FakeApi.received["/chat/ask"] == {"question": "And const?", "session_id": "s1"}
+
+
+def test_past_chats_open_and_new_chat_starts_fresh(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url, page="views/arc.py")
+
+    app = app.button(key="chat-s1").click().run()
+    assert app.session_state["chat:active"] == "s1"
+    assert "What is let?" in [m.value for m in app.markdown]
+
+    app = button(app, "New chat").click().run()
+    assert app.session_state["chat:active"] is None
+    assert "#### Ask Arc about your course" in [m.value for m in app.markdown]
+
+
+# ---- the rail and admin pages ----------------------------------------------------------
+
+
+def test_rail_has_arc_and_learnx_and_settings_only_for_admins() -> None:
+    from menu import pages_for
+
+    student = [title for _, title, _ in pages_for("student")]
+    admin = [title for _, title, _ in pages_for("admin")]
+
+    assert student == ["Arc", "LearnX"]
+    assert admin == ["Arc", "LearnX", "Settings"]
 
 
 def test_a_student_cannot_open_the_admin_page(fake_api_url: str) -> None:
@@ -596,56 +764,6 @@ def test_the_admin_page_itself_refuses_students(fake_api_url: str) -> None:
     app.run()
 
     assert app.error[0].value == "This page is for admins."
-
-
-def test_courses_page_shows_the_lesson_and_its_activities(fake_api_url: str) -> None:
-    app = signed_in(fake_api_url, page="views/courses.py")
-
-    assert app.header[0].value == "Variables"
-    assert any("learning platform" in box.value for box in app.info)
-    assert not app.exception
-
-
-def test_chat_asks_then_shows_history_sources_and_practice(fake_api_url: str) -> None:
-    app = signed_in(fake_api_url, page="views/chat.py")
-
-    app = app.chat_input[0].set_value("What is let?").run()
-
-    assert FakeApi.received["/chat/ask"] == {"question": "What is let?"}
-    assert app.session_state["chat:active"] == "s1"
-    markdown = [m.value for m in app.markdown]
-    assert "`let` is block-scoped [1]." in markdown
-    assert any("Sources: [1] Basics › Variables — Explanation" in c.value for c in app.caption)
-    assert any("Practise Variables on the learning platform" in box.value for box in app.info)
-
-
-def test_follow_up_goes_to_the_same_chat(fake_api_url: str) -> None:
-    app = signed_in(fake_api_url, page="views/chat.py")
-    app = app.chat_input[0].set_value("What is let?").run()
-
-    app.chat_input[0].set_value("And const?").run()
-
-    assert FakeApi.received["/chat/ask"] == {"question": "And const?", "session_id": "s1"}
-
-
-def test_coding_helper_explains_code(fake_api_url: str) -> None:
-    app = signed_in(fake_api_url, page="views/coding.py")
-    app.text_area(key="helper:code").input("x = 1")
-
-    app = button(app.run(), "Explain").click().run()
-
-    assert FakeApi.received["/coding/explain"]["code"] == "x = 1"
-    assert "- **Line 1:** Sets x." in [m.value for m in app.markdown]
-
-
-def test_progress_page_shows_what_to_do_next(fake_api_url: str) -> None:
-    app = signed_in(fake_api_url, page="views/progress.py")
-
-    markdown = [m.value for m in app.markdown]
-    assert "🔁 **Variables** · Basics" in markdown
-    assert "- Bug hunt: Fix the counter (0%)" in markdown
-    assert any("Needs review: Variables" in c.value for c in app.caption)
-    assert not app.exception
 
 
 def test_admin_sees_documents_and_can_reindex(fake_api_url: str) -> None:

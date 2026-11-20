@@ -38,18 +38,15 @@ API_BASE_URL=http://127.0.0.1:8000 streamlit run frontend/streamlit_app.py
 
 Or copy `frontend/.streamlit/secrets.toml.example` to `.streamlit/secrets.toml`. The frontend only needs `API_BASE_URL`; it must be `https://` except for localhost. The access token stays in Streamlit's server-side session state, never in browser storage. `.streamlit/config.toml` turns off Streamlit's usage statistics.
 
-After login the sidebar shows the account (log out, explanation level) and the pages for the user's role:
+The frontend follows the LearnX platform's look: a narrow icon rail on the left, a top bar with the page title and a profile menu (explanation level, log out), and the LearnX colours in light and dark (switch at the top of the ⋮ menu; `.streamlit/config.toml` holds the theme, with Inter from Google Fonts). The rail has:
 
-| Page | For | What it does |
+| Rail | For | What it does |
 |---|---|---|
-| Courses | everyone | browse modules and lessons; each lesson's explanation, examples, takeaways and platform activities |
-| Ask the assistant | everyone | chat with citations; follow-ups in the same chat; past chats (open, delete); "practise this" pointers |
-| Practice | everyone | a lesson's exercises in the compiler panel (below), graded on submit |
-| Coding helper | everyone | explain code, show an example, practice questions, any language |
-| My progress | everyone | what to do next (review / next lessons) and mastery per module |
-| Manage courses | admins | upload course JSON, indexing status, delete a course, re-index |
+| Arc | everyone | the course assistant: chat with citations, follow-ups in the same chat, past chats (open, delete), "practise this" pointers |
+| LearnX | everyone | your courses → a course's modules with your mastery and **what to do next** → a lesson with four tabs: **Reading** (numbered stages: mission, brief, concepts, analogy, syntax, examples, flow, real world, recap), **Practice** (the lesson's exercises in the compiler panel, graded on submit), **Code** (explain code, show an example, practice questions) and **Quiz & activities** (the lesson's activities on the learning platform) |
+| Settings | admins | upload course JSON, indexing status, delete a course, re-index |
 
-- **Admin pages are hidden from students** (they are not in a student's navigation at all), the admin page checks the role itself, and the API refuses admin actions from students (403). Page scripts live in `frontend/views/`, not `pages/`: Streamlit auto-lists a `pages/` folder before login, which would show every page to anyone.
+- **Settings (admin) is hidden from students** (it is not in a student's rail at all), the admin page checks the role itself, and the API refuses admin actions from students (403). Page scripts live in `frontend/views/`, not `pages/`: Streamlit auto-lists a `pages/` folder before login, which would show every page to anyone.
 - **Friendly errors:** rate limits say when to retry (from `Retry-After`); a sleeping or busy server gets a "waking up / busy" message; server details are never shown.
 - **Reloading the browser logs you out:** the token lives only in Streamlit's server-side session, never in the browser.
 
@@ -59,7 +56,7 @@ The **compiler panel** (`frontend/components/compiler.py`) opens with the exerci
 - **Ask AI about this output** sends the code and its last run (or output pasted from a run elsewhere) to `/coding/debug`. Course exercises get hints, not the answer.
 - **Page sandbox** for JavaScript that uses `document`/`window`: runs in the student's browser in an iframe with `sandbox="allow-scripts"` only (no access to this site's page, cookies or storage) and a CSP that blocks all network requests. Elements the code looks up (`.output`, `#save`...) are created automatically; optional "Page HTML" adds markup.
 
-The editor is a plain text area: `streamlit-ace` was last released in 2021, and a plain widget adds no third-party JavaScript. Full lesson pages arrive in Step 19.
+The editor is a plain text area: `streamlit-ace` was last released in 2021, and a plain widget adds no third-party JavaScript.
 
 ## Deployment
 
@@ -433,8 +430,9 @@ backend/app/        FastAPI application (package "app")
   db/               models, Database (engine/sessions), repositories
   migrations/       Alembic migrations (config: alembic.ini at the repo root)
 frontend/           Streamlit app (streamlit_app.py) and its API client (api_client.py)
-  views/            pages: courses, chat, practice, coding, progress, admin_courses
-  components/       account sidebar, lesson renderer, compiler panel, DOM sandbox, practice view
+  views/            pages in the rail: arc (assistant), learnx (courses and lessons), admin_courses
+  components/       shell (rail, top bar), account, lesson reading stages, compiler panel,
+                    coding helper, progress, practice, DOM sandbox
   menu.py           which pages each role sees; session.py: client, token and user for pages
 eval/               dataset.jsonl + run_eval.py (RAG), code_cases.jsonl + run_code_eval.py (coding),
                     run_level_demo.py (levels), reports/
