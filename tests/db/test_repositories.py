@@ -318,20 +318,17 @@ async def test_course_exists_and_delete(database: Database) -> None:
     assert await count(database, Document) == 0
 
 
-async def test_lesson_and_module_lookup(database: Database) -> None:
+async def test_lesson_lookup(database: Database) -> None:
     async with database.session() as session:
         await CourseRepository(session).add(make_course())
 
     async with database.session() as session:
         courses = CourseRepository(session)
         lesson = await courses.get_lesson("js-v1-mod-1-lesson-2")
-        module = await courses.get_module("js-v1-mod-2")
         assert await courses.get_lesson("missing") is None
-        assert await courses.get_module("missing") is None
 
     assert lesson is not None and lesson.module.course_id == "js-v1"
     assert lesson.exercises == []
-    assert module is not None and module.title == "Functions"
 
 
 async def test_chat_messages_keep_order_and_a_concurrent_append_conflicts(

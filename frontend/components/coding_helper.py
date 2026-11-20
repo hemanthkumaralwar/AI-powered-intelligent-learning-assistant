@@ -1,6 +1,7 @@
 """The lesson's Code tab: explain code, see an example, or get practice questions.
 Debugging lives in the compiler panel on the Practice tab, next to the run output."""
 
+from collections.abc import Callable
 from typing import Any
 
 import streamlit as st
@@ -53,21 +54,34 @@ def show_result(result: dict[str, Any] | None) -> None:
     if not result:
         return
     st.divider()
-    task = result["task"]
-    if task == "explain":
-        st.markdown(result["summary"])
-        for note in result["lines"]:
-            st.markdown(f"- **Line {note['line']}:** {note['explanation']}")
-    elif task == "example":
-        st.subheader(result["title"])
-        st.code(result["code"], language=result["language"])
-        st.markdown(result["explanation"])
-    else:
-        for number, question in enumerate(result["questions"], 1):
-            st.markdown(f"**{number}. {question['question']}**")
-            if question.get("expected_output"):
-                st.caption(f"Expected output: {question['expected_output']}")
-            with st.expander("Hints"):
-                for hint in question["hints"]:
-                    st.markdown(f"- {hint}")
+    RENDERERS[result["task"]](result)
     show_practice_pointers(result.get("practice", []))
+
+
+def _explanation(result: dict[str, Any]) -> None:
+    st.markdown(result["summary"])
+    for note in result["lines"]:
+        st.markdown(f"- **Line {note['line']}:** {note['explanation']}")
+
+
+def _example(result: dict[str, Any]) -> None:
+    st.subheader(result["title"])
+    st.code(result["code"], language=result["language"])
+    st.markdown(result["explanation"])
+
+
+def _questions(result: dict[str, Any]) -> None:
+    for number, question in enumerate(result["questions"], 1):
+        st.markdown(f"**{number}. {question['question']}**")
+        if question.get("expected_output"):
+            st.caption(f"Expected output: {question['expected_output']}")
+        with st.expander("Hints"):
+            for hint in question["hints"]:
+                st.markdown(f"- {hint}")
+
+
+RENDERERS: dict[str, Callable[[dict[str, Any]], None]] = {
+    "explain": _explanation,
+    "example": _example,
+    "practice": _questions,
+}

@@ -61,9 +61,6 @@ class CourseRepository:
         result = await self._session.execute(delete(Course).where(Course.id == course_id))
         return result.rowcount == 1
 
-    async def get_module(self, module_id: str) -> Module | None:
-        return await self._session.get(Module, module_id)
-
     async def get_lesson(self, lesson_id: str) -> Lesson | None:
         """A lesson with its module and exercises (quiz questions are not loaded)."""
         query = (

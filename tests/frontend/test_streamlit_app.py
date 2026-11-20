@@ -686,6 +686,44 @@ def test_code_tab_explains_code_in_the_course_language(fake_api_url: str) -> Non
     assert "- **Line 1:** Sets x." in [m.value for m in app.markdown]
 
 
+POST_ROUTES |= {
+    "/coding/example": {
+        "title": "A closure",
+        "code": "const add = (a) => (b) => a + b;",
+        "explanation": "add remembers a.",
+        "related_lessons": [],
+        "practice": [],
+    },
+    "/coding/practice": {
+        "questions": [
+            {"question": "Sum 1 to 3", "expected_output": "6", "hints": ["Use a loop."]},
+        ],
+        "related_lessons": [],
+        "practice": [],
+    },
+}
+
+
+@pytest.mark.parametrize(
+    ("topic_key", "label", "path", "shown"),
+    [
+        ("helper:example-topic", "Show example", "/coding/example", "add remembers a."),
+        ("helper:practice-topic", "Get questions", "/coding/practice", "**1. Sum 1 to 3**"),
+    ],
+)
+def test_code_tab_examples_and_practice_questions(
+    fake_api_url: str, topic_key: str, label: str, path: str, shown: str
+) -> None:
+    app = in_lesson(fake_api_url)
+    app.text_input(key=topic_key).input("closures")
+
+    app = button(app.run(), label).click().run()
+
+    assert FakeApi.received[path]["topic"] == "closures"
+    assert shown in [m.value for m in app.markdown]
+    assert not app.exception
+
+
 # ---- Arc: the course assistant ----------------------------------------------------------
 
 

@@ -77,6 +77,34 @@ class Section:
     extra: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class Source:
+    """Where a section comes from: its document, course, module and (if any) lesson."""
+
+    document_id: uuid.UUID
+    course: Course
+    module: Module
+    lesson: Lesson | None
+
+    @property
+    def trail(self) -> str:
+        titles = (self.course.title, self.module.title, self.lesson and self.lesson.title)
+        return " › ".join(t for t in titles if t)
+
+    def metadata(self) -> dict[str, Any]:
+        lesson = self.lesson
+        return {
+            "source": "course",
+            "type": "content",
+            "course_id": self.course.id,
+            "course_title": self.course.title,
+            "module_id": self.module.id,
+            "module_title": self.module.title,
+            "lesson_id": lesson.id if lesson else None,
+            "lesson_title": lesson.title if lesson else None,
+        }
+
+
 def chunk_course(
     course: Course, document_id: uuid.UUID, config: ChunkingConfig = DEFAULT_CHUNKING
 ) -> list[NewChunk]:
@@ -85,10 +113,8 @@ def chunk_course(
     chunks: list[NewChunk] = []
 
     def add(module: Module, lesson: Lesson | None, section: Section) -> None:
-        start = len(chunks)
-        chunks.extend(
-            _pieces(course, module, lesson, section, document_id, start, config, splitter)
-        )
+        source = Source(document_id, course, module, lesson)
+        chunks.extend(_pieces(source, section, len(chunks), config, splitter))
 
     for module in course.modules:
         for section in module_sections(module):
@@ -142,38 +168,28 @@ def _examples(lesson: Lesson, group: list[tuple[int, str]]) -> Section:
 
 
 def _pieces(
-    course: Course,
-    module: Module,
-    lesson: Lesson | None,
+    source: Source,
     section: Section,
-    document_id: uuid.UUID,
     start: int,
     config: ChunkingConfig,
     splitter: RecursiveCharacterTextSplitter,
 ) -> Iterable[NewChunk]:
-    trail = " › ".join(t for t in (course.title, module.title, lesson and lesson.title) if t)
-    header = f"{trail} — {section.name}"
+    header = f"{source.trail} — {section.name}"
     body = section.body
     bodies = [body] if len(body) <= config.max_body_chars else splitter.split_text(body)
+    lesson_id = source.lesson.id if source.lesson else None
     for n, body in enumerate(bodies):
         text = f"{header}{PARAGRAPH}{body.strip()}"
         if len(text) > config.max_chunk_chars:
             raise ChunkTooLargeError(f"chunk for {section.key} is {len(text)} characters")
         yield NewChunk(
-            id=chunk_id(document_id, section.key, n),
+            id=chunk_id(source.document_id, section.key, n),
             position=start + n,
             section=section.name[:100],
             text=text,
-            lesson_id=lesson.id if lesson else None,
+            lesson_id=lesson_id,
             metadata={
-                "source": "course",
-                "type": "content",
-                "course_id": course.id,
-                "course_title": course.title,
-                "module_id": module.id,
-                "module_title": module.title,
-                "lesson_id": lesson.id if lesson else None,
-                "lesson_title": lesson.title if lesson else None,
+                **source.metadata(),
                 "section": section.name,
                 "part": n + 1,
                 "parts": len(bodies),

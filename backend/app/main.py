@@ -46,6 +46,19 @@ from app.runner.service import CodeRunnerService
 
 DEFAULT_BODY_LIMIT = 64 * 1024
 MULTIPART_OVERHEAD = 64 * 1024
+# Course list + one outline per course + one entry per lesson fits comfortably.
+CONTENT_CACHE_ENTRIES = 256
+ROUTERS = (
+    health_router,
+    auth_router,
+    code_router,
+    materials_router,
+    admin_documents_router,
+    chat_router,
+    coding_router,
+    exercises_router,
+    progress_router,
+)
 
 
 def create_app(
@@ -84,20 +97,7 @@ def create_app(
         )
         app.state.coding = coding or build_coding_service(settings, app.state.indexing, llm, quota)
         app.state.grader = grader or ExerciseGrader(llm, quota)
-        app.state.practice = PracticeFinder(settings.platform_lesson_url)
-        app.state.chats = ChatService(
-            app.state.database,
-            app.state.answers,
-            app.state.practice,
-            settings.chat_retention_days,
-        )
-        app.state.login_guard = LoginGuard(
-            failures_per_username=settings.login_failures_per_username,
-            logins_per_minute=settings.logins_per_minute,
-            registrations_per_minute=settings.registrations_per_minute,
-        )
-        # CONTENT_CACHE_SECONDS=0 turns caching off (every entry is already expired).
-        app.state.content_cache = TTLCache(256, settings.content_cache_seconds)
+        add_support_services(app, settings)
         try:
             if settings.admin_username and settings.admin_password:
                 await seed_admin(
@@ -133,16 +133,28 @@ def create_app(
         bearer_required=frozenset({"/admin/documents"}),
     )
     register_exception_handlers(app)
-    app.include_router(health_router)
-    app.include_router(auth_router)
-    app.include_router(code_router)
-    app.include_router(materials_router)
-    app.include_router(admin_documents_router)
-    app.include_router(chat_router)
-    app.include_router(coding_router)
-    app.include_router(exercises_router)
-    app.include_router(progress_router)
+    for router in ROUTERS:
+        app.include_router(router)
     return app
+
+
+def add_support_services(app: FastAPI, settings: Settings) -> None:
+    """Chats, practice pointers, sign-in limits and the content cache (needs app.state's
+    database and answers)."""
+    app.state.practice = PracticeFinder(settings.platform_lesson_url)
+    app.state.chats = ChatService(
+        app.state.database,
+        app.state.answers,
+        app.state.practice,
+        settings.chat_retention_days,
+    )
+    app.state.login_guard = LoginGuard(
+        failures_per_username=settings.login_failures_per_username,
+        logins_per_minute=settings.logins_per_minute,
+        registrations_per_minute=settings.registrations_per_minute,
+    )
+    # CONTENT_CACHE_SECONDS=0 turns caching off (every entry is already expired).
+    app.state.content_cache = TTLCache(CONTENT_CACHE_ENTRIES, settings.content_cache_seconds)
 
 
 app = create_app()
