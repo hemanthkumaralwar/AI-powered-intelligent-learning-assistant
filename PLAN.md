@@ -373,6 +373,33 @@ Built after Step 22 is submitted, in order: 23a, then 23b, then 23c (23c reuses 
   - Quality (live, on about 3 lessons): practice questions stay in-course and are graded correctly on ≥ 90% of a 20-answer evaluation set.
   - Cost (live): measured AI calls per concept and per lesson recorded in PLAN.md, and the switch is turned on more widely only if they fit the free tier.
 
+
+### Step 24 — Public LearnX, admin area at /admin, Nexus in lessons [SEC] [UX]
+Your request (2026-11-20), after 23b; 23c stays postponed. Not started.
+
+- **Goal:** anyone can browse courses and read lessons without an account; signed-in students get the AI and practice features; admin work lives at its own address; the assistant is called **Nexus** and lives inside lessons instead of the rail.
+- **Decisions (yours, 2026-11-20):**
+  1. **Admin area at `<app URL>/admin`:** same app and address, admin pages under their own path (`st.Page(url_path="admin")`). Only admins have it in their navigation; anyone else opening `/admin` gets the normal page, and the API still refuses admin actions (403).
+  2. **Open to all = browse without login:** the course list, course outlines and lesson reading are public. Nexus, Practice, Code, grading, progress, spaced review and Open in Practice still need an account.
+  3. **Nexus inside LearnX lessons:** an "Ask Nexus" tab on each lesson, scoped to the lesson's course, with the student's past chats listed there. The **Arc button is removed from the rail**, which keeps only LearnX (plus Settings for admins).
+  4. **Rename to Nexus in everything users see:** UI text, README and docs ("Open in Practice from Nexus", 23c's "Practice with Nexus"). API paths (`/chat/...`) and code names stay, so nothing breaks for API users.
+- **Backend changes:**
+  - `GET /courses`, `GET /courses/{id}`, `GET /lessons/{id}` no longer require a token. They already return no answers or solutions (their response models have no such fields), so making them public exposes course text only. Admin switches in `GET /courses` stay visible (harmless).
+  - Anonymous traffic protection: an app-wide per-minute cap on anonymous requests to these endpoints (429 + `Retry-After`), on top of the existing 10-minute cache.
+- **Frontend changes:**
+  - Guest navigation: LearnX (read-only: Reading and Quiz & activities tabs; the AI tabs show "Sign in to use this") and a **Sign in** page. Signed-in navigation as today minus Arc.
+  - The login screen stops being a wall in front of everything.
+  - "Ask Nexus" tab per lesson (the chat UI moves from `views/arc.py` into a component).
+- **Security:** public endpoints are read-only and cached; nothing personal is public; admin pages are not in a non-admin's navigation and the API enforces roles; tests check every AI, progress and admin endpoint still returns 401 without a token.
+- **Files:** `app/api/materials.py` (public), an anonymous rate limit in `app/core`, `frontend/streamlit_app.py`, `frontend/menu.py`, `frontend/views/learnx.py`, a Nexus chat component (from `views/arc.py`), `frontend/views/admin_courses.py` (url_path), README, `docs/api.md`, `docs/architecture.md`, tests mirroring each.
+- **Done when:** a visitor without an account can open the app, list courses and read a lesson, and is asked to sign in for Nexus or Practice; a student's rail has no Arc and Nexus works from a lesson tab; an admin reaches Settings at `/admin` and a student cannot; the AI, progress and admin endpoints still return 401 without a token.
+- **Proposed additions (not decided; your call):**
+  - **A sign-up form**, so a visitor can become a student without Swagger. Without it, "open to all" stops at reading. Uses the existing registration caps.
+  - **A privacy notice** at sign-up and in Nexus (Gemini's free tier may use what is sent to improve its products).
+  - **Shareable lesson links** (`?course=…&lesson=…`), so a public lesson can be linked to directly, e.g. from the ArchintX platform via `PLATFORM_LESSON_URL`.
+  - **Admin user management** at `/admin`: list students, reset a password, disable an account. Needed once strangers can sign up; there is no password reset today.
+  - **Stay signed in across a page reload** (today a reload signs you out). Needs a secure cookie design; worth it for a public site, but a security-sensitive change of its own.
+
 ---
 
 ## Changes from the brief's suggested 10-day plan
