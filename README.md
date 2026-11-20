@@ -25,7 +25,7 @@ You need **Python 3.12**, **Git**, and two free accounts:
 - **Neon** (https://neon.tech): a free PostgreSQL database. Create a project and copy its **direct** connection string (not the `-pooler` one).
 - **Google AI Studio** (https://aistudio.google.com): a free Gemini API key.
 
-**1. Get the code and install** (from the repository root):
+**1. Get the code and install:**
 
 ```bash
 git clone https://github.com/hemanthkumaralwar/AI-powered-intelligent-learning-assistant.git
@@ -35,6 +35,8 @@ python -m venv .venv
 # source .venv/bin/activate     # macOS / Linux
 pip install -r requirements.txt -r requirements-dev.txt -r frontend/requirements.txt
 ```
+
+The first install downloads several hundred MB and can take 10 minutes or more. **Windows:** clone into a short path (e.g. `C:\dev`): some packages have very long file paths, and pip fails with "No such file or directory" past Windows' 260-character limit unless long paths are enabled.
 
 **2. Configure.** Copy `.env.example` to `.env` (`copy` on Windows, `cp` elsewhere), then fill in:
 
