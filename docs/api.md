@@ -34,7 +34,7 @@ Send the token from `POST /auth/login` as `Authorization: Bearer <token>`; in Sw
 
 | Method and path | Who | What |
 |---|---|---|
-| `GET /courses` | logged in | course list, with each course's feature switches (`arc_practice_enabled`) |
+| `GET /courses` | logged in | course list, with each course's feature switches (`arc_practice_enabled`, `spaced_review_enabled`) |
 | `GET /courses/{course_id}` | logged in | outline: modules (with explanations) and lesson titles, in order |
 | `GET /lessons/{lesson_id}` | logged in | teaching content and exercises (starter code, hints), **never** solutions or quiz answers |
 
@@ -49,7 +49,7 @@ Course and lesson responses are cached for `CONTENT_CACHE_SECONDS`; any admin up
 | `GET /admin/documents/{document_id}/download` | admin | the original file (it includes every answer) |
 | `DELETE /admin/documents/{document_id}` | admin | delete one uploaded file |
 | `DELETE /admin/courses/{course_id}` | admin | delete a course and **everything** attached to it: lessons, quizzes, exercises, documents, vectors |
-| `PATCH /admin/courses/{course_id}` | admin | per-course feature switches, e.g. `{"arc_practice_enabled": true}` ("Open in Practice" in Arc; default off). Only the switches sent change; an empty body, only `null`s or an unknown switch is 422. Takes effect at once (the course cache is cleared) and is logged with the admin's id |
+| `PATCH /admin/courses/{course_id}` | admin | per-course feature switches: `arc_practice_enabled` ("Open in Practice" in Arc) and `spaced_review_enabled` (spaced review); both default off. Only the switches sent change; an empty body, only `null`s or an unknown switch is 422. Takes effect at once (the course cache is cleared) and is logged with the admin's id |
 | `POST /admin/reindex` | admin | re-queue every document; unchanged content already in the current embedding space costs no quota |
 | `POST /admin/search` | admin | `{query, course_id?, k}`: what retrieval would return, to check retrieval quality |
 
@@ -92,6 +92,7 @@ All four take an optional `level`, return validated JSON, and list up to 3 `rela
 | `GET /exercises/{exercise_id}/attempts` | owner | your attempts at this exercise, newest first |
 | `GET /me/progress` | owner | `?course_id=`: mastery per module and lesson (`null` = not started), module coverage, `weak` lessons |
 | `GET /me/recommendations` | owner | `?course_id=`: up to 5 lessons to **review** (weakest first) then the **next** ones, each with its exercises and platform practice |
+| `GET /me/reviews` | owner | `?course_id=` (required): spaced review, when to revisit each lesson you attempted. Each item: `interval_days` (1, 3, 7, 14 or 30), `due_at`, `due` (now), `mastered`; soonest due first, mastered last. A pass when due moves a lesson up the ladder, an early pass changes nothing, a failed attempt resets it to 1 day. `enabled: false` and no items when the course's switch is off |
 
 ## Errors
 

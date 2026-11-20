@@ -1,7 +1,9 @@
-"""Your progress and what to do next. Only ever the caller's own data: there is no
+"""Your progress, what to do next, and when to review. Only ever the caller's own data: there is no
 parameter that names a student."""
 
 import uuid
+from collections import defaultdict
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -12,10 +14,12 @@ from app.api.schemas.practice import ActivityResponse
 from app.api.schemas.progress import (
     ExerciseToDoResponse,
     LessonProgressResponse,
+    LessonReviewResponse,
     ModuleProgressResponse,
     ProgressResponse,
     RecommendationResponse,
     RecommendationsResponse,
+    ReviewsResponse,
 )
 from app.db.models import Course
 from app.db.repositories.courses import CourseRepository
@@ -29,10 +33,20 @@ from app.learning.progress import (
     compute_progress,
 )
 from app.learning.recommend import Recommendation, recommend
+from app.learning.review import Attempt, LessonReview, review_schedule
 
 router = APIRouter(prefix="/me", tags=["progress"])
 
 CourseId = Annotated[str | None, Query(min_length=1, max_length=100)]
+RequiredCourseId = Annotated[str, Query(min_length=1, max_length=100)]
+
+
+def current_time() -> datetime:
+    """Now, as a dependency, so tests can fix the clock (app.dependency_overrides)."""
+    return datetime.now(UTC)
+
+
+Now = Annotated[datetime, Depends(current_time)]
 
 
 def get_practice_finder(request: Request) -> PracticeFinder:
@@ -79,6 +93,49 @@ async def my_recommendations(
         recommendations=[
             _recommendation_response(pick, practice) for pick in recommend(modules, threshold)
         ],
+    )
+
+
+@router.get("/reviews")
+async def my_reviews(
+    user: CurrentUser, session: Session, now: Now, course_id: RequiredCourseId
+) -> ReviewsResponse:
+    """When to revisit each lesson you have attempted (spaced review): soonest due first,
+    mastered lessons last. Empty when the course's admin switch is off."""
+    course = await CourseRepository(session).get_full(course_id)
+    if course is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found")
+    if not course.spaced_review_enabled:
+        return ReviewsResponse(course_id=course.id, enabled=False, reviews=[])
+    attempts: defaultdict[str, list[Attempt]] = defaultdict(list)
+    for lesson_id, at, passed in await ExerciseRepository(session).lesson_attempts(
+        user.id, course.id
+    ):
+        attempts[lesson_id].append(Attempt(at, passed))
+    titles = {
+        lesson.id: (lesson.title, module.title)
+        for module in course.modules
+        for lesson in module.lessons
+    }
+    return ReviewsResponse(
+        course_id=course.id,
+        enabled=True,
+        reviews=[_review_response(r, titles[r.lesson_id], now) for r in review_schedule(attempts)],
+    )
+
+
+def _review_response(
+    review: LessonReview, titles: tuple[str, str], now: datetime
+) -> LessonReviewResponse:
+    lesson_title, module_title = titles
+    return LessonReviewResponse(
+        lesson_id=review.lesson_id,
+        lesson_title=lesson_title,
+        module_title=module_title,
+        interval_days=review.interval_days,
+        due_at=review.due_at,
+        due=review.is_due(now),
+        mastered=review.mastered,
     )
 
 

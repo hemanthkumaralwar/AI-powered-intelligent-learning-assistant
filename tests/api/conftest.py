@@ -8,6 +8,7 @@ from datetime import timedelta
 import argon2
 import httpx2
 import pytest
+from fastapi import FastAPI
 from pydantic import SecretStr
 
 from app.auth.passwords import PasswordHasher
@@ -53,6 +54,7 @@ class World:
         self.model = FakeChatModel(default_reply="`let` is block-scoped [1].")
         self.search_error: ProviderCallError | None = None
         self.client: httpx2.AsyncClient
+        self.app: FastAPI
         self.headers: dict[str, dict[str, str]] = {}
 
     async def search(self, query: str, k: int, course_id: str | None) -> list[SearchHit]:
@@ -119,6 +121,7 @@ async def world(database: Database, null_indexing) -> AsyncIterator[World]:
             )
         )
     await seed_admin(database, auth, "boss", SecretStr(PASSWORD))
+    world.app = app  # e.g. for app.dependency_overrides in a test
     async with app.router.lifespan_context(app):
         transport = httpx2.ASGITransport(app=app)
         async with httpx2.AsyncClient(transport=transport, base_url="http://test") as client:

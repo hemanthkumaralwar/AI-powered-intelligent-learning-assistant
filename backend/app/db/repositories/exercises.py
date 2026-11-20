@@ -2,6 +2,7 @@
 
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,6 +92,21 @@ class ExerciseRepository:
             .order_by(func.count().desc(), Module.course_id)
             .limit(1)
         )
+
+    async def lesson_attempts(
+        self, user_id: uuid.UUID, course_id: str
+    ) -> list[tuple[str, datetime, bool]]:
+        """This student's graded attempts in a course as (lesson id, time, passed), oldest
+        first: what spaced review replays."""
+        rows = await self._session.execute(
+            select(Exercise.lesson_id, ExerciseAttempt.created_at, ExerciseAttempt.passed)
+            .join(Exercise, Exercise.id == ExerciseAttempt.exercise_id)
+            .join(Lesson, Lesson.id == Exercise.lesson_id)
+            .join(Module, Module.id == Lesson.module_id)
+            .where(ExerciseAttempt.user_id == user_id, Module.course_id == course_id)
+            .order_by(ExerciseAttempt.created_at, ExerciseAttempt.id)
+        )
+        return [(lesson_id, at, passed) for lesson_id, at, passed in rows]
 
     async def attempts(
         self, user_id: uuid.UUID, exercise_id: uuid.UUID, limit: int = 20

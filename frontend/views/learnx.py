@@ -15,7 +15,13 @@ from components.compiler import LANGUAGES
 from components.lesson import show_lesson_header, show_reading
 from components.lesson_nav import COURSE, LESSON, TAB, open_course, open_lesson
 from components.practice import show_exercises, show_platform_activities
-from components.progress import load_progress, mastery_label, show_next_steps
+from components.progress import (
+    load_due_reviews,
+    load_progress,
+    mastery_label,
+    show_due_reviews,
+    show_next_steps,
+)
 from session import Session, current
 
 CATALOG_COLUMNS = 3
@@ -79,9 +85,14 @@ def show_course(session: Session, outline: dict[str, Any]) -> None:
     modules_column, next_column = st.columns([3, 2], gap="large")
     with modules_column:
         show_modules(outline, progress)
-    if picks is not None:
-        with next_column:
-            show_next_steps(picks, _go_to_lesson)
+    with next_column:
+        due: list[dict[str, Any]] = []
+        if outline.get("spaced_review_enabled"):
+            due = load_due_reviews(session.client, session.token, outline["id"])
+            show_due_reviews(due)
+        if picks is not None:
+            due_lessons = frozenset(review["lesson_id"] for review in due)
+            show_next_steps(picks, _go_to_lesson, due_lessons)
 
 
 def show_modules(outline: dict[str, Any], progress: dict[str, Any] | None) -> None:

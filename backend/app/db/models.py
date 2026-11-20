@@ -105,6 +105,10 @@ class Course(TimestampMixin, Base):
     arc_practice_enabled: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=false()
     )
+    # Admin switch (Step 23b): students see which attempted lessons are due for review.
+    spaced_review_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
 
     modules: Mapped[list["Module"]] = relationship(
         back_populates="course",

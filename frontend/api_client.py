@@ -153,6 +153,10 @@ class ApiClient:
     def recommendations(self, token: str, course_id: str | None = None) -> dict[str, Any]:
         return self._authed("GET", "/me/recommendations", token, params=_only(course_id=course_id))
 
+    def reviews(self, token: str, course_id: str) -> dict[str, Any]:
+        """Spaced review: when to revisit each attempted lesson in the course."""
+        return self._authed("GET", "/me/reviews", token, params={"course_id": course_id})
+
     # ---- admin -----------------------------------------------------------------------
 
     def documents(self, token: str) -> list[dict[str, Any]]:

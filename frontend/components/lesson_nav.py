@@ -25,6 +25,13 @@ def open_lesson(lesson_id: str | None) -> None:
     st.session_state[TAB] = None
 
 
+def review_lesson(lesson_id: str) -> None:
+    """Open a lesson due for review on its Practice tab (reviewing = re-submitting an
+    exercise). Same page, so a button callback can call it."""
+    st.session_state[LESSON] = lesson_id
+    st.session_state[TAB] = PRACTICE_TAB
+
+
 def open_practice(course_id: str, lesson_id: str) -> None:
     """Go to LearnX with the lesson open on its Practice tab (used from Arc)."""
     st.session_state[COURSE] = course_id

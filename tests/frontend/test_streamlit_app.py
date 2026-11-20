@@ -77,6 +77,7 @@ COURSE = {
     "level": None,
     "language": "javascript",
     "arc_practice_enabled": True,
+    "spaced_review_enabled": False,
 }
 GET_ROUTES = {
     "/auth/me": {"id": "1", "username": "asha", "role": "student", "level": "beginner"},
@@ -905,7 +906,7 @@ def test_admin_switches_open_in_practice_per_course(fake_api_url: str) -> None:
     app = switch.set_value(False).run()
 
     assert FakeApi.received["/admin/courses/js"] == {"arc_practice_enabled": False}
-    assert any("Open in Practice is off for `js`." in s.value for s in app.success)
+    assert any("Open in Practice from Arc is off for `js`." in s.value for s in app.success)
 
 
 def test_a_failed_switch_shows_the_error_and_keeps_the_server_value(
@@ -919,3 +920,93 @@ def test_a_failed_switch_shows_the_error_and_keeps_the_server_value(
     assert any("server had a problem" in e.value for e in app.error)
     assert app.toggle(key="feature:arc:js").value is True  # redrawn from the server
     assert not app.exception
+
+
+# ---- Step 23b: spaced review --------------------------------------------------------
+
+GET_ROUTES["/me/reviews"] = {
+    "course_id": "js",
+    "enabled": True,
+    "reviews": [
+        {
+            "lesson_id": "l1",
+            "lesson_title": "Variables",
+            "module_title": "Basics",
+            "interval_days": 1,
+            "due_at": "2026-11-20T09:00:00Z",
+            "due": True,
+            "mastered": False,
+        },
+        {
+            "lesson_id": "l2",
+            "lesson_title": "The DOM",
+            "module_title": "Basics",
+            "interval_days": 3,
+            "due_at": "2026-11-25T09:00:00Z",
+            "due": False,
+            "mastered": False,
+        },
+    ],
+}
+
+
+def with_reviews(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(GET_ROUTES["/courses/js"], "spaced_review_enabled", True)
+
+
+def test_due_lessons_are_listed_and_not_repeated_in_what_to_do_next(
+    fake_api_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with_reviews(monkeypatch)
+
+    app = in_course(fake_api_url)
+
+    markdown = [m.value for m in app.markdown]
+    assert "#### Due for review" in markdown
+    assert "🕒 **Variables** · Basics" in markdown
+    assert "🕒 **The DOM** · Basics" not in markdown  # scheduled, not due yet
+    assert "🔁 **Variables** · Basics" not in markdown  # no duplicate below
+    assert any("listed under Due for review" in c.value for c in app.caption)
+    assert not app.exception
+
+
+def test_review_opens_the_lesson_on_practice(
+    fake_api_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with_reviews(monkeypatch)
+
+    app = in_course(fake_api_url).button(key="review:l1").click().run()
+
+    assert (app.session_state["learnx:lesson"], app.session_state["learnx:tab"]) == (
+        "l1",
+        "Practice",
+    )
+
+
+def test_nothing_due_says_so(fake_api_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    with_reviews(monkeypatch)
+    nothing_due = {**GET_ROUTES["/me/reviews"], "reviews": []}
+    monkeypatch.setitem(GET_ROUTES, "/me/reviews", nothing_due)
+
+    app = in_course(fake_api_url)
+
+    assert any("Nothing is due for review" in c.value for c in app.caption)
+    assert "🔁 **Variables** · Basics" in [m.value for m in app.markdown]
+
+
+def test_no_review_section_when_the_course_is_switched_off(fake_api_url: str) -> None:
+    app = in_course(fake_api_url)
+
+    assert "#### Due for review" not in [m.value for m in app.markdown]
+    assert "/me/reviews" not in FakeApi.received
+
+
+def test_admin_switches_spaced_review_per_course(fake_api_url: str) -> None:
+    app = signed_in(fake_api_url, page="views/admin_courses.py", token=ADMIN_TOKEN)
+    switch = app.toggle(key="feature:review:js")
+    assert switch.value is False
+
+    app = switch.set_value(True).run()
+
+    assert FakeApi.received["/admin/courses/js"] == {"spaced_review_enabled": True}
+    assert any("Spaced review is on for `js`." in s.value for s in app.success)

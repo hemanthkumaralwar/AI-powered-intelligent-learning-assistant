@@ -137,8 +137,8 @@ The frontend follows the LearnX platform's look: a narrow rail on the left, a to
 | Rail | For | What it does |
 |---|---|---|
 | **Arc** | everyone | the course assistant: answers with citations, follow-ups in the same chat, past chats, pointers to the lesson's platform activities, and **Open in Practice** (opens a cited lesson's Practice tab, for courses where an admin turned it on) |
-| **LearnX** | everyone | courses → a course's modules with your mastery and **what to do next** → a lesson with **Reading** (numbered stages: mission, brief, concepts, analogy, syntax, examples, flow, real world, recap), **Practice** (the lesson's exercises in a code editor: run, ask the AI about the output, submit for grading), **Code** (explain code, show an example, practice questions) and **Quiz & activities** (links to the platform) |
-| **Settings** | admins only | upload course JSON, indexing status, per-course feature switches (Open in Practice; off by default), delete a course, re-index |
+| **LearnX** | everyone | courses → a course's modules with your mastery, lessons **due for review** (spaced review, where an admin turned it on) and **what to do next** → a lesson with **Reading** (numbered stages: mission, brief, concepts, analogy, syntax, examples, flow, real world, recap), **Practice** (the lesson's exercises in a code editor: run, ask the AI about the output, submit for grading), **Code** (explain code, show an example, practice questions) and **Quiz & activities** (links to the platform) |
+| **Settings** | admins only | upload course JSON, indexing status, per-course feature switches (Open in Practice, spaced review; off by default), delete a course, re-index |
 
 - **Code runs remotely,** never on the server: Judge0 CE, with Compiler Explorer as fallback (and **Open in Compiler Explorer** for a public share link). JavaScript that uses the page (`document`, `window`) runs in a locked-down iframe in your browser.
 - **Answers stay on the platform:** students never receive quiz answers or exercise solutions; the assistant gives hints for exercises.

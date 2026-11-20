@@ -1,5 +1,6 @@
-"""Response bodies for /me/progress and /me/recommendations."""
+"""Response bodies for /me/progress, /me/recommendations and /me/reviews."""
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -56,3 +57,21 @@ class RecommendationsResponse(BaseModel):
     course_id: str
     course_title: str
     recommendations: list[RecommendationResponse]
+
+
+class LessonReviewResponse(BaseModel):
+    lesson_id: str
+    lesson_title: str
+    module_title: str
+    # Days the lesson waits between reviews at its current step (1, 3, 7, 14 or 30).
+    interval_days: int
+    due_at: datetime | None  # None once mastered
+    due: bool  # due now
+    mastered: bool
+
+
+class ReviewsResponse(BaseModel):
+    course_id: str
+    # False when the course's admin switch is off; `reviews` is then empty.
+    enabled: bool
+    reviews: list[LessonReviewResponse]
