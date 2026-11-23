@@ -4,6 +4,9 @@ in), and each lesson with Reading, Ask Nexus, Practice, Code and Quiz & activiti
 Open to everyone (Step 24): guests read courses and lessons; Nexus, practice, the coding
 helper and progress need an account, and their tabs say so.
 
+An open lesson shows its module's lessons in the sidebar (components/outline.py; the
+sidebar's own button hides it) and previous/next arrows beside its title.
+
 Where you are (course, lesson, tab) lives in `st.session_state` (components/lesson_nav.py),
 so it survives reruns, and Nexus can open a lesson's Practice tab directly.
 """
@@ -15,9 +18,10 @@ import streamlit as st
 from api_client import ApiClient, ApiError
 from components.coding_helper import show_coding_helper
 from components.compiler import LANGUAGES
-from components.lesson import show_lesson_header, show_reading
+from components.lesson import show_reading
 from components.lesson_nav import COURSE, LESSON, TAB, open_course, open_lesson
 from components.nexus import show_nexus
+from components.outline import lesson_status, show_outline
 from components.practice import show_exercises, show_platform_activities
 from components.progress import (
     load_due_reviews,
@@ -135,15 +139,9 @@ def lesson_row(lesson: dict[str, Any], done: dict[str, Any] | None) -> None:
 
 
 def show_lesson(visitor: Visitor, outline: dict[str, Any], lesson: dict[str, Any]) -> None:
-    st.button(
-        outline["title"],
-        icon=":material/arrow_back:",
-        type="tertiary",
-        on_click=open_lesson,
-        args=(None,),
-    )
+    show_outline(outline, lesson["id"], lesson_status(visitor.client, visitor.token, outline["id"]))
     language = outline["language"]
-    show_lesson_header(lesson)
+    show_lesson_header(outline, lesson)
     reading, nexus, practice, code, activities = st.tabs(
         LESSON_TABS, default=st.session_state.get(TAB)
     )
@@ -171,28 +169,31 @@ def show_lesson(visitor: Visitor, outline: dict[str, Any], lesson: dict[str, Any
             show_platform_activities(found)
         else:
             st.info("This lesson has no quizzes or activities on the platform.")
-    show_neighbours(outline, lesson["id"])
 
 
-def show_neighbours(outline: dict[str, Any], lesson_id: str) -> None:
-    """Previous and next lesson in course order."""
-    order = [lesson for module in outline["modules"] for lesson in module["lessons"]]
-    index = next((i for i, lesson in enumerate(order) if lesson["id"] == lesson_id), None)
+def show_lesson_header(outline: dict[str, Any], lesson: dict[str, Any]) -> None:
+    """The lesson title with previous/next arrows (course order) beside it."""
+    order = [item for module in outline["modules"] for item in module["lessons"]]
+    index = next((i for i, item in enumerate(order) if item["id"] == lesson["id"]), None)
+    title_column, previous_column, next_column = st.columns([10, 1, 1], vertical_alignment="center")
+    title_column.markdown(f"## {lesson['title']}")
     if index is None:
         return
-    st.divider()
-    previous_column, next_column = st.columns(2)
     if index > 0:
         previous_column.button(
-            f"Previous: {order[index - 1]['title']}",
-            icon=":material/arrow_back:",
+            "",
+            key="lesson:previous",
+            icon=":material/chevron_left:",
+            help=f"Previous: {order[index - 1]['title']}",
             on_click=open_lesson,
             args=(order[index - 1]["id"],),
         )
     if index + 1 < len(order):
         next_column.button(
-            f"Next: {order[index + 1]['title']}",
-            icon=":material/arrow_forward:",
+            "",
+            key="lesson:next",
+            icon=":material/chevron_right:",
+            help=f"Next: {order[index + 1]['title']}",
             on_click=open_lesson,
             args=(order[index + 1]["id"],),
         )

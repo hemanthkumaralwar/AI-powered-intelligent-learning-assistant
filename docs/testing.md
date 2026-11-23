@@ -47,7 +47,7 @@ External services are replaced at their interface, never by patching internals:
 | `tests/ingestion/test_chunking.py` | sentinel values planted in every answer field (quiz answers, fixes, solutions) never reach a chunk; chunk ids are stable |
 | `tests/rag/` | grounding rules, server-built citations (fake markers dropped), refusal below the threshold, follow-up rewriting, prompt-injection neutralising |
 | `tests/coding/`, `tests/learning/` | hints-only for course exercises, grading leak guard, mastery and recommendations |
-| `tests/frontend/` | login, profile menu, the rail per role (no admin page for students), LearnX course → lesson tabs, the compiler panel, the DOM sandbox, Nexus chats, guest browsing |
+| `tests/frontend/` | login, profile menu, the navigation per role (no admin page for students), LearnX course → lesson tabs and course outline, the compiler panel, the DOM sandbox, Nexus chats and the Past chats panel, guest browsing |
 
 ## Manual smoke tests (real providers, use quota)
 

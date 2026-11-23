@@ -16,19 +16,6 @@ type Renderer = Callable[[dict[str, Any], str], None]
 CONCEPT_COLUMNS = 4
 
 
-def show_lesson_header(lesson: dict[str, Any]) -> None:
-    content = lesson.get("content", {})
-    st.markdown(f"## {lesson['title']}")
-    facts = [  # the objective is the Reading tab's first stage, not repeated here
-        content.get("duration"),
-        _count(content.get("concepts"), "concept"),
-        _count(content.get("example"), "example"),
-        _count(lesson.get("exercises"), "exercise"),
-    ]
-    if shown := [fact for fact in facts if fact]:
-        st.markdown(" · ".join(f"**{fact}**" for fact in shown))
-
-
 def show_reading(lesson: dict[str, Any], language: str) -> None:
     content = {**lesson.get("content", {}), "objective": lesson.get("objective")}
     stages = [
@@ -39,12 +26,6 @@ def show_reading(lesson: dict[str, Any], language: str) -> None:
             st.caption(f"Stage {number} of {len(stages)}")
             st.markdown(f"#### {title}")
             render(content, language)
-
-
-def _count(items: object, noun: str) -> str | None:
-    if not isinstance(items, list) or not items:
-        return None
-    return f"{len(items)} {noun}{'' if len(items) == 1 else 's'}"
 
 
 def _mission(content: dict[str, Any], language: str) -> None:

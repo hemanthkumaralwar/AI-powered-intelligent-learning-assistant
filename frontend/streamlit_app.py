@@ -30,7 +30,8 @@ def navigation(user: dict | None) -> StreamlitPage:
         st.Page(page.path, title=page.title, icon=page.icon, url_path=page.url_path)
         for page in pages_for(user)
     ]
-    return st.navigation(pages)
+    # In the top bar, so the sidebar is free for the open lesson's course outline.
+    return st.navigation(pages, position="top")
 
 
 def main() -> None:

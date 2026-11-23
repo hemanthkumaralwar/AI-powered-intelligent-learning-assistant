@@ -1,7 +1,9 @@
 """Nexus, the course assistant, in a lesson's "Ask Nexus" tab (Step 24; it was the Arc page).
 
 Answers come only from the lesson's course, with citations; follow-ups stay in the same
-chat; the student's past chats (from any course) are listed above the conversation.
+chat. The conversation is on the left; the student's past chats (from any course) are in a
+"Past chats" panel on the right, with New chat, and the panel can be hidden. An answer the
+course materials do not cover is shown as a notice, not as a normal answer.
 """
 
 from typing import Any
@@ -12,15 +14,36 @@ from api_client import ApiClient, ApiError
 from components.lesson_nav import open_practice
 
 ACTIVE = "chat:active"  # the open chat's id; None for a new chat
+PANEL_HIDDEN = "chat:panel-hidden"  # True once the student hides the Past chats panel
 
 
 def show_nexus(client: ApiClient, token: str, course_id: str) -> None:
-    choose_chat(client, token)
+    hidden = st.session_state.get(PANEL_HIDDEN, False)
+    if hidden:
+        chat_column = st.container()
+        _, show_column = chat_column.columns([5, 1])
+        show_column.button(
+            "Past chats",
+            key="chat:show-panel",
+            icon=":material/right_panel_open:",
+            width="stretch",
+            on_click=_set_panel_hidden,
+            args=(False,),
+        )
+    else:
+        chat_column, panel_column = st.columns([3, 1], gap="medium")
+        with panel_column.container(border=True):
+            show_past_chats(client, token)
+    with chat_column:
+        show_conversation(client, token, course_id)
+
+
+def show_conversation(client: ApiClient, token: str, course_id: str) -> None:
     active = st.session_state.get(ACTIVE)
     # Messages go in a container placed above the input, so a new question and its answer
     # appear under the conversation, not under the input box.
     messages = st.container()
-    question = st.chat_input("Ask Nexus about this course…")
+    question = st.chat_input("Ask Nexus about this lesson…")
     with messages:
         if active:
             show_history(client, token, active)
@@ -28,32 +51,45 @@ def show_nexus(client: ApiClient, token: str, course_id: str) -> None:
             st.markdown("#### Ask Nexus about this course")
             st.caption(
                 "Answers come only from your course materials, with sources. Ask a follow-up "
-                "in the same chat; ask to be quizzed and you are pointed to the lesson's "
-                "activities."
+                "in the same chat."
             )
         if question:
             ask(client, token, question, course_id, active)
 
 
-def choose_chat(client: ApiClient, token: str) -> None:
+def show_past_chats(client: ApiClient, token: str) -> None:
+    heading, new_column, hide_column = st.columns([4, 2, 1], vertical_alignment="center")
+    heading.markdown("**Past chats**")
+    if new_column.button("New chat", icon=":material/add:", key="chat:new", type="primary"):
+        _open(None)
+        st.rerun()
+    hide_column.button(
+        "",
+        key="chat:hide-panel",
+        icon=":material/right_panel_close:",
+        help="Hide past chats",
+        type="tertiary",
+        on_click=_set_panel_hidden,
+        args=(True,),
+    )
     try:
         chats = client.chat_sessions(token)
     except ApiError as exc:
         st.error(str(exc))
         return
+    if not chats:
+        st.caption("Your chats will appear here.")
+        return
     active = st.session_state.get(ACTIVE)
-    new_column, chats_column = st.columns([1, 3], vertical_alignment="center")
-    if new_column.button("New chat", icon=":material/add:", type="primary", width="stretch"):
-        _open(None)
-        st.rerun()
-    with chats_column.expander(f"Your chats ({len(chats)})"):
-        for chat in chats:
-            kind = "secondary" if chat["id"] == active else "tertiary"
-            if st.button(chat["title"], key=f"chat-{chat['id']}", type=kind, width="stretch"):
-                _open(chat["id"])
-                st.rerun()
-        if active and st.button("Delete this chat", icon=":material/delete:"):
-            _delete(client, token, active)
+    for chat in chats:
+        kind = "secondary" if chat["id"] == active else "tertiary"
+        if st.button(chat["title"], key=f"chat-{chat['id']}", type=kind, width="stretch"):
+            _open(chat["id"])
+            st.rerun()
+    if active and st.button(
+        "Delete this chat", icon=":material/delete:", key="chat:delete", type="tertiary"
+    ):
+        _delete(client, token, active)
 
 
 def _delete(client: ApiClient, token: str, chat_id: str) -> None:
@@ -76,7 +112,10 @@ def show_history(client: ApiClient, token: str, chat_id: str) -> None:
     enabled = practice_courses(client, token)
     for number, message in enumerate(chat["messages"]):
         with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+            if message["role"] == "assistant" and message.get("grounded") is False:
+                st.warning(message["content"], icon=":material/info:")
+            else:
+                st.markdown(message["content"])
             citations = message.get("citations") or []
             show_sources(citations)
             show_practice_links(practice_lessons(citations, enabled), key=f"msg{number}")
@@ -138,3 +177,7 @@ def ask(client: ApiClient, token: str, question: str, course_id: str, active: st
 
 def _open(chat_id: str | None) -> None:
     st.session_state[ACTIVE] = chat_id
+
+
+def _set_panel_hidden(hidden: bool) -> None:
+    st.session_state[PANEL_HIDDEN] = hidden

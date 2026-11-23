@@ -573,10 +573,13 @@ def test_course_page_opens_a_lesson_and_goes_back(fake_api_url: str) -> None:
     app = app.button(key="lesson:l2").click().run()
     assert "## The DOM" in [m.value for m in app.markdown]
 
-    app = button(app, "Previous: Variables").click().run()
+    previous = app.button(key="lesson:previous")
+    assert previous.help == "Previous: Variables"
+    assert not [b for b in app.button if b.key == "lesson:next"]  # The DOM is the last one
+    app = previous.click().run()
     assert "## Variables" in [m.value for m in app.markdown]
 
-    app = button(app, "JavaScript").click().run()
+    app = app.button(key="outline:course").click().run()  # the course name in the outline
     assert app.session_state["learnx:lesson"] is None
 
 
@@ -586,8 +589,38 @@ def test_lesson_has_reading_practice_code_and_activity_tabs(fake_api_url: str) -
     labels = [t.label for t in app.tabs]  # the Code tab's own tabs are listed inside it
     assert labels[:4] == ["Reading", "Ask Nexus", "Practice", "Code"]
     assert labels[-1] == "Quiz & activities"
-    facts = "**25 minutes** · **2 concepts** · **1 example** · **1 exercise**"
-    assert facts in [m.value for m in app.markdown]
+    assert not app.exception
+
+
+def test_lesson_outline_lists_the_module_with_progress_marks(fake_api_url: str) -> None:
+    app = in_lesson(fake_api_url, lesson="l2")
+
+    outline = {b.key: b for b in app.sidebar.button}
+    assert outline["outline:course"].label == "JavaScript"
+    assert app.sidebar.caption[0].value == "1. Basics"
+    variables, dom = outline["outline:l1"], outline["outline:l2"]
+    assert (variables.label, variables.icon) == ("Variables", ":material/timelapse:")  # weak
+    assert dom.icon == ":material/radio_button_checked:"  # the open lesson
+
+    app = variables.click().run()
+
+    assert app.session_state["learnx:lesson"] == "l1"
+    assert "## Variables" in [m.value for m in app.markdown]
+
+
+def test_outline_marks_follow_progress() -> None:
+    from components.outline import DONE, NOT_STARTED, STARTED, lesson_icon
+
+    assert lesson_icon(None, current=False) == NOT_STARTED
+    assert lesson_icon({"mastery": None, "weak": False}, current=False) == NOT_STARTED
+    assert lesson_icon({"mastery": 0.4, "weak": True}, current=False) == STARTED
+    assert lesson_icon({"mastery": 1.0, "weak": False}, current=False) == DONE
+
+
+def test_guest_outline_has_no_progress_marks(fake_api_url: str) -> None:
+    app = guest(fake_api_url, {"learnx:course": "js", "learnx:lesson": "l2"})
+
+    assert app.sidebar.button(key="outline:l1").icon == ":material/radio_button_unchecked:"
     assert not app.exception
 
 
@@ -789,6 +822,36 @@ def test_past_chats_open_and_new_chat_starts_fresh(fake_api_url: str) -> None:
     app = button(app, "New chat").click().run()
     assert app.session_state["chat:active"] is None
     assert "#### Ask Nexus about this course" in [m.value for m in app.markdown]
+
+
+def test_past_chats_panel_hides_and_comes_back(fake_api_url: str) -> None:
+    app = in_lesson(fake_api_url)
+    assert "**Past chats**" in [m.value for m in app.markdown]
+
+    app = app.button(key="chat:hide-panel").click().run()
+
+    assert "**Past chats**" not in [m.value for m in app.markdown]
+    assert not [b for b in app.button if b.key == "chat-s1"]
+    assert app.chat_input  # still possible to ask
+
+    app = app.button(key="chat:show-panel").click().run()
+
+    assert app.button(key="chat-s1").label == "What is let?"
+
+
+def test_an_answer_the_course_does_not_cover_is_a_notice(
+    fake_api_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    session = GET_ROUTES["/chat/sessions/s1"]
+    off_topic = {**session["messages"][1], "grounded": False, "citations": []}
+    off_topic["content"] = "I couldn't find this in your course materials."
+    monkeypatch.setitem(session, "messages", [session["messages"][0], off_topic])
+
+    app = in_lesson(fake_api_url)
+    app = app.button(key="chat-s1").click().run()
+
+    assert [w.value for w in app.warning] == ["I couldn't find this in your course materials."]
+    assert "I couldn't find this in your course materials." not in [m.value for m in app.markdown]
 
 
 # ---- the rail and admin pages ----------------------------------------------------------

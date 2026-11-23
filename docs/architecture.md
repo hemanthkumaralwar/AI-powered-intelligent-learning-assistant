@@ -16,7 +16,7 @@ flowchart LR
     fe -. DOM exercises .-> sandbox[Browser iframe sandbox<br/>no network, no parent access]
 ```
 
-- **Frontend** (`frontend/`): Streamlit in the LearnX style: a rail with LearnX (courses, open to everyone for reading) and, for admins, Settings at `/admin`. Nexus, the course assistant, is a tab in each lesson for signed-in students. It holds the access token only in Streamlit's server-side session and never talks to providers directly.
+- **Frontend** (`frontend/`): Streamlit in the LearnX style: top navigation with LearnX (courses, open to everyone for reading) and, for admins, Settings at `/admin`. Nexus, the course assistant, is a tab in each lesson for signed-in students. It holds the access token only in Streamlit's server-side session and never talks to providers directly.
 - **Backend** (`backend/app/`): one FastAPI app built by `create_app()` (`main.py`), the composition root. Shared services live on `app.state` and are created in the lifespan; tests inject their own.
 - **Database:** PostgreSQL through SQLAlchemy 2 (async, psycopg 3), migrations with Alembic. Neon in development and tests, Supabase in production.
 - **Vector search:** FAISS in memory, rebuilt from the vectors stored in Postgres at startup (no embedding calls).
@@ -157,7 +157,7 @@ Every decision, with dates and measurements, is in [PLAN.md](../PLAN.md).
 - **Runners without an SLA:** Judge0 CE and Compiler Explorer are free community services. JavaScript and SQL depend on Judge0 alone.
 - **Hints-only is partly a prompt rule:** solutions are never retrievable or returned, but a heavily rewritten copy of an exercise may not be recognised by `/debug`'s similarity check.
 - **Mastery uses exercise attempts only** (about 3 per lesson); quiz scores live on the platform and are not shared yet.
-- **Frontend:** reloading the page signs you out (the token is never stored in the browser); the LearnX-style rail is CSS over Streamlit's markup; flowcharts show as Mermaid source; there is no sign-up form (students register through the API).
+- **Frontend:** reloading the page signs you out (the token is never stored in the browser); the course outline's left-aligned lesson buttons are CSS over Streamlit's markup; flowcharts show as Mermaid source; there is no sign-up form (students register through the API).
 - **Course format:** only course JSON from the generator is accepted.
 
 ## Integration with ArchintX
@@ -165,7 +165,7 @@ Every decision, with dates and measurements, is in [PLAN.md](../PLAN.md).
 What exists today:
 
 - **Same content:** courses are the course generator's JSON, validated against its schema, so any course the platform has can be loaded.
-- **Same look:** the frontend follows LearnX (rail, colours from the platform's design tokens, light and dark).
+- **Same look:** the frontend follows LearnX (course outline sidebar, colours from the platform's design tokens, light and dark).
 - **Activities stay on the platform:** answers and coding responses point to each lesson's quizzes, drag and drop, card matching and code reordering; with `PLATFORM_LESSON_URL` set (`https://…/{lesson_id}`) the pointers link straight to the lesson on the platform.
 - **API first:** everything the frontend does goes through the documented REST API, so the platform can call the same endpoints.
 

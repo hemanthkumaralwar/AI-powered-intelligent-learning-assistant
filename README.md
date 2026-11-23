@@ -69,7 +69,7 @@ uvicorn app.main:app --app-dir backend --loop asyncio:SelectorEventLoop
 streamlit run frontend/streamlit_app.py
 ```
 
-**6. Load the course.** Open http://localhost:8501, log in as your admin, open **Settings** (bottom of the rail), upload `eval/materials/javascript-beginner.json` as JavaScript, and press **Refresh** until it is `ready` (about 5 minutes: 424 chunks embedded at the free tier's pace).
+**6. Load the course.** Open http://localhost:8501, log in as your admin, open **Settings** (in the page links at the top), upload `eval/materials/javascript-beginner.json` as JavaScript, and press **Refresh** until it is `ready` (about 5 minutes: 424 chunks embedded at the free tier's pace).
 
 **7. Make a student.** The app has no sign-up form: in Swagger (http://127.0.0.1:8000/docs) use `POST /auth/register` → **Try it out** with a username and password (8+ characters). Log in with it, open a lesson in **LearnX**, ask **Nexus** in its **Ask Nexus** tab ("What is an array in JavaScript?") and run its bug hunt in **Practice**. Without signing in you can still browse the courses and read the lessons.
 
@@ -132,11 +132,11 @@ pip-audit -r requirements.txt -r requirements-dev.txt -r frontend/requirements.t
 
 ## Using the app
 
-The frontend follows the LearnX platform's look: a narrow rail on the left, a top bar with the page title and a profile menu (explanation level, log out), and LearnX colours in light and dark (switch at the top of Streamlit's ⋮ menu).
+The frontend follows the LearnX platform's look: page links at the top, a top bar with the page title and a profile menu (explanation level, log out), an open lesson's course outline in a sidebar you can hide (its module's lessons, marked done or started), previous/next arrows beside the lesson title, and LearnX colours in light and dark (switch at the top of Streamlit's ⋮ menu).
 
-| Rail | For | What it does |
+| Page | For | What it does |
 |---|---|---|
-| **LearnX** | everyone; no account needed to read | courses → a course's modules → a lesson with **Reading** (numbered stages: mission, brief, concepts, analogy, syntax, examples, flow, real world, recap) and **Quiz & activities** (links to the platform), open to all. Signed in, you also get **Ask Nexus** (the course assistant: answers with citations, follow-ups, past chats and, where an admin turned it on, **Open in Practice**), **Practice** (the lesson's exercises in a code editor: run, ask the AI about the output, submit for grading), **Code** (explain code, show an example, practice questions), and on the course page your mastery, lessons **due for review** and **what to do next** |
+| **LearnX** | everyone; no account needed to read | courses → a course's modules → a lesson with **Reading** (numbered stages: mission, brief, concepts, analogy, syntax, examples, flow, real world, recap) and **Quiz & activities** (links to the platform), open to all. Signed in, you also get **Ask Nexus** (the course assistant: answers with citations, follow-ups, a **Past chats** panel you can hide and, where an admin turned it on, **Open in Practice**), **Practice** (the lesson's exercises in a code editor: run, ask the AI about the output, submit for grading), **Code** (explain code, show an example, practice questions), and on the course page your mastery, lessons **due for review** and **what to do next** |
 | **Sign in** | guests | the login form (accounts are created through the API for now) |
 | **Settings** (`<app URL>/admin`) | admins only | upload course JSON, indexing status, per-course feature switches (Open in Practice, spaced review; off by default), delete a course, re-index |
 
@@ -232,8 +232,8 @@ backend/app/        FastAPI application (package "app"); entry point main.py: cr
   evaluation/       evaluation datasets, metrics and reports (used by eval/)
 backend/migrations/ Alembic migrations (config: alembic.ini at the repository root)
 frontend/           Streamlit app (streamlit_app.py) and its API client (api_client.py)
-  views/            pages in the rail: arc, learnx, admin_courses (Settings)
-  components/       shell (rail, top bar), account, lesson reading stages, compiler panel,
+  views/            pages in the top navigation: learnx, sign_in, admin_courses (Settings)
+  components/       shell (top bar), account, course outline, lesson reading stages, compiler panel,
                     coding helper, progress, practice, DOM sandbox
   menu.py           which pages each role sees; session.py: client, token and user for pages
 eval/               evaluation datasets, scripts (run_eval, run_code_eval, run_level_demo,

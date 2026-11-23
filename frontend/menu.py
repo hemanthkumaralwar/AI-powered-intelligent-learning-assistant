@@ -1,4 +1,4 @@
-"""Which pages each visitor sees in the left rail (pure, so it can be tested without
+"""Which pages each visitor sees in the top navigation (pure, so it can be tested without
 running the app).
 
 Guests get LearnX (public reading) and Sign in. Signed-in students get LearnX, where each

@@ -1,4 +1,4 @@
-"""Sign in (guests only). After signing in, the rail switches to the student's (or
+"""Sign in (guests only). After signing in, the navigation switches to the student's (or
 admin's) pages and LearnX opens."""
 
 import streamlit as st

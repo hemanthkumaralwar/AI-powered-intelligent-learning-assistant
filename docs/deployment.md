@@ -80,7 +80,7 @@ To re-check later:
 ### Load the course
 
 1. Open the Streamlit app and log in as the admin.
-2. **Settings** (bottom of the rail): choose `eval/materials/javascript-beginner.json`, programming language JavaScript, **Upload**.
+2. **Settings** (page links at the top): choose `eval/materials/javascript-beginner.json`, programming language JavaScript, **Upload**.
 3. Press **Refresh** until its status is `ready` (about 5 minutes: 424 chunks, embedded at the free tier's pace). Students can now ask about it.
 
 Uploading the same course again is refused (409). To replace it, delete it first on the same page.
@@ -105,8 +105,8 @@ Record the demo once, so a cold start or provider outage during the live demo ha
 
 Demo script (about 5 minutes; warm up first, see below):
 
-1. **Admin:** log in, open **Settings** (bottom of the rail, or `<app URL>/admin`): the JavaScript course is `ready`. Log out.
-2. **Guest, then student:** before logging in, open a course and read a lesson (no account needed); then log in (the rail has only LearnX). Show light and dark from the ⋮ menu.
+1. **Admin:** log in, open **Settings** (page links at the top, or `<app URL>/admin`): the JavaScript course is `ready`. Log out.
+2. **Guest, then student:** before logging in, open a course and read a lesson (no account needed); then log in (the page links show only LearnX). Show light and dark from the ⋮ menu.
 3. **LearnX:** open the course, then a lesson; scroll through the Reading stages.
 4. **Ask Nexus** (a lesson tab): "What is an array in JavaScript?" Show the cited answer, then the lesson's **Quiz & activities** tab.
 5. Follow up: "How do I loop over it?" The answer stays on arrays.

@@ -11,6 +11,7 @@
       "name": "web",
       "runtimeExecutable": ".venv/Scripts/python.exe",
       "runtimeArgs": ["-m", "streamlit", "run", "frontend/streamlit_app.py", "--server.port", "8501", "--server.headless", "true"],
+      "env": {"API_BASE_URL": "http://127.0.0.1:8000"},
       "port": 8501
     }
   ]
