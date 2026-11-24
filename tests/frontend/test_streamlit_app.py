@@ -81,8 +81,6 @@ COURSE = {
     "description": None,
     "level": None,
     "language": "javascript",
-    "arc_practice_enabled": True,
-    "spaced_review_enabled": False,
 }
 GET_ROUTES = {
     "/auth/me": {"id": "1", "username": "asha", "role": "student", "level": "beginner"},
@@ -313,8 +311,6 @@ class FakeApi(BaseHTTPRequestHandler):
     POST bodies are recorded in `received` so tests can check what the UI sent."""
 
     received: dict[str, dict] = {}
-    # A test sets this to make PATCH fail (server error), then puts it back.
-    patch_fails = False
 
     def do_POST(self) -> None:  # noqa: N802 - name required by BaseHTTPRequestHandler
         length = int(self.headers.get("Content-Length", 0))
@@ -337,11 +333,7 @@ class FakeApi(BaseHTTPRequestHandler):
         if not self._authorised():
             return
         FakeApi.received[self.path] = body
-        if FakeApi.patch_fails:
-            self._reply(500, {"detail": "Internal server error"})
-            return
-        base = COURSE if self.path.startswith("/admin/courses/") else GET_ROUTES["/auth/me"]
-        self._reply(200, base | body)
+        self._reply(200, GET_ROUTES["/auth/me"] | body)
 
     def do_GET(self) -> None:  # noqa: N802
         path = self.path.split("?")[0]
@@ -632,7 +624,8 @@ def test_reading_tab_shows_numbered_stages_safely(fake_api_url: str) -> None:
     stages = [
         m.removeprefix("#### ")
         for m in markdown
-        if m.startswith("#### ") and m != "#### Ask Nexus about this course"
+        if m.startswith("#### ")
+        and m not in ("#### Ask Nexus about this course", "#### Lesson quiz")
     ]
     assert stages == [
         "Your mission",
@@ -711,18 +704,114 @@ def test_dom_exercise_offers_the_page_sandbox(fake_api_url: str) -> None:
     assert app.session_state["exercise-e2:sandboxed"] == (DOM_CODE, "")
 
 
-def test_activities_tab_lists_the_platform_activities(fake_api_url: str) -> None:
+def test_activities_tab_lists_the_platform_activities_but_not_the_quiz(
+    fake_api_url: str,
+) -> None:
     app = in_lesson(fake_api_url)
 
     (box,) = [i.value for i in app.info if "learning platform" in i.value]
-    assert "- Quiz: Quiz (10 questions)" in box
     assert "- Card matching: Match the terms (6 pairs)" in box
+    assert "Quiz" not in box  # the quiz is taken in the app instead
 
 
 def test_lesson_without_activities_says_so(fake_api_url: str) -> None:
     app = in_lesson(fake_api_url, lesson="l2")
 
-    assert any("no quizzes or activities" in i.value for i in app.info)
+    assert any("no quiz or activities" in i.value for i in app.info)
+    assert "/lessons/l2/quiz" not in FakeApi.received
+
+
+# ---- Lesson quiz, taken in the app -------------------------------------------------
+
+Q1, Q2 = "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"
+GET_ROUTES["/lessons/l1/quiz"] = {
+    "lesson_id": "l1",
+    "questions": [
+        {
+            "id": Q1,
+            "position": 1,
+            "question": "Which keyword declares a constant?",
+            "options": [{"id": 2, "text": "const"}, {"id": 0, "text": "var"}],
+        },
+        {
+            "id": Q2,
+            "position": 2,
+            "question": "Can let be reassigned?",
+            "options": [{"id": 1, "text": "No"}, {"id": 0, "text": "Yes"}],
+        },
+    ],
+}
+GET_ROUTES["/lessons/l1/quiz/attempts"] = [
+    {"id": "a2", "correct": 1, "total": 2, "created_at": "2026-11-24T10:00:00Z"},
+    {"id": "a1", "correct": 2, "total": 2, "created_at": "2026-11-23T10:00:00Z"},
+]
+POST_ROUTES["/lessons/l1/quiz/attempts"] = {
+    "id": "a3",
+    "correct": 1,
+    "total": 2,
+    "created_at": "2026-11-24T11:00:00Z",
+    "results": [
+        {
+            "question_id": Q1,
+            "chosen": 2,
+            "correct_option": 2,
+            "correct": True,
+            "explanation": "const cannot be reassigned.",
+        },
+        {
+            "question_id": Q2,
+            "chosen": 1,
+            "correct_option": 0,
+            "correct": False,
+            "explanation": "let can be reassigned; const cannot.",
+        },
+    ],
+}
+
+
+def answer_quiz(app: AppTest, first: int | None, second: int | None) -> AppTest:
+    if first is not None:
+        app.radio(key=f"quiz:l1:q0:{Q1}").set_value(first)
+    if second is not None:
+        app.radio(key=f"quiz:l1:q0:{Q2}").set_value(second)
+    return button(app, "Submit answers").click().run()
+
+
+def test_quiz_shows_questions_and_past_scores(fake_api_url: str) -> None:
+    app = in_lesson(fake_api_url)
+
+    assert "#### Lesson quiz" in [m.value for m in app.markdown]
+    first = app.radio(key=f"quiz:l1:q0:{Q1}")
+    assert first.options == ["const", "var"] and first.value is None
+    assert any("Last score 1/2 · best 2/2 · 2 attempts" in c.value for c in app.caption)
+    assert not app.exception
+
+
+def test_quiz_is_marked_and_shows_the_right_answers(fake_api_url: str) -> None:
+    app = answer_quiz(in_lesson(fake_api_url), 2, 1)
+
+    assert FakeApi.received["/lessons/l1/quiz/attempts"] == {"answers": {Q1: 2, Q2: 1}}
+    markdown = [m.value for m in app.markdown]
+    assert "**Score: 1/2 (50%)**" in markdown
+    assert "Your answer: No  \nCorrect answer: Yes" in markdown
+    assert any("let can be reassigned" in c.value for c in app.caption)
+    assert not app.exception
+
+
+def test_quiz_needs_every_answer_before_marking(fake_api_url: str) -> None:
+    app = answer_quiz(in_lesson(fake_api_url), 2, None)
+
+    assert any("Answer every question first (1 left)." in w.value for w in app.warning)
+    assert "/lessons/l1/quiz/attempts" not in FakeApi.received
+
+
+def test_retake_starts_a_fresh_quiz(fake_api_url: str) -> None:
+    app = answer_quiz(in_lesson(fake_api_url), 2, 1)
+
+    app = button(app, "Retake the quiz").click().run()
+
+    assert app.radio(key=f"quiz:l1:q1:{Q1}").value is None
+    assert "**Score: 1/2 (50%)**" not in [m.value for m in app.markdown]
 
 
 def test_submit_for_grading_shows_hint_feedback(fake_api_url: str) -> None:
@@ -934,170 +1023,30 @@ def test_admin_deletes_a_course_and_sees_confirmation(fake_api_url: str) -> None
     assert any("Deleted `js`." in s.value for s in app.success)
 
 
-# ---- Step 23a: Open in Practice from Nexus ------------------------------------------------
+# ---- Removed features stay removed (Open in Practice, spaced review) ----------------
 
 
-def asked(fake_api_url: str) -> AppTest:
+def test_answers_have_no_open_in_practice_button(fake_api_url: str) -> None:
     app = in_lesson(fake_api_url)
-    return app.chat_input[0].set_value("What is let?").run()
 
-
-def test_answer_opens_the_cited_lesson_on_its_practice_tab(fake_api_url: str) -> None:
-    app = asked(fake_api_url)
-
-    app = button(app, "Open in Practice: Variables").click().run()
-
-    state = app.session_state
-    assert (state["learnx:course"], state["learnx:lesson"], state["learnx:tab"]) == (
-        "js",
-        "l1",
-        "Practice",
-    )
-    assert "## Variables" in [m.value for m in app.markdown]  # LearnX shows the lesson
-    assert not app.exception
-
-
-def test_no_practice_button_when_the_course_is_switched_off(
-    fake_api_url: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setitem(COURSE, "arc_practice_enabled", False)
-
-    app = asked(fake_api_url)
-
-    assert not [b for b in app.button if b.label.startswith("Open in Practice")]
-
-
-def test_no_practice_button_for_citations_saved_before_course_ids(
-    fake_api_url: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.delitem(CHAT_REPLY["citations"][0], "course_id")
-
-    app = asked(fake_api_url)
+    app = app.chat_input[0].set_value("What is let?").run()
 
     assert not [b for b in app.button if b.label.startswith("Open in Practice")]
     assert not app.exception
 
 
-def test_lessons_opened_from_learnx_start_on_reading(fake_api_url: str) -> None:
-    app = signed_in(fake_api_url, state={"learnx:course": "js"})
-
-    app = app.button(key="lesson:l1").click().run()
-
-    assert app.session_state["learnx:tab"] is None
-
-
-def test_admin_switches_open_in_practice_per_course(fake_api_url: str) -> None:
-    app = signed_in(fake_api_url, page="views/admin_courses.py", token=ADMIN_TOKEN)
-    switch = app.toggle(key="feature:arc:js")
-    assert switch.value is True
-
-    app = switch.set_value(False).run()
-
-    assert FakeApi.received["/admin/courses/js"] == {"arc_practice_enabled": False}
-    assert any("Open in Practice from Nexus is off for `js`." in s.value for s in app.success)
-
-
-def test_a_failed_switch_shows_the_error_and_keeps_the_server_value(
-    fake_api_url: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(FakeApi, "patch_fails", True)
-    app = signed_in(fake_api_url, page="views/admin_courses.py", token=ADMIN_TOKEN)
-
-    app = app.toggle(key="feature:arc:js").set_value(False).run()
-
-    assert any("server had a problem" in e.value for e in app.error)
-    assert app.toggle(key="feature:arc:js").value is True  # redrawn from the server
-    assert not app.exception
-
-
-# ---- Step 23b: spaced review --------------------------------------------------------
-
-GET_ROUTES["/me/reviews"] = {
-    "course_id": "js",
-    "enabled": True,
-    "reviews": [
-        {
-            "lesson_id": "l1",
-            "lesson_title": "Variables",
-            "module_title": "Basics",
-            "interval_days": 1,
-            "due_at": "2026-11-20T09:00:00Z",
-            "due": True,
-            "mastered": False,
-        },
-        {
-            "lesson_id": "l2",
-            "lesson_title": "The DOM",
-            "module_title": "Basics",
-            "interval_days": 3,
-            "due_at": "2026-11-25T09:00:00Z",
-            "due": False,
-            "mastered": False,
-        },
-    ],
-}
-
-
-def with_reviews(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setitem(GET_ROUTES["/courses/js"], "spaced_review_enabled", True)
-
-
-def test_due_lessons_are_listed_and_not_repeated_in_what_to_do_next(
-    fake_api_url: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    with_reviews(monkeypatch)
-
-    app = in_course(fake_api_url)
-
-    markdown = [m.value for m in app.markdown]
-    assert "#### Due for review" in markdown
-    assert "🕒 **Variables** · Basics" in markdown
-    assert "🕒 **The DOM** · Basics" not in markdown  # scheduled, not due yet
-    assert "🔁 **Variables** · Basics" not in markdown  # no duplicate below
-    assert any("listed under Due for review" in c.value for c in app.caption)
-    assert not app.exception
-
-
-def test_review_opens_the_lesson_on_practice(
-    fake_api_url: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    with_reviews(monkeypatch)
-
-    app = in_course(fake_api_url).button(key="review:l1").click().run()
-
-    assert (app.session_state["learnx:lesson"], app.session_state["learnx:tab"]) == (
-        "l1",
-        "Practice",
-    )
-
-
-def test_nothing_due_says_so(fake_api_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    with_reviews(monkeypatch)
-    nothing_due = {**GET_ROUTES["/me/reviews"], "reviews": []}
-    monkeypatch.setitem(GET_ROUTES, "/me/reviews", nothing_due)
-
-    app = in_course(fake_api_url)
-
-    assert any("Nothing is due for review" in c.value for c in app.caption)
-    assert "🔁 **Variables** · Basics" in [m.value for m in app.markdown]
-
-
-def test_no_review_section_when_the_course_is_switched_off(fake_api_url: str) -> None:
+def test_course_page_has_no_review_schedule(fake_api_url: str) -> None:
     app = in_course(fake_api_url)
 
     assert "#### Due for review" not in [m.value for m in app.markdown]
     assert "/me/reviews" not in FakeApi.received
 
 
-def test_admin_switches_spaced_review_per_course(fake_api_url: str) -> None:
+def test_settings_have_no_course_feature_switches(fake_api_url: str) -> None:
     app = signed_in(fake_api_url, page="views/admin_courses.py", token=ADMIN_TOKEN)
-    switch = app.toggle(key="feature:review:js")
-    assert switch.value is False
 
-    app = switch.set_value(True).run()
-
-    assert FakeApi.received["/admin/courses/js"] == {"spaced_review_enabled": True}
-    assert any("Spaced review is on for `js`." in s.value for s in app.success)
+    assert not app.toggle
+    assert not app.exception
 
 
 # ---- Step 24: guests browse and read; sign in for the rest ---------------------------
@@ -1129,6 +1078,8 @@ def test_guests_read_lessons_and_are_asked_to_sign_in_for_the_rest(fake_api_url:
     assert "Sign in to ask Nexus, the course assistant." in prompts
     assert "Sign in to run and submit this lesson's exercises." in prompts
     assert "Sign in to use the coding helper." in prompts
+    assert "Sign in to take this lesson's quiz and count it in your progress." in prompts
+    assert "GUEST /lessons/l1/quiz" not in FakeApi.received
     assert not app.text_area  # no code editor for guests
     assert not app.chat_input
     assert not app.exception

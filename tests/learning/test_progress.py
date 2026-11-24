@@ -110,3 +110,59 @@ def test_threshold_and_limit_are_respected() -> None:
     assert recommend(progress, weak_threshold=0.9)[0].kind == "review"
     assert recommend(progress, weak_threshold=0.6)[0].kind == "next"
     assert len(recommend(progress, weak_threshold=0.6, limit=2)) == 2
+
+
+# ---- Lesson quiz scores count next to exercises -------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("scores", "expected"),
+    [
+        ([0.7], 0.7),
+        ([1.0, 0.4], (1.0 + 0.5 * 0.4) / 1.5),  # a retake counts most
+        ([0.2, 1.0, 1.0], (0.2 + 0.5 + 0.25) / 1.75),
+    ],
+)
+def test_quiz_score_weights_recent_attempts(scores: list[float], expected: float) -> None:
+    (basics, _, _) = compute_progress(COURSE, {}, {"l1": scores})
+
+    assert basics.lessons[0].quiz_score == pytest.approx(expected)
+    assert basics.lessons[0].mastery == pytest.approx(expected)
+
+
+def test_taking_the_quiz_starts_a_lesson() -> None:
+    (basics, _, _) = compute_progress(COURSE, {}, {"l2": [0.5]})
+
+    assert basics.lessons[1].started and basics.lessons[1].exercise_scores == {}
+    assert basics.coverage == 0.5
+
+
+def test_quiz_counts_as_one_item_next_to_the_exercises() -> None:
+    (basics, _, _) = compute_progress(COURSE, {"e1": [True], "e2": [False]}, {"l1": [0.3]})
+
+    assert basics.lessons[0].mastery == pytest.approx((1.0 + 0.0 + 0.3) / 3)
+
+
+def test_a_poor_quiz_makes_a_lesson_weak_and_says_why() -> None:
+    picks = recommend(compute_progress(COURSE, {}, {"l1": [0.4]}), weak_threshold=0.6)
+
+    assert (picks[0].kind, picks[0].progress.lesson.id) == ("review", "l1")
+    assert picks[0].reason == "Review: 40% on this lesson's quiz"
+
+
+def test_review_reason_names_the_quiz_and_the_exercises() -> None:
+    progress = compute_progress(COURSE, {"e1": [True], "e2": [False]}, {"l1": [0.2]})
+
+    (pick, *_) = recommend(progress, weak_threshold=0.6)
+
+    assert pick.reason == "Review: 40% (quiz 20%, exercises 50%)"
+
+
+def test_a_good_quiz_can_lift_a_lesson_out_of_review() -> None:
+    exercises = {"e1": [True], "e2": [False]}  # 0.5 on its own: weak
+
+    with_quiz = recommend(compute_progress(COURSE, exercises, {"l1": [1.0]}), 0.6)
+    without = recommend(compute_progress(COURSE, exercises), 0.6)
+
+    assert without[0].kind == "review"
+    assert with_quiz[0].kind == "next"  # (1 + 0 + 1) / 3 = 0.67

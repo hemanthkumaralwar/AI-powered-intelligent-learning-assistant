@@ -113,7 +113,7 @@ sequenceDiagram
 
 ## Progress and recommendations
 
-Mastery comes from graded exercise attempts (quiz scores live on the platform). An exercise's score weights recent attempts most (1, ½, ¼…); a lesson averages its attempted exercises; a module averages its started lessons. Lessons below `WEAK_MASTERY_THRESHOLD` (0.6) are recommended for review, weakest first, followed by the next lessons in the course.
+Mastery comes from graded exercise attempts and the lesson quiz, which students take in the app and the server marks (no AI). An exercise's score weights recent attempts most (1, ½, ¼…); the quiz is scored the same way from each attempt's share of correct answers and counts as one more item, so a lesson averages its attempted exercises and its quiz score; a module averages its started lessons. Quiz options are shuffled in a fixed order per student, because the course file puts most correct answers second. The platform's other activities (drag and drop, card matching, code reordering) are not counted. Lessons below `WEAK_MASTERY_THRESHOLD` (0.6) are recommended for review, weakest first, followed by the next lessons in the course.
 
 ## Reliability and cost
 

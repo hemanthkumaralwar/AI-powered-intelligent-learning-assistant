@@ -1,10 +1,8 @@
-"""Admin: upload course JSON, watch indexing, per-course feature switches, delete courses,
-re-index.
+"""Admin: upload course JSON, watch indexing, delete courses, re-index.
 
 Only admins get this page in the menu; the check below and the API's own 403 back that up.
 """
 
-from dataclasses import dataclass
 from typing import Any
 
 import streamlit as st
@@ -15,7 +13,6 @@ from session import current
 
 STATUS_ICONS = {"pending": "⏳", "processing": "⚙️", "ready": "✅", "failed": "❌"}
 FLASH = "admin:flash"
-FEATURE_ERROR = "admin:feature-error"  # set by the switch callback, shown on the next run
 
 
 def main() -> None:
@@ -28,7 +25,6 @@ def main() -> None:
         st.success(flash)
     upload(session.client, session.token)
     documents = show_documents(session.client, session.token)
-    course_features(session.client, session.token)
     if documents:
         delete_course(session.client, session.token, documents)
     reindex(session.client, session.token)
@@ -85,72 +81,6 @@ def show_documents(client: ApiClient, token: str) -> list[dict[str, Any]]:
         width="stretch",
     )
     return documents
-
-
-@dataclass(frozen=True)
-class Feature:
-    """A per-course admin switch (a course setting on the API)."""
-
-    short: str  # widget key part
-    setting: str  # field name in PATCH /admin/courses/{id}
-    label: str
-    help: str
-
-
-FEATURES = (
-    Feature(
-        "arc",
-        "arc_practice_enabled",
-        "Open in Practice from Nexus",
-        "Nexus answers citing this course get a button that opens the lesson's Practice tab.",
-    ),
-    Feature(
-        "review",
-        "spaced_review_enabled",
-        "Spaced review",
-        "Students see which lessons they attempted are due for review (1, 3, 7, 14, 30 days).",
-    ),
-)
-
-
-def course_features(client: ApiClient, token: str) -> None:
-    """Per-course switches. Every course is a coding course, so every course has them."""
-    st.subheader("Course features")
-    try:
-        courses = client.courses(token)
-    except ApiError as exc:
-        st.error(str(exc))
-        return
-    for course in courses:
-        st.markdown(f"**{course['title']}**")
-        for feature in FEATURES:
-            key = f"feature:{feature.short}:{course['id']}"
-            # on_change, not "compare with the server every run": that would call the
-            # API again on every rerun whenever the two disagree (e.g. another admin
-            # changed it).
-            st.toggle(
-                feature.label,
-                value=course[feature.setting],
-                key=key,
-                on_change=_set_feature,
-                args=(client, token, course["id"], feature, key),
-                help=feature.help,
-            )
-    if error := st.session_state.pop(FEATURE_ERROR, None):
-        st.error(error)
-
-
-def _set_feature(client: ApiClient, token: str, course_id: str, feature: Feature, key: str) -> None:
-    enabled = st.session_state[key]
-    try:
-        client.update_course_settings(token, course_id, **{feature.setting: enabled})
-    except ApiError as exc:
-        # Forget the flipped widget, so it is redrawn with the server's value.
-        del st.session_state[key]
-        st.session_state[FEATURE_ERROR] = str(exc)
-        return
-    state = "on" if enabled else "off"
-    st.session_state[FLASH] = f"{feature.label} is {state} for `{course_id}`."
 
 
 def delete_course(client: ApiClient, token: str, documents: list[dict[str, Any]]) -> None:

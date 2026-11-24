@@ -1,9 +1,7 @@
-"""Your progress, what to do next, and when to review. Only ever the caller's own data: there is no
+"""Your progress and what to do next. Only ever the caller's own data: there is no
 parameter that names a student."""
 
 import uuid
-from collections import defaultdict
-from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -14,16 +12,15 @@ from app.api.schemas.practice import ActivityResponse
 from app.api.schemas.progress import (
     ExerciseToDoResponse,
     LessonProgressResponse,
-    LessonReviewResponse,
     ModuleProgressResponse,
     ProgressResponse,
     RecommendationResponse,
     RecommendationsResponse,
-    ReviewsResponse,
 )
 from app.db.models import Course
 from app.db.repositories.courses import CourseRepository
 from app.db.repositories.exercises import ExerciseRepository
+from app.db.repositories.quizzes import QuizRepository
 from app.learning.practice import PracticeFinder
 from app.learning.progress import (
     ExerciseInfo,
@@ -33,20 +30,10 @@ from app.learning.progress import (
     compute_progress,
 )
 from app.learning.recommend import Recommendation, recommend
-from app.learning.review import Attempt, LessonReview, review_schedule
 
 router = APIRouter(prefix="/me", tags=["progress"])
 
 CourseId = Annotated[str | None, Query(min_length=1, max_length=100)]
-RequiredCourseId = Annotated[str, Query(min_length=1, max_length=100)]
-
-
-def current_time() -> datetime:
-    """Now, as a dependency, so tests can fix the clock (app.dependency_overrides)."""
-    return datetime.now(UTC)
-
-
-Now = Annotated[datetime, Depends(current_time)]
 
 
 def get_practice_finder(request: Request) -> PracticeFinder:
@@ -65,8 +52,9 @@ WeakThreshold = Annotated[float, Depends(get_weak_threshold)]
 async def my_progress(
     user: CurrentUser, session: Session, threshold: WeakThreshold, course_id: CourseId = None
 ) -> ProgressResponse:
-    """Mastery per module and lesson, from your graded exercise attempts (recent ones
-    count most). `course_id` defaults to the course you have worked on most."""
+    """Mastery per module and lesson, from your graded exercise attempts and lesson quiz
+    scores (recent ones count most). `course_id` defaults to the course you have done the
+    most exercises in, else the course of your latest quiz."""
     course, modules = await _progress(session, user.id, course_id)
     return ProgressResponse(
         course_id=course.id,
@@ -96,55 +84,17 @@ async def my_recommendations(
     )
 
 
-@router.get("/reviews")
-async def my_reviews(
-    user: CurrentUser, session: Session, now: Now, course_id: RequiredCourseId
-) -> ReviewsResponse:
-    """When to revisit each lesson you have attempted (spaced review): soonest due first,
-    mastered lessons last. Empty when the course's admin switch is off."""
-    course = await CourseRepository(session).get_full(course_id)
-    if course is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found")
-    if not course.spaced_review_enabled:
-        return ReviewsResponse(course_id=course.id, enabled=False, reviews=[])
-    attempts: defaultdict[str, list[Attempt]] = defaultdict(list)
-    for lesson_id, at, passed in await ExerciseRepository(session).lesson_attempts(
-        user.id, course.id
-    ):
-        attempts[lesson_id].append(Attempt(at, passed))
-    titles = {
-        lesson.id: (lesson.title, module.title)
-        for module in course.modules
-        for lesson in module.lessons
-    }
-    return ReviewsResponse(
-        course_id=course.id,
-        enabled=True,
-        reviews=[_review_response(r, titles[r.lesson_id], now) for r in review_schedule(attempts)],
-    )
-
-
-def _review_response(
-    review: LessonReview, titles: tuple[str, str], now: datetime
-) -> LessonReviewResponse:
-    lesson_title, module_title = titles
-    return LessonReviewResponse(
-        lesson_id=review.lesson_id,
-        lesson_title=lesson_title,
-        module_title=module_title,
-        interval_days=review.interval_days,
-        due_at=review.due_at,
-        due=review.is_due(now),
-        mastered=review.mastered,
-    )
-
-
 async def _progress(
     session: AsyncSession, user_id: uuid.UUID, course_id: str | None
 ) -> tuple[Course, list[ModuleProgress]]:
     courses = CourseRepository(session)
     exercises = ExerciseRepository(session)
-    course_id = course_id or await exercises.most_attempted_course(user_id)
+    quizzes = QuizRepository(session)
+    course_id = (
+        course_id
+        or await exercises.most_attempted_course(user_id)
+        or await quizzes.latest_course(user_id)
+    )
     if course_id is None:
         listed = await courses.list_courses()
         course_id = listed[0].id if listed else None
@@ -152,7 +102,8 @@ async def _progress(
     if course is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found")
     results = await exercises.results_by_exercise(user_id, course.id)
-    return course, compute_progress(_outline(course), results)
+    quiz_results = await quizzes.results_by_lesson(user_id, course.id)
+    return course, compute_progress(_outline(course), results, quiz_results)
 
 
 def _outline(course: Course) -> list[ModuleInfo]:
@@ -187,6 +138,7 @@ def _module_response(module: ModuleProgress, threshold: float) -> ModuleProgress
                 lesson_id=lesson.lesson.id,
                 title=lesson.lesson.title,
                 mastery=lesson.mastery,
+                quiz_score=lesson.quiz_score,
                 weak=lesson.started and lesson.mastery < threshold,
             )
             for lesson in module.lessons
@@ -205,6 +157,7 @@ def _recommendation_response(
         module_title=pick.progress.module_title,
         reason=pick.reason,
         mastery=pick.progress.mastery,
+        quiz_score=pick.progress.quiz_score,
         exercises=[
             ExerciseToDoResponse(
                 exercise_id=item.exercise.id,

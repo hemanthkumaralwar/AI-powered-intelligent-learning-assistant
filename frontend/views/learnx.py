@@ -7,8 +7,8 @@ helper and progress need an account, and their tabs say so.
 An open lesson shows its module's lessons in the sidebar (components/outline.py; the
 sidebar's own button hides it) and previous/next arrows beside its title.
 
-Where you are (course, lesson, tab) lives in `st.session_state` (components/lesson_nav.py),
-so it survives reruns, and Nexus can open a lesson's Practice tab directly.
+Where you are (course and lesson) lives in `st.session_state` (components/lesson_nav.py),
+so it survives reruns.
 """
 
 from typing import Any
@@ -19,17 +19,12 @@ from api_client import ApiClient, ApiError
 from components.coding_helper import show_coding_helper
 from components.compiler import LANGUAGES
 from components.lesson import show_reading
-from components.lesson_nav import COURSE, LESSON, TAB, open_course, open_lesson
+from components.lesson_nav import COURSE, LESSON, open_course, open_lesson
 from components.nexus import show_nexus
 from components.outline import lesson_status, show_outline
 from components.practice import show_exercises, show_platform_activities
-from components.progress import (
-    load_due_reviews,
-    load_progress,
-    mastery_label,
-    show_due_reviews,
-    show_next_steps,
-)
+from components.progress import load_progress, mastery_label, show_next_steps
+from components.quiz import show_quiz
 from menu import SIGN_IN
 from session import Visitor, current_visitor
 
@@ -100,14 +95,9 @@ def show_course(visitor: Visitor, outline: dict[str, Any]) -> None:
     picks, progress = loaded if loaded else (None, None)
     with modules_column:
         show_modules(outline, progress)
-    with next_column:
-        due: list[dict[str, Any]] = []
-        if outline.get("spaced_review_enabled"):
-            due = load_due_reviews(visitor.client, visitor.token, outline["id"])
-            show_due_reviews(due)
-        if picks is not None:
-            due_lessons = frozenset(review["lesson_id"] for review in due)
-            show_next_steps(picks, _go_to_lesson, due_lessons)
+    if picks is not None:
+        with next_column:
+            show_next_steps(picks, _go_to_lesson)
 
 
 def show_modules(
@@ -142,9 +132,7 @@ def show_lesson(visitor: Visitor, outline: dict[str, Any], lesson: dict[str, Any
     show_outline(outline, lesson["id"], lesson_status(visitor.client, visitor.token, outline["id"]))
     language = outline["language"]
     show_lesson_header(outline, lesson)
-    reading, nexus, practice, code, activities = st.tabs(
-        LESSON_TABS, default=st.session_state.get(TAB)
-    )
+    reading, nexus, practice, code, activities = st.tabs(LESSON_TABS)
     with reading:
         show_reading(lesson, language)
     token = visitor.token
@@ -164,11 +152,21 @@ def show_lesson(visitor: Visitor, outline: dict[str, Any], lesson: dict[str, Any
         else:
             show_coding_helper(visitor.client, token, language)
     with activities:
-        found = lesson.get("content", {}).get("practice", [])
-        if found:
-            show_platform_activities(found)
-        else:
-            st.info("This lesson has no quizzes or activities on the platform.")
+        show_activities(visitor, lesson)
+
+
+def show_activities(visitor: Visitor, lesson: dict[str, Any]) -> None:
+    """The lesson quiz (taken here, counted in progress), then the platform's activities."""
+    found = lesson.get("content", {}).get("practice", [])
+    has_quiz = any(activity["kind"] == "quiz" for activity in found)
+    if has_quiz and visitor.token is None:
+        sign_in_prompt("take this lesson's quiz and count it in your progress")
+    elif has_quiz:
+        show_quiz(visitor.client, visitor.token, lesson["id"])
+    if found:
+        show_platform_activities(found)
+    else:
+        st.info("This lesson has no quiz or activities.")
 
 
 def show_lesson_header(outline: dict[str, Any], lesson: dict[str, Any]) -> None:

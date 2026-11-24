@@ -1,5 +1,5 @@
-"""Practice inside a lesson: its coding exercises in the compiler panel, and the quizzes
-and activities that run on the learning platform."""
+"""Practice inside a lesson: its coding exercises in the compiler panel, and the
+activities that run on the learning platform."""
 
 from typing import Any
 
@@ -62,8 +62,9 @@ def activity_label(activity: dict[str, Any]) -> str:
 
 
 def show_platform_activities(activities: list[dict[str, Any]]) -> None:
-    """The lesson's quizzes and activities, which run on the learning platform. Shown only
-    in the lesson's Quiz & activities tab (not under answers or recommendations)."""
-    if activities:
-        lines = "\n".join(f"- {activity_label(a)}" for a in activities)
-        st.info(f"**Practise this lesson on the learning platform:**\n{lines}")
+    """The lesson's interactive activities, which run on the learning platform. Shown only
+    in the lesson's Quiz & activities tab. The quiz is left out: it is taken in this app."""
+    others = [a for a in activities if a["kind"] != "quiz"]
+    if others:
+        lines = "\n".join(f"- {activity_label(a)}" for a in others)
+        st.info(f"**More practice on the learning platform:**\n{lines}")

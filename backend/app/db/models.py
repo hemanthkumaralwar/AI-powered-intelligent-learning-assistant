@@ -23,7 +23,6 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     Uuid,
-    false,
     func,
     text,
 )
@@ -36,6 +35,8 @@ DocumentStatus = Literal["pending", "processing", "ready", "failed"]
 DocumentKind = Literal["course"]
 ExerciseKind = Literal["interactive", "mini_challenge", "bug_hunt"]
 ChatRole = Literal["user", "assistant"]
+# Where a quiz score came from: taken in this app, or (later) sent by the learning platform.
+QuizSource = Literal["app", "platform"]
 
 # Stable constraint names keep Alembic migrations deterministic across databases.
 NAMING_CONVENTION = {
@@ -96,21 +97,7 @@ class Course(TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
     level: Mapped[str | None] = mapped_column(String(50))
     # Programming language of the course's exercises (the course JSON does not say).
-    # The check constraint above also makes every course a coding course, which the
-    # per-course Nexus switch below relies on: if non-coding courses are ever allowed, the
-    # switch must refuse them (Step 23a).
     language: Mapped[str] = mapped_column(String(20))
-    # Admin switch (Step 23a): Nexus answers citing this course offer "Open in Practice"
-    # (the field keeps its first name, arc_practice_enabled: it is part of the API).
-    # A Python default for new objects; the server default for rows from before 0007.
-    arc_practice_enabled: Mapped[bool] = mapped_column(
-        Boolean, default=False, server_default=false()
-    )
-    # Admin switch (Step 23b): students see which attempted lessons are due for review.
-    spaced_review_enabled: Mapped[bool] = mapped_column(
-        Boolean, default=False, server_default=false()
-    )
-
     modules: Mapped[list["Module"]] = relationship(
         back_populates="course",
         order_by="Module.position",
@@ -326,4 +313,27 @@ class ExerciseAttempt(Base):
     )
     passed: Mapped[bool] = mapped_column(Boolean)
     feedback: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class QuizAttempt(Base):
+    """A marked try at a lesson's quiz. The score and the chosen options are kept (no free
+    text), so weak lessons can count quiz results next to exercise results."""
+
+    __tablename__ = "quiz_attempts"
+    __table_args__ = (
+        CheckConstraint("source IN ('app', 'platform')", name="source"),
+        CheckConstraint("total > 0 AND correct >= 0 AND correct <= total", name="score"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    lesson_id: Mapped[str] = mapped_column(ForeignKey("lessons.id", ondelete="CASCADE"), index=True)
+    source: Mapped[QuizSource] = mapped_column(String(20), default="app", server_default="app")
+    correct: Mapped[int] = mapped_column(Integer)
+    total: Mapped[int] = mapped_column(Integer)
+    # Question id -> the option index chosen (null: left unanswered).
+    answers: Mapped[dict[str, int | None]] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

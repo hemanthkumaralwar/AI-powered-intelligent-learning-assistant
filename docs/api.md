@@ -34,7 +34,7 @@ Send the token from `POST /auth/login` as `Authorization: Bearer <token>`; in Sw
 
 | Method and path | Who | What |
 |---|---|---|
-| `GET /courses` | anyone | course list, with each course's feature switches (`arc_practice_enabled`, `spaced_review_enabled`) |
+| `GET /courses` | anyone | course list |
 | `GET /courses/{course_id}` | anyone | outline: modules (with explanations) and lesson titles, in order |
 | `GET /lessons/{lesson_id}` | anyone | teaching content and exercises (starter code, hints), **never** solutions or quiz answers |
 
@@ -49,7 +49,6 @@ Send the token from `POST /auth/login` as `Authorization: Bearer <token>`; in Sw
 | `GET /admin/documents/{document_id}/download` | admin | the original file (it includes every answer) |
 | `DELETE /admin/documents/{document_id}` | admin | delete one uploaded file |
 | `DELETE /admin/courses/{course_id}` | admin | delete a course and **everything** attached to it: lessons, quizzes, exercises, documents, vectors |
-| `PATCH /admin/courses/{course_id}` | admin | per-course feature switches: `arc_practice_enabled` ("Open in Practice" in Nexus) and `spaced_review_enabled` (spaced review); both default off. Only the switches sent change; an empty body, only `null`s or an unknown switch is 422. Takes effect at once (the course cache is cleared) and is logged with the admin's id |
 | `POST /admin/reindex` | admin | re-queue every document; unchanged content already in the current embedding space costs no quota |
 | `POST /admin/search` | admin | `{query, course_id?, k}`: what retrieval would return, to check retrieval quality |
 
@@ -84,15 +83,17 @@ Code at most 20 KB, input at most 8 KB, 5 s CPU / 10 s wall per program, output 
 
 All four take an optional `level`, return validated JSON, and list up to 3 `related_lessons` and their `practice` activities. Code up to 8 KB / 200 lines; topics up to 200 characters. If the code is (nearly) a course bug hunt or mini challenge, `/debug` gives hints only: `corrected_code: null`, `exercise: true`.
 
-### Exercises and progress
+### Exercises, quizzes and progress
 
 | Method and path | Who | What |
 |---|---|---|
 | `POST /exercises/{exercise_id}/attempts` | logged in | `{code}` → `{id, passed, feedback, created_at}`; graded by the AI with hint-style feedback. Only the result is stored, not the code |
 | `GET /exercises/{exercise_id}/attempts` | owner | your attempts at this exercise, newest first |
-| `GET /me/progress` | owner | `?course_id=`: mastery per module and lesson (`null` = not started), module coverage, `weak` lessons |
-| `GET /me/recommendations` | owner | `?course_id=`: up to 5 lessons to **review** (weakest first) then the **next** ones, each with its exercises and platform practice |
-| `GET /me/reviews` | owner | `?course_id=` (required): spaced review, when to revisit each lesson you attempted. Each item: `interval_days` (1, 3, 7, 14 or 30), `due_at`, `due` (now), `mastered`; soonest due first, mastered last. A pass when due moves a lesson up the ladder, an early pass changes nothing, a failed attempt resets it to 1 day. `enabled: false` and no items when the course's switch is off |
+| `GET /lessons/{lesson_id}/quiz` | logged in | the lesson's quiz: each question with its options, shuffled in a fixed order per student. No answers or explanations. 404 if the lesson has no quiz |
+| `POST /lessons/{lesson_id}/quiz/attempts` | logged in | `{answers: {question_id: option_id}}` → `{id, correct, total, created_at, results}`; marked on the server (no AI). Each result has `chosen`, `correct_option`, `correct` and the `explanation`. A question left out or `null` counts as wrong; an answer for another lesson's question or a missing option is 422 |
+| `GET /lessons/{lesson_id}/quiz/attempts` | owner | your scores on this lesson's quiz, newest first |
+| `GET /me/progress` | owner | `?course_id=`: mastery per module and lesson (`null` = not started) from exercises and quiz scores, each lesson's `quiz_score`, module coverage, `weak` lessons |
+| `GET /me/recommendations` | owner | `?course_id=`: up to 5 lessons to **review** (weakest first) then the **next** ones, each with its exercises, `quiz_score` and platform practice. A review's `reason` says whether the quiz, the exercises or both are low |
 
 ## Errors
 

@@ -1,4 +1,5 @@
-"""What to do next: review weak lessons first, then continue the course (pure functions)."""
+"""What to do next: review weak lessons first (from exercise and quiz results), then
+continue the course (pure functions)."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -52,8 +53,17 @@ def _review(lesson: LessonProgress, weak_threshold: float) -> Recommendation:
         for exercise in lesson.lesson.exercises
         if lesson.exercise_scores.get(exercise.id, 0.0) < weak_threshold
     )
-    reason = f"Review: {lesson.mastery:.0%} on this lesson's exercises"
-    return Recommendation("review", lesson, reason, to_do)
+    return Recommendation("review", lesson, _review_reason(lesson), to_do)
+
+
+def _review_reason(lesson: LessonProgress) -> str:
+    """Where the low score comes from: the exercises, the quiz, or both."""
+    if lesson.quiz_score is None:
+        return f"Review: {lesson.mastery:.0%} on this lesson's exercises"
+    if not lesson.exercise_scores:
+        return f"Review: {lesson.quiz_score:.0%} on this lesson's quiz"
+    exercises = sum(lesson.exercise_scores.values()) / len(lesson.exercise_scores)
+    return f"Review: {lesson.mastery:.0%} (quiz {lesson.quiz_score:.0%}, exercises {exercises:.0%})"
 
 
 def _next(lesson: LessonProgress) -> Recommendation:

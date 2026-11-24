@@ -117,6 +117,22 @@ class ApiClient:
         path = f"/exercises/{quote(exercise_id, safe='')}/attempts"
         return self._authed("POST", path, token, json={"code": code})
 
+    def quiz(self, token: str, lesson_id: str) -> dict[str, Any]:
+        """The lesson's quiz questions with shuffled options (no answers)."""
+        return self._authed("GET", f"/lessons/{quote(lesson_id, safe='')}/quiz", token)
+
+    def submit_quiz(
+        self, token: str, lesson_id: str, answers: dict[str, int | None]
+    ) -> dict[str, Any]:
+        """Mark answers (question id -> option id): the score, then per question the right
+        option and its explanation."""
+        path = f"/lessons/{quote(lesson_id, safe='')}/quiz/attempts"
+        return self._authed("POST", path, token, json={"answers": answers})
+
+    def quiz_attempts(self, token: str, lesson_id: str) -> list[dict[str, Any]]:
+        """Your own scores on the lesson's quiz, newest first."""
+        return self._authed("GET", f"/lessons/{quote(lesson_id, safe='')}/quiz/attempts", token)
+
     def coding(self, token: str, task: str, language: str, **body: str) -> dict[str, Any]:
         """`task`: explain or debug (with `code`), example or practice (with `topic`)."""
         if task not in CODING_TASKS:
@@ -156,10 +172,6 @@ class ApiClient:
     def recommendations(self, token: str, course_id: str | None = None) -> dict[str, Any]:
         return self._authed("GET", "/me/recommendations", token, params=_only(course_id=course_id))
 
-    def reviews(self, token: str, course_id: str) -> dict[str, Any]:
-        """Spaced review: when to revisit each attempted lesson in the course."""
-        return self._authed("GET", "/me/reviews", token, params={"course_id": course_id})
-
     # ---- admin -----------------------------------------------------------------------
 
     def documents(self, token: str) -> list[dict[str, Any]]:
@@ -175,12 +187,6 @@ class ApiClient:
 
     def delete_course(self, token: str, course_id: str) -> None:
         self._authed("DELETE", f"/admin/courses/{quote(course_id, safe='')}", token)
-
-    def update_course_settings(self, token: str, course_id: str, **changes: bool) -> dict[str, Any]:
-        """Admin switches, e.g. `arc_practice_enabled=True`."""
-        return self._authed(
-            "PATCH", f"/admin/courses/{quote(course_id, safe='')}", token, json=changes
-        )
 
     def reindex(self, token: str) -> dict[str, Any]:
         return self._authed("POST", "/admin/reindex", token)

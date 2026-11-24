@@ -307,6 +307,8 @@ Tags: **[SEC]** security/privacy · **[PERF]** performance/memory · **[BUDGET]*
 - **Done when:** a clean machine reaches a running app by following only the README; every deliverable maps to a file or link.
 
 ### Step 23 — Additional features (after submission) [PERF] [BUDGET]
+> **Removed 2026-11-23 (your decision):** 23a (Open in Practice from Nexus) and 23b (spaced review) were taken out of the app entirely: code, endpoints (`PATCH /admin/courses/{course_id}`, `GET /me/reviews`), Settings switches and tests. Migration `0009` drops both course columns. Kept for the record below.
+
 Built after Step 22 is submitted, in order: 23a, then 23b, then 23c (23c reuses 23b's schedule). Each part ships on its own, and each is turned on per course by an admin (all default off).
 
 **23a — Practice from Arc (about a day; first)**
@@ -409,6 +411,13 @@ Your request (2026-11-20), after 23b; 23c stays postponed. **Built 2026-11-20** 
   - **Stay signed in across a page reload** (today a reload signs you out). Needs a secure cookie design; worth it for a public site, but a security-sensitive change of its own.
 
 ---
+
+### Step 25 — Lesson quiz in the app, counted in weak topics (2026-11-24, your approval)
+- **Why:** the brief asks for weak topics from quiz **and** exercise results; quiz scores lived on the learning platform, which has no API for this app, so only exercises counted.
+- **Built:** the stored lesson quizzes (`quiz_questions`, 10 per lesson) are taken in the Quiz & activities tab and marked on the server (no AI, no quota). Migration `0010` adds `quiz_attempts` (score, chosen options, and a `source` column so platform scores can be added later). Endpoints: `GET /lessons/{id}/quiz`, `POST` and `GET /lessons/{id}/quiz/attempts`.
+- **Decisions (your defaults):** the quiz counts as one item next to the lesson's exercises; recent attempts weigh most (as for exercises); right answers and explanations are shown after submitting; retakes allowed; the weak threshold stays `WEAK_MASTERY_THRESHOLD`.
+- **Change from the proposal:** options keep their original index as their id instead of a hidden id. Answers are shown after every attempt and retakes are allowed, so a hidden id would protect nothing; the display order is still shuffled per student (fixed across visits) to undo the "answer is usually second" pattern in the course file.
+- **Not counted:** the platform's other activities (drag and drop, card matching, code reordering).
 
 ## Changes from the brief's suggested 10-day plan
 
@@ -604,7 +613,5 @@ Your request (2026-11-20), after 23b; 23c stays postponed. **Built 2026-11-20** 
 - [ ] Step 21: upload `javascript-beginner-v1` to production (admin, Settings in the rail), if not loaded yet.
 - [ ] Step 21: register an evaluation student, run `eval/run_live_eval.py` against production at least a few hours before the demo, and commit `eval/reports/production.{md,json}`.
 - [ ] Step 21: record the backup demo (script in `docs/deployment.md` §5) and note where the video is kept in `eval/reports/production.md`.
-- [ ] Step 23b: test it later (your decision, 2026-11-20): apply migration 0008 (any local run or deploy), Settings → Course features → Spaced review on, then as a student fail an exercise; about 24 hours later the lesson is under "Due for review" and not repeated in "What to do next". Production needs the switch turned on per course after deploy.
-- [ ] Step 23a: test it later (your decision, 2026-11-20): Settings → Course features on, ask Arc, Open in Practice lands on the lesson's Practice tab; production needs the switch turned on per course after deploy.
 - [ ] Step 22: once the two Step 21 items above exist, change their "pending" rows in the README's Deliverables table and the Production section of `docs/evaluation.md`.
 - [ ] Step 6 memory reading: Render → archintx-api → Metrics had no data right after the first deploy; record the peak once available (expected well under 512 MB; local ~70 MB).

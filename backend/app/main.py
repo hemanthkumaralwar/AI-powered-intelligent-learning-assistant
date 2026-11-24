@@ -21,6 +21,7 @@ from app.api.exercises import router as exercises_router
 from app.api.health import router as health_router
 from app.api.materials import router as materials_router
 from app.api.progress import router as progress_router
+from app.api.quizzes import router as quizzes_router
 from app.auth.limits import LoginGuard
 from app.auth.seed import seed_admin
 from app.auth.service import AuthService, build_auth_service
@@ -59,6 +60,7 @@ ROUTERS = (
     coding_router,
     exercises_router,
     progress_router,
+    quizzes_router,
 )
 
 
