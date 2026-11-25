@@ -141,6 +141,7 @@ Mastery comes from graded exercise attempts and the lesson quiz, which students 
 
 | Brief | Built | Why |
 |---|---|---|
+| OpenAI API | Google Gemini by default (`gemini-3.5-flash-lite`, `gemini-embedding-001`); OpenAI with `LLM_PROVIDER=openai` and `EMBEDDING_PROVIDER=openai` | Gemini has a free API tier, so the project runs and is deployed at no cost; the provider-neutral clients keep OpenAI a settings change, with no code changes |
 | ChromaDB | FAISS (in memory) + vectors in Postgres | ChromaDB adds 34 packages (onnxruntime, grpcio…) to a 512 MB server whose disk is wiped on restart; FAISS adds one, and the index is rebuilt from Postgres for free |
 | Supabase Storage | originals as `bytea` in Postgres | one store in every environment, no second service or credentials |
 | Wandbox (default), Piston / Judge0 | Judge0 CE + Compiler Explorer | on 2026-11-18 Wandbox failed every run and Piston's public API became whitelist-only |
