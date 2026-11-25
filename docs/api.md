@@ -106,7 +106,7 @@ Every error is JSON `{"detail": "..."}`. Provider, runner and server internals a
 | `404` | course, lesson, exercise, chat or document does not exist |
 | `409` | username taken; course already uploaded (delete it first); chat full (100 messages) or changed while answering |
 | `413` | body too large: 64 KB for JSON, 10 MB for uploads |
-| `415` | upload is not course JSON ("Convert other material to course JSON first") |
+| `415` | upload is not course JSON ("Convert other material to course JSON first"; PDF, DOCX and TXT convert with [archintx-course-converter](https://github.com/hemanthkumaralwar/archintx-course-converter)) |
 | `422` | invalid input: where and why, never the submitted value |
 | `429` | over a quota (questions, code runs, sign-ins); `Retry-After` says how many seconds to wait |
 | `500` | unexpected bug: a generic message; details only in the server log |

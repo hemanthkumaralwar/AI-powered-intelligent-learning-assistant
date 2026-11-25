@@ -60,7 +60,7 @@ Every table has Row Level Security enabled with no policies, so Supabase's publi
 
 ## Course ingestion
 
-1. An admin uploads course JSON (`POST /admin/documents`, at most 10 MB). Other formats are refused (415): material is converted to course JSON by the course generator, so every course follows one schema.
+1. An admin uploads course JSON (`POST /admin/documents`, at most 10 MB). Other formats are refused (415): PDF, DOCX and TXT material is converted to course JSON first by the companion [archintx-course-converter](https://github.com/hemanthkumaralwar/archintx-course-converter), so every course follows one schema.
 2. The file is checked against the generator's JSON schema (`ingestion/course_schema.json`) plus stricter rules (id format, unique ids, every quiz answer is one of its options), then the course, modules, lessons, quizzes and exercises are created in one transaction.
 3. Indexing runs in the background: the course is cut into **424** chunks (JavaScript course) with a context header such as `JavaScript Fundamentals › Variables and Data Types › Declaring Variables — Example 2`. Bodies are at most 1,500 characters (150 overlap when split).
 4. **Never chunked:** quiz questions and answers, bug-hunt fixes, and the drag-and-drop, card-matching and code-reordering activities (they embed their answers). Tests plant sentinel values in every answer field and check none reaches a chunk. Exercise prompts are chunked and tagged `type: exercise`, so the assistant gives hints for them.
@@ -142,6 +142,7 @@ Mastery comes from graded exercise attempts and the lesson quiz, which students 
 | Brief | Built | Why |
 |---|---|---|
 | OpenAI API | Google Gemini by default (`gemini-3.5-flash-lite`, `gemini-embedding-001`); OpenAI with `LLM_PROVIDER=openai` and `EMBEDDING_PROVIDER=openai` | Gemini has a free API tier, so the project runs and is deployed at no cost; the provider-neutral clients keep OpenAI a settings change, with no code changes |
+| PDF, DOCX and text uploads | course JSON upload here; PDF, DOCX and TXT converted to course JSON by [archintx-course-converter](https://github.com/hemanthkumaralwar/archintx-course-converter) | every course then follows one schema (modules, lessons, quizzes, exercises), so lesson citations, quizzes and progress work the same for all of them; extraction and its AI structuring stay out of the API server |
 | ChromaDB | FAISS (in memory) + vectors in Postgres | ChromaDB adds 34 packages (onnxruntime, grpcio…) to a 512 MB server whose disk is wiped on restart; FAISS adds one, and the index is rebuilt from Postgres for free |
 | Supabase Storage | originals as `bytea` in Postgres | one store in every environment, no second service or credentials |
 | Wandbox (default), Piston / Judge0 | Judge0 CE + Compiler Explorer | on 2026-11-18 Wandbox failed every run and Piston's public API became whitelist-only |
@@ -159,7 +160,7 @@ Every decision, with dates and measurements, is in [PLAN.md](../PLAN.md).
 - **Hints-only is partly a prompt rule:** solutions are never retrievable or returned, but a heavily rewritten copy of an exercise may not be recognised by `/debug`'s similarity check.
 - **Mastery uses exercise attempts and the in-app lesson quiz only** (about 3 exercises and one quiz per lesson); results from the platform's other activities are not shared yet.
 - **Frontend:** reloading the page signs you out (the token is never stored in the browser); the course outline's left-aligned lesson buttons are CSS over Streamlit's markup; flowcharts show as Mermaid source; there is no sign-up form (students register through the API).
-- **Course format:** only course JSON from the generator is accepted.
+- **Course format:** only course JSON is accepted; PDF, DOCX and TXT go through [archintx-course-converter](https://github.com/hemanthkumaralwar/archintx-course-converter) first, a separate step.
 
 ## Integration with ArchintX
 

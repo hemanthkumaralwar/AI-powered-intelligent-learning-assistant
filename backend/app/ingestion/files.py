@@ -1,7 +1,8 @@
 """File-level checks for uploads: size, type and filename (pure functions).
 
 Only course JSON is accepted. Other material (DOCX, PDF, TXT) is converted to course JSON
-outside this app, so every course follows the same schema.
+outside this app, with https://github.com/hemanthkumaralwar/archintx-course-converter, so
+every course follows the same schema.
 """
 
 import re

@@ -177,7 +177,7 @@ Your browser opens http://localhost:8501. If it doesn't, open that address yours
 3. Upload `eval/materials/javascript-beginner.json` (it's in the repository folder) as the JavaScript course.
 4. Press **Refresh** every minute or so until the status says `ready`. This takes **about 5 minutes**: the course is split into 424 pieces, and each is sent to Gemini at the free tier's pace.
 
-Courses are uploaded as course JSON files. Course material in PDF, DOCX or TXT is converted to course JSON by a separate converter project before upload.
+Courses are uploaded as course JSON files. **Have course material in PDF, DOCX or TXT?** Convert it to course JSON first with the companion project **[archintx-course-converter](https://github.com/hemanthkumaralwar/archintx-course-converter)** (it uses Gemini or OpenAI; follow its README), then upload the JSON it produces here. Uploading a PDF, DOCX or TXT file directly is refused with "Convert other material to course JSON first".
 
 ### Step 10. Create a student account
 

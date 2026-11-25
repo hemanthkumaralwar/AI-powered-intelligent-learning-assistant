@@ -476,7 +476,7 @@ Your request (2026-11-20), after 23b; 23c stays postponed. **Built 2026-11-20** 
 - **Data quality, for Step 17.** In `javascript-beginner.json` the correct quiz option is index 1 in 64% of questions. Shuffle options when serving quizzes.
 
 - **Step 9 deviations from the plan (your decisions, 2026-11-19).**
-  - **Course JSON only:** the TXT notes path from Step 8 was removed (upload, `/materials` endpoints, `documents.module_id/lesson_id` via migration `0003`, which refuses to run while notes exist). DOCX/PDF/TXT → course JSON conversion is a **separate project** next to the course generator.
+  - **Course JSON only:** the TXT notes path from Step 8 was removed (upload, `/materials` endpoints, `documents.module_id/lesson_id` via migration `0003`, which refuses to run while notes exist). DOCX/PDF/TXT → course JSON conversion is a **separate project** next to the course generator: [archintx-course-converter](https://github.com/hemanthkumaralwar/archintx-course-converter).
   - **Chunks include exercise prompts and flowcharts,** never answers. The real course gives 1,225 chunks (planned ~600–900; exercises and flowcharts add 256, and long sections split with overlap).
   - **Chunking is pure** (`chunk_course`); storing and embedding chunks is Step 10's pipeline.
 - **Steps 12 & 14 — hints, not solutions (owner: maintainer).** When a retrieved chunk has `type: exercise`, the prompt must tell the model to give hints and guiding questions, never full solution code. That's a prompt rule, so best effort. **Step 12:** the rule is in the grounding prompt, and `eval/dataset.jsonl` has 6 `solution_request` cases that the answer evaluation checks with the LLM judge. Step 14 must reuse the rule.
