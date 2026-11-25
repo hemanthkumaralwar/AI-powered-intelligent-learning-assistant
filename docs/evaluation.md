@@ -65,7 +65,7 @@ Compared with the local Hugging Face model (`BAAI/bge-small-en-v1.5`) before ind
 
 The live evaluation asks 20 of the dataset's cases (10 covered, 4 out-of-course, 3 follow-up chats, 3 solution requests; 23 questions) through the deployed API as a registered student, and scores only what the API returns (refusals, cited lessons, no solution code, response times).
 
-- **Status:** **pending.** It runs with a student account on production, which the maintainer creates and runs ([deployment.md](deployment.md#run-the-production-evaluation)). The report will be `eval/reports/production.md`.
+- **Status:** optional, not run (the brief does not require it). It runs with a student account on production, which the maintainer creates ([deployment.md](deployment.md#run-the-production-evaluation)), and writes `eval/reports/production.md`.
 - **Measured already:** API cold start 58 s for `/health` after idle; 0.1–0.2 s warm (2026-11-20).
 
 ## Re-running
